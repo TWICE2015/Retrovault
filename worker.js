@@ -60,6 +60,14 @@ function getHTML() {
     }
   }
 
+  if (!html.includes('function _rvSessionPassword(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const sessionHelper = "function _rvNormalizeSessionPassword(v){ return String(v||'').trim().slice(0,64); }\nfunction _rvSessionPassword(){ return _rvNormalizeSessionPassword(localStorage.getItem('rv-session-password')); }\nfunction _rvSetSessionPassword(v){ const clean=_rvNormalizeSessionPassword(v); if(clean.length<4){ return null; } localStorage.setItem('rv-session-password', clean); return clean; }\nfunction _rvSessionStatus(msg, state){ const el=document.getElementById('rvSessionStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':'var(--muted)'; } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }\nasync function _rvCreateSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } try{ const resp=await fetch(window.location.origin+'/session-create',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password, hostName:(typeof _rvOwnerId==='function'?_rvOwnerId():'host') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', data.sessionId); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(data.sessionId).catch(()=>{}); } _rvSessionStatus('Session created: '+data.sessionId+' (copied to clipboard)','ok'); }catch(e){ _rvSessionStatus('Create session failed: '+e.message,'err'); } }\nasync function _rvJoinSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } const prev=localStorage.getItem('rv-last-session-id')||''; const sessionId=String(prompt('Enter session code',prev)||'').trim(); if(!sessionId){ return; } try{ const resp=await fetch(window.location.origin+'/session-join',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ sessionId, password, playerName:(typeof _rvOwnerId==='function'?_rvOwnerId():'player') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', sessionId); _rvSessionStatus('Joined session '+sessionId+' ('+(data.memberCount||0)+' players)','ok'); }catch(e){ _rvSessionStatus('Join failed: '+e.message,'err'); } }\nfunction _rvInitSessionControls(){ const r2Input=document.getElementById('r2UrlInput'); if(!r2Input||document.getElementById('rvSessionPasswordInput')) return; const host=r2Input.parentElement||r2Input; const card=document.createElement('div'); card.style.marginTop='12px'; card.style.padding='10px'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.background='var(--s2)'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='1fr auto'; row.style.gap='8px'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password (share only with friends)'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='btn sm'; saveBtn.textContent='Save Password'; saveBtn.onclick=()=>{ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='btn sm'; createBtn.textContent='Create Session'; createBtn.onclick=_rvCreateSession; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='btn sm'; joinBtn.textContent='Join Session'; joinBtn.onclick=_rvJoinSession; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Only users with the same session code + password can join. Gameplay net-sync must still be integrated separately.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Set your password, then create or join a private session.'; card.appendChild(title); card.appendChild(row); card.appendChild(actions); card.appendChild(note); card.appendChild(status); host.appendChild(card); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitSessionControls); else setTimeout(_rvInitSessionControls,0);\n";
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, sessionHelper + helperAnchor);
+    }
+  }
+
   html = html
     .replace(
       "formData.append('key', key);",
@@ -145,6 +153,94 @@ function isGlobalUnscopedKey(key) {
     || normalized === 'meta/lb_index.json';
 }
 
+function sanitizeSessionId(value) {
+  const cleaned = String(value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+  return cleaned || null;
+}
+
+function sanitizeSessionName(value, fallback) {
+  const cleaned = String(value || '').trim().replace(/[<>]/g, '').slice(0, 40);
+  return cleaned || fallback;
+}
+
+function randomToken(length = 12) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += alphabet[bytes[i] % alphabet.length];
+  }
+  return out;
+}
+
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(String(text || ''));
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const bytes = new Uint8Array(hash);
+  let out = '';
+  for (const b of bytes) out += b.toString(16).padStart(2, '0');
+  return out;
+}
+
+function buildSessionPublic(session) {
+  const members = Array.isArray(session.members) ? session.members : [];
+  return {
+    sessionId: session.sessionId,
+    roomName: session.roomName,
+    createdAt: session.createdAt || Date.now(),
+    updatedAt: session.updatedAt || Date.now(),
+    maxPlayers: session.maxPlayers || 4,
+    memberCount: members.length,
+    members: members.map(m => ({
+      memberId: m.memberId,
+      name: m.name,
+      role: m.role || 'player',
+      joinedAt: m.joinedAt || Date.now(),
+      lastSeenAt: m.lastSeenAt || m.joinedAt || Date.now(),
+    })),
+  };
+}
+
+function normalizeSessionPassword(value) {
+  return String(value || '').trim().slice(0, 64);
+}
+
+function sessionStorageKey(sessionId) {
+  return `meta/sessions/${sessionId}.json`;
+}
+
+async function loadSessionFromR2(bucket, sessionId) {
+  const obj = await bucket.get(sessionStorageKey(sessionId));
+  if (!obj) return null;
+  const text = await obj.text();
+  return JSON.parse(text);
+}
+
+async function saveSessionToR2(bucket, session) {
+  await bucket.put(sessionStorageKey(session.sessionId), JSON.stringify(session), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
+async function isValidSessionPassword(session, password) {
+  const normalized = normalizeSessionPassword(password);
+  if (normalized.length < 4) return false;
+  if (!session || !session.passwordHash) return false;
+  if (session.passwordSalt) {
+    const hash = await sha256Hex(`${session.passwordSalt}:${normalized}`);
+    return hash === session.passwordHash;
+  }
+  const legacyHash = await sha256Hex(normalized);
+  return legacyHash === session.passwordHash;
+}
+
+function sanitizeMaxPlayers(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 4;
+  return Math.max(2, Math.min(16, Math.floor(parsed)));
+}
+
 // ── Main fetch handler ─────────────────────────────────────────────────────
 export default {
   async fetch(request, env) {
@@ -156,6 +252,233 @@ export default {
     // CORS pre-flight
     if (method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // ONLINE SESSIONS — private password-protected room metadata
+    // Note: this stores room membership/state only. Netplay transport still
+    // needs to be wired separately in emulator runtime.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/session-create' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const body = await request.json();
+        const password = normalizeSessionPassword(body.password);
+        if (password.length < 4) {
+          return new Response(JSON.stringify({ ok: false, error: 'Password must be at least 4 characters.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const hostName = sanitizeSessionName(body.hostName, 'Host');
+        const roomName = sanitizeSessionName(body.roomName, `${hostName}'s Room`);
+        const maxPlayers = sanitizeMaxPlayers(body.maxPlayers);
+        const now = Date.now();
+
+        let sessionId = null;
+        for (let i = 0; i < 5; i++) {
+          const candidate = randomToken(8);
+          const existing = await loadSessionFromR2(env.ROM_BUCKET, candidate);
+          if (!existing) {
+            sessionId = candidate;
+            break;
+          }
+        }
+        if (!sessionId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Failed to allocate session id. Try again.' }), {
+            status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const hostMember = {
+          memberId: randomToken(12),
+          name: hostName,
+          role: 'host',
+          joinedAt: now,
+          lastSeenAt: now,
+        };
+        const passwordSalt = randomToken(16);
+        const passwordHash = await sha256Hex(`${passwordSalt}:${password}`);
+        const session = {
+          sessionId,
+          roomName,
+          createdAt: now,
+          updatedAt: now,
+          maxPlayers,
+          passwordSalt,
+          passwordHash,
+          members: [hostMember],
+        };
+        await saveSessionToR2(env.ROM_BUCKET, session);
+        return new Response(JSON.stringify({
+          ok: true,
+          sessionId,
+          memberId: hostMember.memberId,
+          session: buildSessionPublic(session),
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Create session failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/session-join' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const body = await request.json();
+        const sessionId = sanitizeSessionId(body.sessionId);
+        if (!sessionId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing or invalid sessionId.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const session = await loadSessionFromR2(env.ROM_BUCKET, sessionId);
+        if (!session) {
+          return new Response(JSON.stringify({ ok: false, error: 'Session not found.' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const validPassword = await isValidSessionPassword(session, body.password);
+        if (!validPassword) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid session password.' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const maxPlayers = sanitizeMaxPlayers(session.maxPlayers);
+        session.maxPlayers = maxPlayers;
+        session.members = Array.isArray(session.members) ? session.members : [];
+        if (session.members.length >= maxPlayers) {
+          return new Response(JSON.stringify({ ok: false, error: 'Session is full.' }), {
+            status: 409, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const now = Date.now();
+        const member = {
+          memberId: randomToken(12),
+          name: sanitizeSessionName(body.playerName, 'Player'),
+          role: 'player',
+          joinedAt: now,
+          lastSeenAt: now,
+        };
+        session.members.push(member);
+        session.updatedAt = now;
+        await saveSessionToR2(env.ROM_BUCKET, session);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          sessionId,
+          memberId: member.memberId,
+          memberCount: session.members.length,
+          session: buildSessionPublic(session),
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Join session failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/session-get') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const sessionId = sanitizeSessionId(url.searchParams.get('sessionId'));
+        const password = url.searchParams.get('password') || '';
+        if (!sessionId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing sessionId.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const session = await loadSessionFromR2(env.ROM_BUCKET, sessionId);
+        if (!session) {
+          return new Response(JSON.stringify({ ok: false, error: 'Session not found.' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const validPassword = await isValidSessionPassword(session, password);
+        if (!validPassword) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid session password.' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ ok: true, session: buildSessionPublic(session) }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Get session failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/session-leave' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const body = await request.json();
+        const sessionId = sanitizeSessionId(body.sessionId);
+        const memberId = sanitizeSessionId(body.memberId);
+        if (!sessionId || !memberId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing sessionId/memberId.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const session = await loadSessionFromR2(env.ROM_BUCKET, sessionId);
+        if (!session) {
+          return new Response(JSON.stringify({ ok: false, error: 'Session not found.' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const validPassword = await isValidSessionPassword(session, body.password);
+        if (!validPassword) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid session password.' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const before = Array.isArray(session.members) ? session.members.length : 0;
+        session.members = (session.members || []).filter(m => m.memberId !== memberId);
+        if (session.members.length === before) {
+          return new Response(JSON.stringify({ ok: false, error: 'Member not found in session.' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        session.updatedAt = Date.now();
+        if (!session.members.length) {
+          await env.ROM_BUCKET.delete(sessionStorageKey(sessionId));
+          return new Response(JSON.stringify({ ok: true, removed: true, memberCount: 0 }), {
+            status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        await saveSessionToR2(env.ROM_BUCKET, session);
+        return new Response(JSON.stringify({ ok: true, memberCount: session.members.length, session: buildSessionPublic(session) }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Leave session failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // ════════════════════════════════════════════════════════════════════
