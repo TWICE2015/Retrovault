@@ -48,7 +48,41 @@ function getHTML() {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  _cachedHtml = new TextDecoder('utf-8').decode(bytes);
+  let html = new TextDecoder('utf-8').decode(bytes);
+
+  // Inject owner-scoped sync calls into the embedded app so every browser
+  // gets an isolated R2 namespace without requiring a separate frontend build.
+  if (!html.includes('function _rvOwnerId(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const ownerHelper = "function _rvOwnerId(){ const k='rv-owner-id'; let v=localStorage.getItem(k); if(!v){ v='u_'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem(k,v); } return String(v).replace(/[^a-zA-Z0-9._-]/g,'').slice(0,128); }\n";
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, ownerHelper + helperAnchor);
+    }
+  }
+
+  html = html
+    .replace(
+      "formData.append('key', key);",
+      "formData.append('key', key); formData.append('owner', _rvOwnerId());"
+    )
+    .replace(
+      "body: JSON.stringify({ key, meta: payload }),",
+      "body: JSON.stringify({ key, meta: payload, owner: _rvOwnerId() }),"
+    )
+    .replace(
+      "fetch(window.location.origin+'/r2-list');",
+      "fetch(window.location.origin+'/r2-list?owner='+encodeURIComponent(_rvOwnerId()));"
+    )
+    .replace(
+      "fetch(window.location.origin+'/r2-meta-list');",
+      "fetch(window.location.origin+'/r2-meta-list?owner='+encodeURIComponent(_rvOwnerId()));"
+    )
+    .replace(
+      "return { publicUrl, fullPath: key };",
+      "return { publicUrl, fullPath: result.key || key };"
+    );
+
+  _cachedHtml = html;
   return _cachedHtml;
 }
 
@@ -57,9 +91,58 @@ function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin || '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-File-Name, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-File-Name, X-Requested-With, X-Retrovault-Owner, X-Retrovault-User, X-User-Id',
     'Access-Control-Max-Age': '86400',
   };
+}
+
+function sanitizeOwnerId(value) {
+  if (value == null) return null;
+  const cleaned = String(value).trim().replace(/[^a-zA-Z0-9._-]/g, '');
+  if (!cleaned) return null;
+  return cleaned.slice(0, 128);
+}
+
+function resolveOwnerId(request, url, fallbackValues = []) {
+  const headerOrQueryOwner = sanitizeOwnerId(
+    request.headers.get('X-Retrovault-Owner')
+      || request.headers.get('X-Retrovault-User')
+      || request.headers.get('X-User-Id')
+      || url.searchParams.get('owner')
+      || url.searchParams.get('user')
+  );
+  if (headerOrQueryOwner) return headerOrQueryOwner;
+  for (const value of fallbackValues) {
+    const ownerId = sanitizeOwnerId(value);
+    if (ownerId) return ownerId;
+  }
+  return null;
+}
+
+function ownerPrefix(ownerId) {
+  return `users/${ownerId}/`;
+}
+
+function normalizeR2Key(rawKey) {
+  return String(rawKey || '').replace(/\.\./g, '').replace(/^\/+/, '');
+}
+
+function toOwnedKey(rawKey, ownerId) {
+  const key = normalizeR2Key(rawKey);
+  if (!key) return null;
+  const prefix = ownerPrefix(ownerId);
+  if (key.startsWith('users/')) {
+    if (!key.startsWith(prefix)) return null;
+    return key;
+  }
+  return prefix + key;
+}
+
+function isGlobalUnscopedKey(key) {
+  const normalized = normalizeR2Key(key);
+  return normalized.startsWith('bios/')
+    || normalized === 'meta/lb_index.json.gz'
+    || normalized === 'meta/lb_index.json';
 }
 
 // ── Main fetch handler ─────────────────────────────────────────────────────
@@ -100,17 +183,20 @@ export default {
         try {
           let key, fileData, contentType;
           const ct = request.headers.get('Content-Type') || '';
+          let ownerId = resolveOwnerId(request, url);
 
           if (ct.includes('multipart/form-data')) {
             const formData = await request.formData();
             const file = formData.get('file');
             key = formData.get('key') || (file ? file.name : null);
+            ownerId = ownerId || resolveOwnerId(request, url, [formData.get('owner'), formData.get('user'), formData.get('userId')]);
             if (!file) return new Response(JSON.stringify({ ok: false, error: 'No file in FormData' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
             fileData = await file.arrayBuffer();
             contentType = file.type || 'application/octet-stream';
           } else if (ct.includes('application/json')) {
             const body = await request.json();
             key = body.key;
+            ownerId = ownerId || resolveOwnerId(request, url, [body.owner, body.user, body.userId, body.ownerId]);
             fileData = Uint8Array.from(atob(body.data), c => c.charCodeAt(0));
             contentType = body.contentType || 'application/octet-stream';
           } else {
@@ -120,9 +206,17 @@ export default {
           }
 
           if (!key) return new Response(JSON.stringify({ ok: false, error: 'Missing key/filename' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
-          key = key.replace(/\.\./g, '').replace(/^\/+/, '');
+          key = normalizeR2Key(key);
 
-          await env.ROM_BUCKET.put(key, fileData, { httpMetadata: { contentType } });
+          if (!isGlobalUnscopedKey(key)) {
+            if (!ownerId) return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+            key = toOwnedKey(key, ownerId);
+            if (!key) return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), { status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+          }
+
+          const putOptions = { httpMetadata: { contentType } };
+          if (ownerId) putOptions.customMetadata = { ownerId };
+          await env.ROM_BUCKET.put(key, fileData, putOptions);
 
           const r2PublicUrl = env.R2_PUBLIC_URL
             ? env.R2_PUBLIC_URL.replace(/\/+$/, '') + '/' + key
@@ -139,12 +233,21 @@ export default {
 
       // PUT /r2-upload/{key} — binary
       if (method === 'PUT') {
+        const ownerId = resolveOwnerId(request, url);
         let key = decodeURIComponent(path.replace('/r2-upload/', '')).replace(/\.\./g, '').replace(/^\/+/, '');
         if (!key || key === 'ping') return new Response(JSON.stringify({ ok: true, r2: 'ready' }), { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         try {
+          key = normalizeR2Key(key);
+          if (!isGlobalUnscopedKey(key)) {
+            if (!ownerId) return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+            key = toOwnedKey(key, ownerId);
+            if (!key) return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), { status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+          }
           const body = await request.arrayBuffer();
           const contentType = request.headers.get('Content-Type') || 'application/octet-stream';
-          await env.ROM_BUCKET.put(key, body, { httpMetadata: { contentType } });
+          const putOptions = { httpMetadata: { contentType } };
+          if (ownerId) putOptions.customMetadata = { ownerId };
+          await env.ROM_BUCKET.put(key, body, putOptions);
           const r2PublicUrl = env.R2_PUBLIC_URL ? env.R2_PUBLIC_URL.replace(/\/+$/, '') + '/' + key : null;
           return new Response(JSON.stringify({ ok: true, key, url: r2PublicUrl }), { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         } catch (err) {
@@ -154,8 +257,15 @@ export default {
 
       // DELETE /r2-upload/{key}
       if (method === 'DELETE') {
-        const key = decodeURIComponent(path.replace('/r2-upload/', '')).replace(/\.\./g, '');
+        const ownerId = resolveOwnerId(request, url);
+        let key = decodeURIComponent(path.replace('/r2-upload/', '')).replace(/\.\./g, '');
         try {
+          key = normalizeR2Key(key);
+          if (!isGlobalUnscopedKey(key)) {
+            if (!ownerId) return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+            key = toOwnedKey(key, ownerId);
+            if (!key) return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), { status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+          }
           await env.ROM_BUCKET.delete(key);
           return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         } catch (err) {
@@ -198,15 +308,21 @@ export default {
           { status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       }
       try {
-        const listed = await env.ROM_BUCKET.list({ limit: 1000 });
+        const ownerId = resolveOwnerId(request, url);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }),
+            { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+        }
+        const prefix = ownerPrefix(ownerId);
+        const listed = await env.ROM_BUCKET.list({ prefix, limit: 1000 });
         const objects = listed.objects
-          .filter(o => !o.key.startsWith('bios/') && !o.key.startsWith('meta/'))
+          .filter(o => !o.key.startsWith(prefix + 'bios/') && !o.key.startsWith(prefix + 'meta/'))
           .map(o => ({
             key: o.key,
             size: o.size,
             uploaded: o.uploaded,
           }));
-        return new Response(JSON.stringify({ ok: true, objects, truncated: listed.truncated }),
+        return new Response(JSON.stringify({ ok: true, ownerId, objects, truncated: listed.truncated }),
           { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }),
@@ -226,15 +342,23 @@ export default {
       }
       try {
         const body = await request.json();
-        const key = (body.key || '').replace(/\.\./g, '').replace(/^\/+/, '');
-        if (!key || !key.startsWith('meta/')) {
+        const ownerId = resolveOwnerId(request, url, [body.owner, body.user, body.userId, body.ownerId]);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }),
+            { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+        }
+        let rawKey = normalizeR2Key(body.key || '');
+        if (rawKey.startsWith('meta/')) rawKey = ownerPrefix(ownerId) + rawKey;
+        const key = toOwnedKey(rawKey, ownerId);
+        if (!key || !key.startsWith(ownerPrefix(ownerId) + 'meta/')) {
           return new Response(JSON.stringify({ ok: false, error: 'Invalid meta key' }),
             { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         }
         await env.ROM_BUCKET.put(key, JSON.stringify(body.meta || {}), {
-          httpMetadata: { contentType: 'application/json' }
+          httpMetadata: { contentType: 'application/json' },
+          customMetadata: { ownerId }
         });
-        return new Response(JSON.stringify({ ok: true, key }),
+        return new Response(JSON.stringify({ ok: true, ownerId, key }),
           { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }),
@@ -251,7 +375,13 @@ export default {
           { status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       }
       try {
-        const listed = await env.ROM_BUCKET.list({ prefix: 'meta/', limit: 1000 });
+        const ownerId = resolveOwnerId(request, url);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }),
+            { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+        }
+        const metaPrefix = ownerPrefix(ownerId) + 'meta/';
+        const listed = await env.ROM_BUCKET.list({ prefix: metaPrefix, limit: 1000 });
         const metas = await Promise.all(
           listed.objects.map(async o => {
             try {
@@ -264,7 +394,7 @@ export default {
             }
           })
         );
-        return new Response(JSON.stringify({ ok: true, metas: metas.filter(Boolean) }),
+        return new Response(JSON.stringify({ ok: true, ownerId, metas: metas.filter(Boolean) }),
           { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }),
