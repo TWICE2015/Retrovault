@@ -68,6 +68,14 @@ function getHTML() {
     }
   }
 
+  if (!html.includes('function _rvMigrateLegacyBucket(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const migrateHelper = "function _rvMigrationStatus(msg,state){ const el=document.getElementById('rvMigrationStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }\nasync function _rvMigrateLegacyBucket(dryRun){ const owner=(typeof _rvOwnerId==='function'?_rvOwnerId():''); if(!owner){ _rvMigrationStatus('Set Shared Sync Owner ID first.','err'); return; } if(!dryRun){ const yes=confirm('Migrate legacy bucket ROMs into users/'+owner+'/? This will move old root ROM keys so sync can see them again.'); if(!yes) return; } _rvMigrationStatus((dryRun?'Previewing':'Migrating')+' legacy bucket keys…',''); try{ const resp=await fetch(window.location.origin+'/r2-migrate-owner',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ owner, dryRun:!!dryRun, removeLegacy:true }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); const msg=(dryRun?'Preview':'Migration')+': '+(data.migratable||0)+' eligible, '+(data.migrated||0)+' copied, '+(data.deleted||0)+' moved, '+(data.failed||0)+' failed.'; _rvMigrationStatus(msg,'ok'); }catch(e){ _rvMigrationStatus('Legacy migration failed: '+e.message,'err'); } }\nfunction _rvInitMigrationControls(){ const ownerInput=document.getElementById('rvOwnerInput'); if(!ownerInput||document.getElementById('rvMigrateLegacyBtn')) return; const host=(ownerInput.parentElement&&ownerInput.parentElement.parentElement)||ownerInput.parentElement||ownerInput; const wrap=document.createElement('div'); wrap.style.display='flex'; wrap.style.gap='8px'; wrap.style.marginTop='8px'; const previewBtn=document.createElement('button'); previewBtn.type='button'; previewBtn.className='btn sm'; previewBtn.textContent='Preview Legacy Migration'; previewBtn.onclick=()=>_rvMigrateLegacyBucket(true); const migrateBtn=document.createElement('button'); migrateBtn.type='button'; migrateBtn.className='btn sm'; migrateBtn.id='rvMigrateLegacyBtn'; migrateBtn.textContent='Migrate Existing ROMs'; migrateBtn.onclick=()=>_rvMigrateLegacyBucket(false); wrap.appendChild(previewBtn); wrap.appendChild(migrateBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use once if your old bucket ROMs were uploaded before owner-scoped sync was enabled.'; const status=document.createElement('div'); status.id='rvMigrationStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Legacy migration not run yet.'; host.appendChild(wrap); host.appendChild(note); host.appendChild(status); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitMigrationControls); else setTimeout(_rvInitMigrationControls,0);\n";
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, migrateHelper + helperAnchor);
+    }
+  }
+
   html = html
     .replace(
       "formData.append('key', key);",
@@ -239,6 +247,58 @@ function sanitizeMaxPlayers(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 4;
   return Math.max(2, Math.min(16, Math.floor(parsed)));
+}
+
+function isLegacyRomKey(key) {
+  const normalized = normalizeR2Key(key);
+  if (!normalized) return false;
+  if (normalized.startsWith('users/')) return false;
+  if (normalized.startsWith('bios/')) return false;
+  if (normalized.startsWith('meta/')) return false;
+  if (normalized.startsWith('tmp/')) return false;
+  return normalized.includes('/');
+}
+
+function migrateLegacyObjectKey(key, ownerId) {
+  const normalized = normalizeR2Key(key);
+  if (!isLegacyRomKey(normalized)) return null;
+  return ownerPrefix(ownerId) + normalized;
+}
+
+function migrateLegacyMetaKey(key, ownerId) {
+  const normalized = normalizeR2Key(key);
+  if (!normalized.startsWith('meta/')) return null;
+  if (normalized === 'meta/lb_index.json' || normalized === 'meta/lb_index.json.gz') return null;
+  return ownerPrefix(ownerId) + normalized;
+}
+
+async function listAllObjects(bucket, options = {}) {
+  const all = [];
+  let cursor;
+  for (let i = 0; i < 50; i++) {
+    const listed = await bucket.list({ ...options, limit: 1000, cursor });
+    all.push(...(listed.objects || []));
+    if (!listed.truncated) break;
+    cursor = listed.cursor;
+    if (!cursor) break;
+  }
+  return all;
+}
+
+function isLegacyMigratableKey(key) {
+  const normalized = normalizeR2Key(key);
+  if (!normalized) return false;
+  if (normalized.startsWith('users/')) return false;
+  if (normalized.startsWith('bios/')) return false;
+  if (normalized === 'meta/lb_index.json.gz' || normalized === 'meta/lb_index.json') return false;
+  if (normalized.startsWith('meta/sessions/')) return false;
+  return true;
+}
+
+function legacyDestinationKey(ownerId, sourceKey) {
+  const normalized = normalizeR2Key(sourceKey);
+  if (!isLegacyMigratableKey(normalized)) return null;
+  return ownerPrefix(ownerId) + normalized;
 }
 
 // ── Main fetch handler ─────────────────────────────────────────────────────
@@ -722,6 +782,102 @@ export default {
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }),
           { status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // R2 LEGACY MIGRATION — POST /r2-migrate-owner
+    // Moves pre-owner-scoped root keys into users/{owner}/... so modern
+    // owner-scoped sync can see old ROM uploads without re-uploading.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/r2-migrate-owner' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const body = await request.json();
+        const ownerId = resolveOwnerId(request, url, [body.owner, body.user, body.userId, body.ownerId]);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Set Shared Sync Owner ID first.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const dryRun = !!body.dryRun;
+        const removeLegacy = body.removeLegacy !== false;
+
+        const objects = await listAllObjects(env.ROM_BUCKET);
+        let migratable = 0;
+        let migrated = 0;
+        let deleted = 0;
+        let failed = 0;
+        let skippedExisting = 0;
+        const errors = [];
+
+        for (const item of objects) {
+          const sourceKey = normalizeR2Key(item.key);
+          const destinationKey = legacyDestinationKey(ownerId, sourceKey);
+          if (!destinationKey || destinationKey === sourceKey) continue;
+          migratable++;
+          if (dryRun) continue;
+          try {
+            const existing = await env.ROM_BUCKET.head(destinationKey);
+            if (existing) {
+              skippedExisting++;
+              if (removeLegacy) {
+                await env.ROM_BUCKET.delete(sourceKey);
+                deleted++;
+              }
+              continue;
+            }
+
+            const sourceObject = await env.ROM_BUCKET.get(sourceKey);
+            if (!sourceObject) {
+              failed++;
+              if (errors.length < 20) errors.push(`Missing source object: ${sourceKey}`);
+              continue;
+            }
+            const bodyBytes = await sourceObject.arrayBuffer();
+            const putOptions = {};
+            const sourceContentType = sourceObject.httpMetadata?.contentType || (sourceKey.endsWith('.json') ? 'application/json' : null);
+            if (sourceContentType) putOptions.httpMetadata = { contentType: sourceContentType };
+            putOptions.customMetadata = {
+              ...(sourceObject.customMetadata || {}),
+              ownerId,
+            };
+            await env.ROM_BUCKET.put(destinationKey, bodyBytes, putOptions);
+            migrated++;
+
+            if (removeLegacy) {
+              await env.ROM_BUCKET.delete(sourceKey);
+              deleted++;
+            }
+          } catch (err) {
+            failed++;
+            if (errors.length < 20) errors.push(`${sourceKey}: ${err.message}`);
+          }
+        }
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          dryRun,
+          removeLegacy,
+          scanned: objects.length,
+          migratable,
+          migrated,
+          deleted,
+          skippedExisting,
+          failed,
+          errors,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Migration failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
       }
     }
 
