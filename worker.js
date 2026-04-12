@@ -94,6 +94,10 @@ function getHTML() {
       "fetch(window.location.origin+'/r2-meta-list?owner='+encodeURIComponent(_rvOwnerId()));"
     )
     .replace(
+      "      const parts = obj.key.split('/');\n      if(parts.length < 2) continue;\n      // Support both {console}/{file} and {prefix}/{console}/{file} layouts\n      let consoleId, filename;\n      const s0 = getSys(parts[0]);\n      if(s0 && s0.ejsSys){\n        // Direct layout: nes/game.nes\n        consoleId = parts[0];\n        filename = parts.slice(1).join('/');\n      } else if(parts.length >= 3 && getSys(parts[1])?.ejsSys){\n        // Prefixed layout: game-roms/nes/game.nes\n        consoleId = parts[1];\n        filename = parts.slice(2).join('/');\n      } else {\n        continue; // can't identify console — skip\n      }\n",
+      "      const parts = obj.key.split('/').filter(Boolean);\n      if(parts.length < 2) continue;\n      // Accept nested layouts like users/main/nes/game.nes by locating\n      // the first path segment that maps to a known console id.\n      let consoleIndex = -1;\n      for(let i=0; i<parts.length-1; i++){\n        const candidate = getSys(parts[i]);\n        if(candidate && candidate.ejsSys){\n          consoleIndex = i;\n          break;\n        }\n      }\n      if(consoleIndex === -1) continue;\n      const consoleId = parts[consoleIndex];\n      const filename = parts.slice(consoleIndex + 1).join('/');\n      if(!filename) continue;\n"
+    )
+    .replace(
       "return { publicUrl, fullPath: key };",
       "return { publicUrl, fullPath: result.key || key };"
     );
