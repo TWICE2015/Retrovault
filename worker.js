@@ -111,19 +111,19 @@ function getHTML() {
     )
     .replace(
       "  const publicUrl = result.url || (r2Base ? r2Base+'/'+key : null);",
-      "  const publicUrl = result.url || (r2Base ? r2Base+'/'+(result.key || key) : null);"
+      "  const owner = (typeof _rvOwnerId==='function' ? _rvOwnerId() : '');\n  const effectiveKey = result.key || key;\n  const publicUrl = result.url || (window.location.origin + '/r2-rom?key=' + encodeURIComponent(effectiveKey) + (owner ? ('&owner=' + encodeURIComponent(owner)) : ''));"
     )
     .replace(
       "          saved.romUrl = publicUrl;\n          saved.cloudStoragePath = fullPath;\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);",
-      "          const safeFilename = String(file.name||'').replace(/[^a-zA-Z0-9._-]/g,'_');\n          const owner = (typeof _rvOwnerId==='function' ? _rvOwnerId() : '');\n          const fallbackCloudPath = owner ? ('users/'+owner+'/'+rom.console+'/'+safeFilename) : (rom.console+'/'+safeFilename);\n          saved.cloudStoragePath = fullPath || fallbackCloudPath;\n          saved.romUrl = publicUrl || (r2Base ? (r2Base+'/'+(fullPath||fallbackCloudPath)) : null);\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);"
+      "          const safeFilename = String(file.name||'').replace(/[^a-zA-Z0-9._-]/g,'_');\n          const owner = (typeof _rvOwnerId==='function' ? _rvOwnerId() : '');\n          const fallbackCloudPath = owner ? ('users/'+owner+'/'+rom.console+'/'+safeFilename) : (rom.console+'/'+safeFilename);\n          saved.cloudStoragePath = fullPath || fallbackCloudPath;\n          saved.romUrl = publicUrl || (window.location.origin + '/r2-rom?key=' + encodeURIComponent(saved.cloudStoragePath) + (owner ? ('&owner=' + encodeURIComponent(owner)) : ''));\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);"
     )
     .replace(
       "      const proxyUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(rom.romUrl);\n      const resp = await fetch(proxyUrl);",
-      "      let sourceUrl = rom.romUrl;\n      try{\n        const parsedUrl = new URL(sourceUrl, window.location.href);\n        if(parsedUrl.origin === window.location.origin && parsedUrl.pathname === '/rom-proxy'){\n          const innerUrl = parsedUrl.searchParams.get('url');\n          if(innerUrl) sourceUrl = innerUrl;\n        }\n      }catch(e){}\n      const proxyUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(sourceUrl);\n      const resp = await fetch(proxyUrl);"
+      "      let sourceUrl = rom.romUrl;\n      let fetchUrl = '';\n      try{\n        const parsedUrl = new URL(sourceUrl, window.location.href);\n        if(parsedUrl.origin === window.location.origin){\n          if(parsedUrl.pathname === '/rom-proxy'){\n            const innerUrl = parsedUrl.searchParams.get('url');\n            if(innerUrl) sourceUrl = innerUrl;\n          } else if(parsedUrl.pathname === '/r2-rom'){\n            fetchUrl = sourceUrl;\n          }\n        }\n      }catch(e){}\n      if(!fetchUrl) fetchUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(sourceUrl);\n      const resp = await fetch(fetchUrl);"
     )
     .replace(
       "      const publicUrl = r2Base+'/'+obj.key;",
-      "      const publicUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(r2Base+'/'+obj.key);"
+      "      const publicUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(obj.key) + '&owner=' + encodeURIComponent(_rvOwnerId());"
     );
 
   _cachedHtml = html;
@@ -705,6 +705,52 @@ export default {
         return new Response(upstream.body, { status: 200, headers: responseHeaders });
       } catch (err) {
         return new Response('Proxy fetch failed: ' + err.message, { status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' } });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // R2 ROM STREAM — GET /r2-rom?key=...
+    // Serves owner-scoped ROM objects directly from R2 without needing
+    // public bucket URLs; validates owner scope before reading.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/r2-rom' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response('ROM_BUCKET not configured', { status: 503, headers: corsHeaders(origin) });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const rawKey = normalizeR2Key(url.searchParams.get('key') || '');
+        if (!rawKey) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing key' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const key = toOwnedKey(rawKey, ownerId);
+        if (!key) {
+          return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const obj = await env.ROM_BUCKET.get(key);
+        if (!obj) {
+          return new Response('ROM not found', { status: 404, headers: corsHeaders(origin) });
+        }
+        return new Response(obj.body, {
+          status: 200,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
+            'Cache-Control': 'public, max-age=86400',
+            'Cross-Origin-Resource-Policy': 'cross-origin',
+          },
+        });
+      } catch (err) {
+        return new Response('ROM stream error: ' + err.message, { status: 500, headers: corsHeaders(origin) });
       }
     }
 
