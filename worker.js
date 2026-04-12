@@ -108,6 +108,22 @@ function getHTML() {
     .replace(
       "return { publicUrl, fullPath: key };",
       "return { publicUrl, fullPath: result.key || key };"
+    )
+    .replace(
+      "  const publicUrl = result.url || (r2Base ? r2Base+'/'+key : null);",
+      "  const publicUrl = result.url || (r2Base ? r2Base+'/'+(result.key || key) : null);"
+    )
+    .replace(
+      "          saved.romUrl = publicUrl;\n          saved.cloudStoragePath = fullPath;\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);",
+      "          const safeFilename = String(file.name||'').replace(/[^a-zA-Z0-9._-]/g,'_');\n          const owner = (typeof _rvOwnerId==='function' ? _rvOwnerId() : '');\n          const fallbackCloudPath = owner ? ('users/'+owner+'/'+rom.console+'/'+safeFilename) : (rom.console+'/'+safeFilename);\n          saved.cloudStoragePath = fullPath || fallbackCloudPath;\n          saved.romUrl = publicUrl || (r2Base ? (r2Base+'/'+(fullPath||fallbackCloudPath)) : null);\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);"
+    )
+    .replace(
+      "      const proxyUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(rom.romUrl);\n      const resp = await fetch(proxyUrl);",
+      "      let sourceUrl = rom.romUrl;\n      try{\n        const parsedUrl = new URL(sourceUrl, window.location.href);\n        if(parsedUrl.origin === window.location.origin && parsedUrl.pathname === '/rom-proxy'){\n          const innerUrl = parsedUrl.searchParams.get('url');\n          if(innerUrl) sourceUrl = innerUrl;\n        }\n      }catch(e){}\n      const proxyUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(sourceUrl);\n      const resp = await fetch(proxyUrl);"
+    )
+    .replace(
+      "      const publicUrl = r2Base+'/'+obj.key;",
+      "      const publicUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(r2Base+'/'+obj.key);"
     );
 
   _cachedHtml = html;
