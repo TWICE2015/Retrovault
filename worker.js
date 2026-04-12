@@ -110,8 +110,16 @@ function getHTML() {
       "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[r.cloudStoragePath,r]));\n"
     )
     .replace(
+      "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[r.cloudStoragePath,r]));\n",
+      "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[normalizeR2Key(r.cloudStoragePath),r]));\n"
+    )
+    .replace(
       "      if(existingKeys.has(obj.key)) continue;\n",
       "      const existingRom = existingByKey.get(obj.key);\n"
+    )
+    .replace(
+      "      const existingRom = existingByKey.get(obj.key);\n",
+      "      const normalizedKey = normalizeR2Key(obj.key);\n      const existingRom = existingByKey.get(normalizedKey);\n"
     )
     .replace(
       "      await dbAdd('roms',{\n        name: cleanName(filename),\n        filename,\n        console: consoleId,\n        consoleName: s.name,\n        size: obj.size||0,\n        coverUrl: null, description: null, year: null, rating: null,\n        added: Date.now(),\n        ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n        romUrl: publicUrl,\n        cloudStoragePath: obj.key,\n        data: null,\n      });\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n",
