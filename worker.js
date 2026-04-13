@@ -681,6 +681,33 @@ body{background:#141414!important;color:#fff!important;}
     cardScale: 'medium'         // 8B
   };
 
+  function _rvGetHybridPrefs(){
+    const defaults = {
+      settingsDensity: HYBRID_PREF.settingsDensity || 'hybrid',
+      usersFlow: HYBRID_PREF.usersFlow || 'old',
+      browseMode: _rvHybridModeStore(),
+    };
+    try{
+      const raw = localStorage.getItem('rv-hybrid-prefs');
+      if(!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      const out = Object.assign({}, defaults, parsed || {});
+      if(!['compact','hybrid','cinematic'].includes(out.settingsDensity)) out.settingsDensity = defaults.settingsDensity;
+      if(!['old','netflix'].includes(out.usersFlow)) out.usersFlow = defaults.usersFlow;
+      out.browseMode = out.browseMode === 'consoles' ? 'consoles' : 'collections';
+      return out;
+    }catch(e){
+      return defaults;
+    }
+  }
+
+  function _rvSaveHybridPrefs(next){
+    const curr = _rvGetHybridPrefs();
+    const merged = Object.assign({}, curr, next || {});
+    localStorage.setItem('rv-hybrid-prefs', JSON.stringify(merged));
+    return merged;
+  }
+
   function _rvHybridModeStore(){
     try{
       const raw = localStorage.getItem('rv-browse-mode');
@@ -741,9 +768,19 @@ body{background:#141414!important;color:#fff!important;}
       '.rv-old-users-compact #rvProfilePicker .rv-title{ font-size:42px !important; }',
       '.rv-old-users-compact #rvProfilePicker .rv-grid{ grid-template-columns:repeat(auto-fit,minmax(128px,1fr)) !important; gap:12px !important; }',
       '.rv-old-users-compact #rvProfilePicker .rv-avatar{ width:106px !important; height:106px !important; }',
+      '.rv-settings-compact .setp .sblk{ padding:10px 10px !important; }',
+      '.rv-settings-compact .setp .srow{ padding:4px 0 !important; }',
+      '.rv-settings-compact .setp .slbl{ font-size:11px !important; }',
       '.rv-settings-balanced .setp .sblk{ padding:14px 14px !important; }',
       '.rv-settings-balanced .setp .srow{ padding:6px 0 !important; }',
-      '.rv-settings-balanced .setp .slbl{ font-size:12px !important; }'
+      '.rv-settings-balanced .setp .slbl{ font-size:12px !important; }',
+      '.rv-settings-cinematic .setp .sblk{ padding:18px 18px !important; }',
+      '.rv-settings-cinematic .setp .srow{ padding:9px 0 !important; }',
+      '.rv-settings-cinematic .setp .slbl{ font-size:13px !important; }',
+      '#rvHybridPrefCard{ background:var(--s1); border:1px solid var(--border); border-radius:10px; padding:12px; margin:12px 0; }',
+      '#rvHybridPrefCard .rvh-row{ display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 4px; }',
+      '#rvHybridPrefCard .rvh-title{ font-size:13px; font-weight:700; margin-bottom:6px; }',
+      '#rvHybridPrefCard .rvh-sub{ font-size:12px; color:var(--muted); }'
     ].join('\\n');
     document.head.appendChild(style);
   }
@@ -764,7 +801,7 @@ body{background:#141414!important;color:#fff!important;}
       '<div style=\"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;\">'+
         '<button class=\"bb p\" id=\"rvMetaScrapeAll\">⬇ Scrape All ROMs</button>'+
         '<button class=\"bb s\" id=\"rvMetaMissingOnly\">⬇ Missing Art Only</button>'+
-        '<button class=\"bb s\" id=\"rvMetaMissingTrailers\">🎬 Missing Trailers (placeholder)</button>'+
+        '<button class=\"bb s\" id=\"rvMetaMissingTrailers\">🎬 Missing Trailers</button>'+
         '<button class=\"bb s\" id=\"rvMetaLocalArt\">🖼 Use Local Artwork</button>'+
         '<button class=\"bb s\" id=\"rvMetaUploadR2\">☁ Upload Local Artwork to R2</button>'+
       '</div>'+
@@ -796,9 +833,44 @@ body{background:#141414!important;color:#fff!important;}
 
     if(allBtn) allBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.p');
     if(missBtn) missBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.s');
-    if(trailersBtn) trailersBtn.onclick = ()=>{ if(typeof toast==='function') toast('Trailer scraping queue will be wired next pass.','warn'); };
-    if(localBtn) localBtn.onclick = ()=>{ if(typeof toast==='function') toast('Open Media Directories to map local ES-DE artwork.'); };
-    if(uploadBtn) uploadBtn.onclick = ()=>{ if(typeof toast==='function') toast('Use ROMs → Cloud Sync for bulk local artwork uploads.'); };
+    if(trailersBtn) trailersBtn.onclick = async ()=>{
+      try{
+        const roms = await dbGetAll('roms');
+        const need = (roms || []).filter((r)=>!r || !r.videoUrl);
+        const count = need.length;
+        if(typeof toast==='function') toast(count ? ('Trailer queue: '+count+' game(s) missing videoUrl metadata') : 'All listed games already have trailer metadata');
+        const st = document.getElementById('rvMetaHowItWorks');
+        if(st) st.innerHTML = '<strong style=\"color:var(--text)\">Trailer report:</strong> '+count+' game(s) currently missing trailer metadata. Add provider support or import trailer URLs in metadata.';
+      }catch(e){
+        if(typeof toast==='function') toast('Trailer scan failed: '+e.message,'err');
+      }
+    };
+    if(localBtn) localBtn.onclick = ()=>{
+      if(typeof scTab === 'function'){
+        const tabs = document.querySelectorAll('#view-scraper .si');
+        const targetBtn = tabs && tabs[3] ? tabs[3] : null;
+        scTab('sc-sources', targetBtn || null);
+      }
+      if(typeof toast==='function') toast('Open Sources + Media Directories section (ES-DE layout) for local artwork mapping.');
+      const dirs = document.getElementById('sc-dirs');
+      if(dirs){
+        dirs.style.display = 'block';
+        dirs.style.visibility = 'visible';
+        dirs.style.height = 'auto';
+        dirs.style.overflow = 'visible';
+        setTimeout(()=>dirs.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+      }
+    };
+    if(uploadBtn) uploadBtn.onclick = ()=>{
+      if(typeof sv === 'function') sv('roms', null);
+      setTimeout(()=>{
+        if(typeof rTab === 'function'){
+          const tab = document.querySelector('#view-roms .si[onclick*=\"cloud\"]');
+          rTab('cloud', tab || null);
+        }
+      }, 90);
+      if(typeof toast==='function') toast('Use ROMs → Cloud Sync to upload artwork/media assets to R2.');
+    };
     if(overwrite){
       overwrite.checked = localStorage.getItem('rv-meta-overwrite') === '1';
       overwrite.onchange = ()=>localStorage.setItem('rv-meta-overwrite', overwrite.checked ? '1' : '0');
@@ -806,13 +878,85 @@ body{background:#141414!important;color:#fff!important;}
   }
 
   function _rvApplyUsersFlowPreference(){
-    if(HYBRID_PREF.usersFlow !== 'old') return;
-    document.documentElement.classList.add('rv-old-users-compact');
-    try{ localStorage.setItem('rv-profile-picker-seen','1'); }catch(e){}
+    const prefs = _rvGetHybridPrefs();
+    document.documentElement.classList.remove('rv-old-users-compact');
+    if(prefs.usersFlow === 'old'){
+      document.documentElement.classList.add('rv-old-users-compact');
+      try{ localStorage.setItem('rv-profile-picker-seen','1'); }catch(e){}
+    } else {
+      try{ localStorage.removeItem('rv-profile-picker-seen'); }catch(e){}
+    }
   }
 
   function _rvApplySettingsPreference(){
-    if(HYBRID_PREF.settingsDensity === 'hybrid') document.documentElement.classList.add('rv-settings-balanced');
+    const prefs = _rvGetHybridPrefs();
+    document.documentElement.classList.remove('rv-settings-compact','rv-settings-balanced','rv-settings-cinematic');
+    if(prefs.settingsDensity === 'compact') document.documentElement.classList.add('rv-settings-compact');
+    else if(prefs.settingsDensity === 'cinematic') document.documentElement.classList.add('rv-settings-cinematic');
+    else document.documentElement.classList.add('rv-settings-balanced');
+  }
+
+  function _rvInjectHybridPrefsCard(){
+    const host = document.getElementById('st-gen') || document.getElementById('view-settings');
+    if(!host || document.getElementById('rvHybridPrefCard')) return;
+    const card = document.createElement('div');
+    card.id = 'rvHybridPrefCard';
+    card.innerHTML =
+      '<div class=\"rvh-title\">Hybrid UX Preferences</div>'+
+      '<div class=\"rvh-sub\">Control browse mode, settings density, and users flow.</div>'+
+      '<div class=\"rvh-row\" id=\"rvHybridBrowseRow\"></div>'+
+      '<div class=\"rvh-row\" id=\"rvHybridDensityRow\"></div>'+
+      '<div class=\"rvh-row\" id=\"rvHybridUsersRow\"></div>'+
+      '<div class=\"rvh-sub\" id=\"rvHybridPrefStatus\">Saved automatically.</div>';
+    host.prepend(card);
+
+    const mkBtn = (label, active, onClick)=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = active ? 'bb p' : 'bb s';
+      b.textContent = label;
+      b.onclick = onClick;
+      return b;
+    };
+
+    const draw = ()=>{
+      const prefs = _rvGetHybridPrefs();
+      const browseRow = document.getElementById('rvHybridBrowseRow');
+      const densRow = document.getElementById('rvHybridDensityRow');
+      const usersRow = document.getElementById('rvHybridUsersRow');
+      if(!browseRow || !densRow || !usersRow) return;
+      browseRow.innerHTML = '';
+      densRow.innerHTML = '';
+      usersRow.innerHTML = '';
+
+      ['collections','consoles'].forEach((mode)=>{
+        browseRow.appendChild(mkBtn('Browse: '+(mode==='collections'?'Collections':'Consoles'), prefs.browseMode===mode, ()=>{
+          _rvSetBrowseMode(mode);
+          _rvSaveHybridPrefs({ browseMode: mode });
+          draw();
+          if(typeof refreshAll === 'function') Promise.resolve(refreshAll()).catch(()=>{});
+          if(typeof buildSysGrid === 'function') Promise.resolve(buildSysGrid('all')).catch(()=>{});
+          if(typeof buildLib === 'function') Promise.resolve(buildLib()).catch(()=>{});
+        }));
+      });
+
+      ['compact','hybrid','cinematic'].forEach((mode)=>{
+        densRow.appendChild(mkBtn('Density: '+mode, prefs.settingsDensity===mode, ()=>{
+          _rvSaveHybridPrefs({ settingsDensity: mode });
+          _rvApplySettingsPreference();
+          draw();
+        }));
+      });
+
+      [['old','Users: Simple'],['netflix','Users: Netflix']].forEach(([mode,label])=>{
+        usersRow.appendChild(mkBtn(label, prefs.usersFlow===mode, ()=>{
+          _rvSaveHybridPrefs({ usersFlow: mode });
+          _rvApplyUsersFlowPreference();
+          draw();
+        }));
+      });
+    };
+    draw();
   }
 
   function _rvPatchBrowseModeSwitching(){
@@ -824,7 +968,10 @@ body{background:#141414!important;color:#fff!important;}
     const origBuildLib = window.buildLib;
     const origFilterLib = window.filterLib;
 
-    function isCollections(){ return _rvHybridModeStore() === 'collections'; }
+    function isCollections(){
+      const prefs = _rvGetHybridPrefs();
+      return (prefs && prefs.browseMode ? prefs.browseMode : _rvHybridModeStore()) === 'collections';
+    }
 
     if(typeof origBuildHome === 'function'){
       window.buildHome = async function(){
@@ -886,6 +1033,7 @@ body{background:#141414!important;color:#fff!important;}
     _rvPatchMetadataPanel();
     _rvApplyUsersFlowPreference();
     _rvApplySettingsPreference();
+    _rvInjectHybridPrefsCard();
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
