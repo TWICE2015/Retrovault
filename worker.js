@@ -150,7 +150,10 @@ function getLandingHTML() {
   <div class="wrap">
     <div class="top">
       <div class="logo">RETROVAULT</div>
-      <a class="btn" href="/changelog">View API changelog JSON</a>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a class="btn" href="/release-notes">What's New</a>
+        <a class="btn" href="/changelog">API changelog JSON</a>
+      </div>
     </div>
     <section class="hero">
       <div class="eyebrow">Cloud Retro Frontend</div>
@@ -3090,7 +3093,7 @@ export default {
     // ════════════════════════════════════════════════════════════════════
     // RELEASE LOG + GITHUB INTEGRATION STATUS
     // ════════════════════════════════════════════════════════════════════
-    if (path === '/changelog' || path === '/release-notes') {
+    if (path === '/changelog' || path === '/release-notes.json') {
       return new Response(JSON.stringify({
         ok: true,
         version: APP_RELEASE_VERSION,
@@ -3100,6 +3103,18 @@ export default {
       }, null, 2), {
         status: 200,
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
+    if (path === '/release-notes') {
+      const releaseNotes = getReleaseNotesHTML();
+      return new Response(releaseNotes, {
+        headers: {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'X-Content-Type-Options': 'nosniff',
+          ...corsHeaders(origin),
+        },
       });
     }
 
@@ -3118,6 +3133,7 @@ export default {
         endpoints: {
           changelog: '/changelog',
           releaseNotes: '/release-notes',
+          releaseNotesJson: '/release-notes.json',
           app: '/app',
         },
       }, null, 2), {
