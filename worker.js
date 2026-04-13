@@ -90,7 +90,7 @@ function _rvScrapeSourceDefaults(){
       mobygames: false,
       igdb: false,
       giantbomb: false,
-      screenscraper: true
+      screenscraper: false
     },
     tgdbKey: '',
     mobyKey: '',
@@ -399,7 +399,8 @@ async function _rvScrapeOpenVgdb(romId, cfg){
 }
 
 function _rvScrapeProviderOrder(){
-  return ['launchbox','wikipedia','libretro','thegamesdb','mobygames','igdb','giantbomb','openvgdb','screenscraper'];
+  // Default priority: no-login first, optional API/login sources after.
+  return ['libretro','wikipedia','launchbox','thegamesdb','mobygames','igdb','giantbomb','openvgdb','screenscraper'];
 }
 
 async function _rvRunScrapeProvider(providerId, romId, ssCreds, cfg){
@@ -434,10 +435,8 @@ async function _rvAutoScrapeAllSources(romId, ssCreds){
   const order = _rvScrapeProviderOrder();
   const active = order.filter(id => cfg.providers && cfg.providers[id]);
   if(!active.length){
-    logScrape('[sources] No providers enabled; using existing fallback pipeline');
-    if(typeof window.__rvAutoScrapeWithFallbackOriginal === 'function'){
-      return window.__rvAutoScrapeWithFallbackOriginal(romId, ssCreds);
-    }
+    logScrape('[sources] All providers disabled — skipping scrape for this game');
+    if(typeof toast === 'function') toast('All scraper providers are disabled in Sources settings','warn');
     return;
   }
   logScrape('[sources] Active providers: ' + active.join(', '));
@@ -479,7 +478,7 @@ function _rvInitScrapeSourceControls(){
   card.className = 'sblk';
   card.style.marginTop = '12px';
   card.innerHTML = '<h3>All Providers</h3>'
-    + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Enable any mix of no-login and API-key providers. The scraper checks enabled providers in priority order (top to bottom).</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Enable any mix of sources, or disable any you do not want. Priority is fixed top-to-bottom (Libretro → Wikidata/Wikipedia → LaunchBox → API/login sources).</div>'
     + '<div style="display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;">'
     + '<label><input type="checkbox" id="rvp-launchbox"> LaunchBox (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
     + '<label><input type="checkbox" id="rvp-wikipedia"> Wikidata + Wikipedia (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
@@ -549,7 +548,12 @@ function _rvInitScrapeSourceControls(){
     out.openvgdbUrl = getVal('rvOpenvgdbUrl');
     _rvSaveScrapeSourceConfig(out);
     const st = document.getElementById('rvSourceCfgStatus');
-    if(st) st.textContent = 'Saved. Active providers: ' + _rvScrapeProviderOrder().filter(id => out.providers && out.providers[id]).join(', ');
+    if(st){
+      const enabled = _rvScrapeProviderOrder().filter(id => out.providers && out.providers[id]);
+      st.textContent = enabled.length
+        ? ('Saved. Active providers: ' + enabled.join(', '))
+        : 'Saved. All providers are OFF.';
+    }
     toast('Source settings saved');
     setTimeout(_rvPatchScrapePipeline, 0);
   };
