@@ -152,6 +152,38 @@ function getHTML() {
     .replace(
       "      const publicUrl = r2Base+'/'+obj.key;",
       "      const publicUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(obj.key) + '&owner=' + encodeURIComponent(_rvOwnerId());"
+    )
+    .replace(
+      "Scraper initialized. Login to ScreenScraper.fr to begin.",
+      "Scraper initialized. No-login scraping is ready (LaunchBox first). Add ScreenScraper only as optional fallback."
+    )
+    .replace(
+      "<strong style=\"color:var(--text);\">Tip:</strong> If ScreenScraper has better retro coverage, use both — run LaunchBox first for modern/PC games, then ScreenScraper for retro consoles.",
+      "<strong style=\"color:var(--text);\">Tip:</strong> Default mode is no-login (LaunchBox first). ScreenScraper is optional fallback for games LaunchBox cannot match."
+    )
+    .replace(
+      "Configure which databases to query for metadata.",
+      "No-login sources are used first. Optional logged-in sources are fallback only."
+    )
+    .replace(
+      "Best retro coverage — box art, screenshots, videos",
+      "Optional fallback (requires login) — use when no-login sources miss a game"
+    )
+    .replace(
+      "async function scrapeThisGame(){\n  if(!detRomId){ toast('No game selected','err'); return; }\n  const creds=getSsCreds();\n  if(!creds){ toast('Login to ScreenScraper.fr first','warn'); sv('scraper',null); closeDet(); return; }\n  toast('Scraping artwork…');\n  await scrapeRomById(detRomId,creds);\n  await showDet(detRomId);\n}",
+      "async function scrapeThisGame(){\n  if(!detRomId){ toast('No game selected','err'); return; }\n  const creds=getSsCreds();\n  toast('Scraping artwork…');\n  await autoScrapeWithFallback(detRomId, creds);\n  await showDet(detRomId);\n}"
+    )
+    .replace(
+      "async function scrapeAll(){\n  const creds=getSsCreds();\n  if(!creds){ toast('Login to ScreenScraper.fr first','err'); scTab('sc-login',document.querySelectorAll('#view-scraper .si')[1]); return; }\n  const roms=await dbGetAll('roms');\n  if(!roms.length){ toast('No ROMs to scrape','warn'); return; }\n  const prog=document.getElementById('scrProg'); prog.style.display='block';\n  let done=0;\n  for(const rom of roms){\n    document.getElementById('scrFill').style.width=Math.round((done/roms.length)*100)+'%';\n    document.getElementById('scrPct').textContent=Math.round((done/roms.length)*100)+'%';\n    document.getElementById('scrSub').textContent='Scraping: '+rom.name;\n    await scrapeRomById(rom.id,creds);\n    done++;\n    await new Promise(r=>setTimeout(r,1100)); // rate limit: 1 req/sec\n  }\n  document.getElementById('scrFill').style.width='100%';\n  document.getElementById('scrLbl').textContent='Done ✓';\n  document.getElementById('scrPct').textContent='100%';\n  document.getElementById('scrSub').textContent='All ROMs scraped';\n  toast('✓ Scraping complete');\n  if(cloudSignedIn()) await sbPush();\n}",
+      "async function scrapeAll(){\n  const creds=getSsCreds();\n  const roms=await dbGetAll('roms');\n  if(!roms.length){ toast('No ROMs to scrape','warn'); return; }\n  const prog=document.getElementById('scrProg'); prog.style.display='block';\n  let done=0;\n  for(const rom of roms){\n    document.getElementById('scrFill').style.width=Math.round((done/roms.length)*100)+'%';\n    document.getElementById('scrPct').textContent=Math.round((done/roms.length)*100)+'%';\n    document.getElementById('scrSub').textContent='Scraping: '+rom.name;\n    await autoScrapeWithFallback(rom.id, creds);\n    done++;\n    await new Promise(r=>setTimeout(r,850)); // modest pacing for free APIs\n  }\n  document.getElementById('scrFill').style.width='100%';\n  document.getElementById('scrLbl').textContent='Done ✓';\n  document.getElementById('scrPct').textContent='100%';\n  document.getElementById('scrSub').textContent='All ROMs scraped';\n  toast('✓ Scraping complete');\n  if(cloudSignedIn()) await sbPush();\n}"
+    )
+    .replace(
+      "async function scrapeMissing(){\n  const creds=getSsCreds();\n  if(!creds){ toast('Login to ScreenScraper first','err'); return; }\n  const roms=(await dbGetAll('roms')).filter(r=>!r.coverUrl);\n  toast(`Scraping ${roms.length} ROMs without artwork…`);\n  for(const r of roms){ await scrapeRomById(r.id,creds); await new Promise(x=>setTimeout(x,1100)); }\n  toast('Done — check covers');\n}",
+      "async function scrapeMissing(){\n  const creds=getSsCreds();\n  const roms=(await dbGetAll('roms')).filter(r=>!r.coverUrl);\n  toast(`Scraping ${roms.length} ROMs without artwork…`);\n  for(const r of roms){ await autoScrapeWithFallback(r.id, creds); await new Promise(x=>setTimeout(x,850)); }\n  toast('Done — check covers');\n}"
+    )
+    .replace(
+      "async function autoScrapeWithFallback(romId, ssCreds){\n  const rom = await dbGet('roms', romId);\n  if(!rom) return;\n  let gotMeta = false;\n\n  // Try ScreenScraper first (best retro coverage)\n  if(ssCreds && ssCreds.user){\n    logScrape(`[auto-scrape] Trying ScreenScraper for: ${rom.name}`);\n    await scrapeRomById(romId, ssCreds);\n    const updated = await dbGet('roms', romId);\n    gotMeta = !!(updated?.coverUrl);\n    if(gotMeta) logScrape(`[auto-scrape] ✓ ScreenScraper found metadata for ${rom.name}`);\n  }\n\n  // Fallback to LaunchBox if SS found nothing\n  if(!gotMeta){\n    logScrape(`[auto-scrape] SS no match — trying LaunchBox for: ${rom.name}`);\n    await lbScrapeRom(romId);\n    const updated2 = await dbGet('roms', romId);\n    if(updated2?.coverUrl) logScrape(`[auto-scrape] ✓ LaunchBox found metadata for ${rom.name}`);\n    else logScrape(`[auto-scrape] ⚠ No metadata found for ${rom.name} in either source`);\n  }\n\n  // Push updated metadata to cloud\n  if(cloudSignedIn()) sbPush().catch(()=>{});\n  await refreshAll();\n}",
+      "async function autoScrapeWithFallback(romId, ssCreds){\n  const rom = await dbGet('roms', romId);\n  if(!rom) return;\n  let gotMeta = false;\n\n  // Try LaunchBox first (no-login default source)\n  logScrape(`[auto-scrape] Trying LaunchBox for: ${rom.name}`);\n  await lbScrapeRom(romId);\n  const afterLb = await dbGet('roms', romId);\n  gotMeta = !!(afterLb?.coverUrl);\n  if(gotMeta) logScrape(`[auto-scrape] ✓ LaunchBox found metadata for ${rom.name}`);\n\n  // Optional fallback to ScreenScraper when credentials are saved\n  if(!gotMeta && ssCreds && ssCreds.user){\n    logScrape(`[auto-scrape] LaunchBox no match — trying ScreenScraper for: ${rom.name}`);\n    await scrapeRomById(romId, ssCreds);\n    const afterSs = await dbGet('roms', romId);\n    gotMeta = !!(afterSs?.coverUrl);\n    if(gotMeta) logScrape(`[auto-scrape] ✓ ScreenScraper fallback found metadata for ${rom.name}`);\n  } else if(!gotMeta){\n    logScrape(`[auto-scrape] LaunchBox no match and ScreenScraper not configured for ${rom.name}`);\n  }\n\n  // Push updated metadata to cloud\n  if(cloudSignedIn()) sbPush().catch(()=>{});\n  await refreshAll();\n}"
     );
 
   _cachedHtml = html;
