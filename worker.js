@@ -280,6 +280,263 @@ function getHTML() {
     }
   }
 
+  if (!html.includes('window.__rvCollectionsMode=true')) {
+    const collectionsModePatch = `<script>
+(function(){
+  if(window.__rvCollectionsMode) return;
+  window.__rvCollectionsMode = true;
+
+  const RV_COLLECTION_RULES = [
+    { id:'mario', name:'Mario', icon:'🍄', color:'#ff3b30', tests:[/\\bmario\\b/i,/\\bwario\\b/i,/\\byoshi\\b/i,/\\btoad\\b/i] },
+    { id:'zelda', name:'Zelda', icon:'🗡️', color:'#1abc9c', tests:[/\\bzelda\\b/i,/\\bhyrule\\b/i,/\\blink\\b/i] },
+    { id:'doom', name:'Doom', icon:'👹', color:'#f4511e', tests:[/\\bdoom\\b/i] },
+    { id:'pokemon', name:'Pokemon', icon:'⚡', color:'#ffcc00', tests:[/\\bpok[eé]mon\\b/i,/\\bpokemon\\b/i] },
+    { id:'sonic', name:'Sonic', icon:'💙', color:'#1e88e5', tests:[/\\bsonic\\b/i] },
+    { id:'final-fantasy', name:'Final Fantasy', icon:'✨', color:'#8e7dff', tests:[/\\bfinal\\s+fantasy\\b/i,/\\bff\\s*[ivx0-9]/i] },
+    { id:'castlevania', name:'Castlevania', icon:'🦇', color:'#ab47bc', tests:[/\\bcastlevania\\b/i] },
+    { id:'metroid', name:'Metroid', icon:'🚀', color:'#00acc1', tests:[/\\bmetroid\\b/i] },
+    { id:'mega-man', name:'Mega Man', icon:'🤖', color:'#42a5f5', tests:[/\\bmega\\s*man\\b/i,/\\bmegaman\\b/i,/\\brockman\\b/i] },
+    { id:'street-fighter', name:'Street Fighter', icon:'🥊', color:'#ef5350', tests:[/\\bstreet\\s+fighter\\b/i] },
+    { id:'resident-evil', name:'Resident Evil', icon:'🧟', color:'#d32f2f', tests:[/\\bresident\\s+evil\\b/i,/\\bbiohazard\\b/i] },
+    { id:'mortal-kombat', name:'Mortal Kombat', icon:'🐉', color:'#ff7043', tests:[/\\bmortal\\s+kombat\\b/i] },
+    { id:'donkey-kong', name:'Donkey Kong', icon:'🦍', color:'#8d6e63', tests:[/\\bdonkey\\s+kong\\b/i] },
+    { id:'kirby', name:'Kirby', icon:'🌸', color:'#ec407a', tests:[/\\bkirby\\b/i] },
+  ];
+  const RV_COLLECTION_DEFAULT = { id:'classics', name:'Classics', icon:'🎮', color:'#7e8a97' };
+
+  function _rvCollectionName(rom){
+    const raw = String((rom && (rom.name || rom.filename)) || '').trim();
+    return raw;
+  }
+
+  function _rvCollectionMetaForRom(rom){
+    const name = _rvCollectionName(rom);
+    for(const rule of RV_COLLECTION_RULES){
+      if(rule.tests.some((re)=>re.test(name))) return rule;
+    }
+    return RV_COLLECTION_DEFAULT;
+  }
+
+  function _rvCollectionMetaById(id){
+    const target = String(id || '').trim();
+    return RV_COLLECTION_RULES.find((r)=>r.id === target) || RV_COLLECTION_DEFAULT;
+  }
+
+  function _rvGroupByCollection(roms){
+    const map = {};
+    (roms || []).forEach((rom)=>{
+      const meta = _rvCollectionMetaForRom(rom);
+      if(!map[meta.id]) map[meta.id] = { meta: meta, games: [] };
+      map[meta.id].games.push(rom);
+    });
+    return Object.values(map).sort((a,b)=>{
+      const byCount = (b.games.length||0) - (a.games.length||0);
+      if(byCount !== 0) return byCount;
+      return String(a.meta.name || '').localeCompare(String(b.meta.name || ''));
+    });
+  }
+
+  function _rvCollectionLabel(id){
+    const meta = _rvCollectionMetaById(id);
+    return meta ? meta.name : 'Classics';
+  }
+
+  function _rvCleanCardName(name){
+    if(typeof cleanName === 'function') return cleanName(name);
+    return String(name || '').replace(/\\.[a-z0-9]{1,6}$/i,'').trim();
+  }
+
+  function _rvPatchCollectionLabels(){
+    const navLinks = document.querySelectorAll('.nl');
+    if(navLinks && navLinks[1]) navLinks[1].textContent = 'Collections';
+    const title = document.querySelector('#view-systems .sys-hdr h1');
+    if(title) title.textContent = 'ALL COLLECTIONS';
+    const tools = document.querySelector('#view-systems .sys-hdr > div:last-child');
+    if(tools) tools.style.display = 'none';
+    const libSel = document.getElementById('libSys');
+    if(libSel){
+      const first = libSel.querySelector('option[value="all"]');
+      if(first) first.textContent = 'All Collections';
+    }
+  }
+
+  async function _rvBuildHomeCollections(){
+    const roms = await dbGetAll('roms');
+    const hr = document.getElementById('homeRows');
+    if(!hr) return;
+    if(!roms.length){
+      hr.innerHTML = '<div class="empty"><div class="empty-icon">🎮</div><div class="empty-title">No games yet</div><div class="empty-sub">Upload your ROM files to start playing</div><button class="bb p" onclick="sv(\\'roms\\',null)">⬆ Upload ROMs</button></div>';
+      const hs = document.getElementById('heroStats');
+      if(hs) hs.textContent = 'Upload ROMs to get started';
+      return;
+    }
+
+    const groups = _rvGroupByCollection(roms);
+    const hs = document.getElementById('heroStats');
+    if(hs) hs.textContent = roms.length + ' ROM' + (roms.length!==1?'s':'') + ' across ' + groups.length + ' collection' + (groups.length!==1?'s':'');
+    const heroRom = roms.slice().sort((a,b)=>(b.added||0)-(a.added||0))[0];
+    const ht = document.getElementById('heroTitle');
+    if(ht && heroRom) ht.textContent = _rvCleanCardName(heroRom.name || heroRom.filename || 'RetroVault');
+    const playBtn = document.querySelector('.hbtns .bplay');
+    if(playBtn && heroRom) playBtn.onclick = function(){ launchRomById(heroRom.id); };
+
+    let out = '';
+    groups.forEach((group)=>{
+      const cid = 'col-' + group.meta.id;
+      out += '<div class="row" id="row-'+cid+'">'+
+        '<div class="rh">'+
+          '<span style="color:'+group.meta.color+';font-weight:800;font-size:16px;">'+group.meta.icon+'</span>'+
+          '<div class="rt">'+group.meta.name+'</div>'+
+          '<span style="font-size:11px;color:var(--muted);margin-left:4px;">'+group.games.length+' game'+(group.games.length!==1?'s':'')+'</span>'+
+        '</div>'+
+        '<div class="row-wrap">'+
+          '<button class="row-arrow arr-l arr-hidden" onclick="rowScroll(\\''+cid+'\\',-1)">&#8249;</button>'+
+          '<div class="rscroll" id="rscroll-'+cid+'" onscroll="updateRowArrows(\\''+cid+'\\')">'+group.games.map((g)=>makeCard(g)).join('')+'</div>'+
+          '<button class="row-arrow arr-r" onclick="rowScroll(\\''+cid+'\\',1)">&#8250;</button>'+
+        '</div>'+
+      '</div>';
+    });
+    hr.innerHTML = out;
+    groups.forEach((group)=>updateRowArrows('col-' + group.meta.id));
+  }
+
+  async function _rvBuildCollectionGrid(){
+    const roms = await dbGetAll('roms');
+    const groups = _rvGroupByCollection(roms);
+    const info = document.getElementById('sysInfo');
+    if(info) info.textContent = groups.length + ' collections · ' + roms.length + ' ROMs uploaded';
+    const grid = document.getElementById('sysGrid');
+    if(!grid) return;
+    if(!groups.length){
+      grid.innerHTML = '<div class="empty"><div class="empty-icon">🎮</div><div class="empty-title">No collections yet</div><div class="empty-sub">Upload ROMs to build franchise collections</div></div>';
+      return;
+    }
+    grid.innerHTML = groups.map((group)=>{
+      return '<div class="scrd" style="--sc:'+group.meta.color+'" onclick="_rvJumpCollection(\\''+group.meta.id+'\\')">'+
+        '<span class="sbdg tag-r">collection</span>'+
+        '<div class="sci" style="background:'+group.meta.color+'22;color:'+group.meta.color+'">'+group.meta.icon+'</div>'+
+        '<div class="scn">'+group.meta.name+'</div>'+
+        '<div class="scc">'+group.games.length+' game'+(group.games.length!==1?'s':'')+'</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  async function _rvFilterLibCollections(roms){
+    if(!roms){
+      const all = await dbGetAll('roms');
+      roms = all.filter((r)=>r.favourite);
+    }
+    const sel = document.getElementById('libSys');
+    const selected = String((sel && sel.value) || 'all');
+    const selectedCollection = selected.startsWith('col:') ? selected.slice(4) : 'all';
+    const srch = String((document.getElementById('srch') && document.getElementById('srch').value) || '').toLowerCase();
+    const sort = String((document.getElementById('libSort') && document.getElementById('libSort').value) || 'recent');
+
+    let list = (roms || []).filter((r)=>{
+      if(selectedCollection !== 'all' && _rvCollectionMetaForRom(r).id !== selectedCollection) return false;
+      const nm = String(r.name || r.filename || '').toLowerCase();
+      return !srch || nm.includes(srch);
+    });
+    if(sort === 'alpha') list.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+    else list.sort((a,b)=>(b.added||0)-(a.added||0));
+
+    const el = document.getElementById('libRows');
+    if(!el) return;
+    if(!list.length){
+      el.innerHTML = '<div class="empty"><div class="empty-icon">❤️</div><div class="empty-title">'+(srch?'No results':'My List is empty')+'</div><div class="empty-sub">'+(srch?'Try a different search':'Press ❤ on any game card to add it here')+'</div></div>';
+      return;
+    }
+    const grouped = {};
+    list.forEach((r)=>{
+      const meta = _rvCollectionMetaForRom(r);
+      if(!grouped[meta.id]) grouped[meta.id] = { meta: meta, games: [] };
+      grouped[meta.id].games.push(r);
+    });
+    const groups = Object.values(grouped).sort((a,b)=>(b.games.length||0)-(a.games.length||0));
+    let html = '';
+    groups.forEach((group)=>{
+      html += '<div class="row"><div class="rh" style="padding:0 36px">'+
+        '<span style="color:'+group.meta.color+';font-weight:800;font-size:14px;">'+group.meta.icon+'</span>'+
+        '<div class="rt">'+group.meta.name+'</div>'+
+        '<span style="font-size:11px;color:var(--muted)">'+group.games.length+' games</span>'+
+      '</div><div class="rscroll">'+group.games.map((g)=>makeCard(g)).join('')+'</div></div>';
+    });
+    el.innerHTML = html;
+  }
+
+  async function _rvBuildLibCollections(){
+    const roms = await dbGetAll('roms');
+    const favs = roms.filter((r)=>r.favourite);
+    const sel = document.getElementById('libSys');
+    if(sel){
+      const current = String(sel.value || 'all');
+      sel.innerHTML = '<option value="all">All Collections</option>';
+      const groups = _rvGroupByCollection(favs);
+      groups.forEach((group)=>{
+        const opt = document.createElement('option');
+        opt.value = 'col:' + group.meta.id;
+        opt.textContent = group.meta.name;
+        sel.appendChild(opt);
+      });
+      const canRestore = Array.from(sel.options).some((o)=>o.value === current);
+      sel.value = canRestore ? current : 'all';
+    }
+    await _rvFilterLibCollections(favs);
+  }
+
+  window._rvJumpCollection = function(collectionId){
+    if(typeof sv === 'function') sv('library', null);
+    setTimeout(function(){
+      const sel = document.getElementById('libSys');
+      if(sel){
+        const targetValue = 'col:' + collectionId;
+        if(!Array.from(sel.options).some((o)=>o.value === targetValue)){
+          const opt = document.createElement('option');
+          opt.value = targetValue;
+          opt.textContent = _rvCollectionLabel(collectionId);
+          sel.appendChild(opt);
+        }
+        sel.value = targetValue;
+      }
+      if(typeof filterLib === 'function'){
+        const p = filterLib();
+        if(p && typeof p.catch === 'function') p.catch(()=>{});
+      }
+    }, 80);
+  };
+
+  function _rvEnableCollectionsMode(){
+    _rvPatchCollectionLabels();
+    window.buildHome = _rvBuildHomeCollections;
+    window.buildSysGrid = function(){ return _rvBuildCollectionGrid(); };
+    window.fSys = function(_f, btn){
+      if(btn){
+        document.querySelectorAll('.fb').forEach((b)=>b.classList.remove('on'));
+        btn.classList.add('on');
+      }
+      return _rvBuildCollectionGrid();
+    };
+    window.buildLib = _rvBuildLibCollections;
+    window.filterLib = _rvFilterLibCollections;
+  }
+
+  const boot = function(){
+    _rvEnableCollectionsMode();
+    _rvPatchCollectionLabels();
+    setTimeout(function(){
+      if(typeof buildHome === 'function'){
+        const p = buildHome();
+        if(p && typeof p.catch === 'function') p.catch(()=>{});
+      }
+    }, 0);
+  };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else setTimeout(boot, 0);
+})();
+</script>`;
+    html = html.replace('</body>', `${collectionsModePatch}\n</body>`);
+  }
+
   if (!html.includes('function _rvGetScrapeSourceConfig(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
     const scraperSourceHelper = `
