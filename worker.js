@@ -664,6 +664,237 @@ body{background:#141414!important;color:#fff!important;}
     html = html.replace('</body>', `${collectionsModePatch}\n</body>`);
   }
 
+  if (!html.includes('window.__rvHybridUXMode=true')) {
+    const hybridUxPatch = `<script>
+(function(){
+  if(window.__rvHybridUXMode) return;
+  window.__rvHybridUXMode = true;
+
+  const HYBRID_PREF = {
+    metadataLayout: 'old',      // 1A
+    metadataActions: 'old',     // 2A
+    localArtworkTools: 'old',   // 3A
+    howItWorks: 'hybrid',       // 4C
+    settingsDensity: 'hybrid',  // 5C
+    usersFlow: 'old',           // 6A
+    browseMode: 'toggle',       // 7C
+    cardScale: 'medium'         // 8B
+  };
+
+  function _rvHybridModeStore(){
+    try{
+      const raw = localStorage.getItem('rv-browse-mode');
+      if(raw === 'collections' || raw === 'consoles') return raw;
+    }catch(e){}
+    return 'collections';
+  }
+
+  function _rvSetBrowseMode(mode){
+    const next = mode === 'consoles' ? 'consoles' : 'collections';
+    try{ localStorage.setItem('rv-browse-mode', next); }catch(e){}
+    return next;
+  }
+
+  function _rvInjectBrowseToggle(){
+    const nav = document.querySelector('.nav-r') || document.querySelector('.nav');
+    if(!nav || document.getElementById('rvBrowseToggleBtn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'rvBrowseToggleBtn';
+    btn.className = 'nb';
+    btn.type = 'button';
+    const applyLabel = ()=>{
+      const mode = _rvHybridModeStore();
+      btn.textContent = mode === 'collections' ? '🧩 Collections' : '🕹 Consoles';
+      btn.title = 'Switch browse mode';
+    };
+    btn.onclick = ()=>{
+      const mode = _rvHybridModeStore();
+      _rvSetBrowseMode(mode === 'collections' ? 'consoles' : 'collections');
+      applyLabel();
+      if(typeof refreshAll === 'function'){
+        const p = refreshAll();
+        if(p && typeof p.catch === 'function') p.catch(()=>{});
+      }
+      if(typeof buildSysGrid === 'function'){
+        const p2 = buildSysGrid('all');
+        if(p2 && typeof p2.catch === 'function') p2.catch(()=>{});
+      }
+      if(typeof buildLib === 'function'){
+        const p3 = buildLib();
+        if(p3 && typeof p3.catch === 'function') p3.catch(()=>{});
+      }
+    };
+    applyLabel();
+    nav.prepend(btn);
+  }
+
+  function _rvApplyHybridStyles(){
+    if(document.getElementById('rvHybridUXStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'rvHybridUXStyle';
+    style.textContent = [
+      '.gc{ width:148px !important; }',
+      '.ga{ height:222px !important; border-radius:6px !important; }',
+      '.gc:hover{ transform:scale(1.14) translateY(-4px) !important; }',
+      '#rvBrowseToggleBtn{ margin-right:4px; }',
+      '.rv-old-users-compact #rvProfilePicker .rv-wrap{ width:min(760px,94vw) !important; }',
+      '.rv-old-users-compact #rvProfilePicker .rv-title{ font-size:42px !important; }',
+      '.rv-old-users-compact #rvProfilePicker .rv-grid{ grid-template-columns:repeat(auto-fit,minmax(128px,1fr)) !important; gap:12px !important; }',
+      '.rv-old-users-compact #rvProfilePicker .rv-avatar{ width:106px !important; height:106px !important; }',
+      '.rv-settings-balanced .setp .sblk{ padding:14px 14px !important; }',
+      '.rv-settings-balanced .setp .srow{ padding:6px 0 !important; }',
+      '.rv-settings-balanced .setp .slbl{ font-size:12px !important; }'
+    ].join('\\n');
+    document.head.appendChild(style);
+  }
+
+  function _rvPatchMetadataPanel(){
+    const scMain = document.getElementById('sc-main');
+    if(!scMain || document.getElementById('rvMetaHybridTools')) return;
+    const box = document.createElement('div');
+    box.id = 'rvMetaHybridTools';
+    box.style.background = 'var(--s1)';
+    box.style.border = '1px solid var(--border)';
+    box.style.borderRadius = '10px';
+    box.style.padding = '12px';
+    box.style.margin = '12px 0';
+
+    box.innerHTML =
+      '<div style=\"font-size:13px;font-weight:700;margin-bottom:8px;\">Metadata Utility Tools</div>'+
+      '<div style=\"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;\">'+
+        '<button class=\"bb p\" id=\"rvMetaScrapeAll\">⬇ Scrape All ROMs</button>'+
+        '<button class=\"bb s\" id=\"rvMetaMissingOnly\">⬇ Missing Art Only</button>'+
+        '<button class=\"bb s\" id=\"rvMetaMissingTrailers\">🎬 Missing Trailers (placeholder)</button>'+
+        '<button class=\"bb s\" id=\"rvMetaLocalArt\">🖼 Use Local Artwork</button>'+
+        '<button class=\"bb s\" id=\"rvMetaUploadR2\">☁ Upload Local Artwork to R2</button>'+
+      '</div>'+
+      '<label style=\"display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:8px;\">'+
+        '<input id=\"rvMetaOverwriteToggle\" type=\"checkbox\" /> Overwrite existing cover URLs'+
+      '</label>'+
+      '<div id=\"rvMetaHowItWorks\" style=\"font-size:12px;color:var(--muted);line-height:1.65;\">'+
+        '<strong style=\"color:var(--text)\">How it works:</strong> Hash + filename matching runs first, then enabled providers are used as fallback. Local artwork can be applied before cloud provider lookups.'+
+      '</div>';
+
+    const anchor = scMain.querySelector('.bb-row');
+    if(anchor && anchor.parentElement){
+      anchor.parentElement.insertBefore(box, anchor.nextSibling);
+    } else {
+      scMain.insertBefore(box, scMain.firstChild);
+    }
+
+    const clickBySelector = (sel)=>{
+      const target = document.querySelector(sel);
+      if(target && typeof target.click === 'function') target.click();
+    };
+
+    const allBtn = document.getElementById('rvMetaScrapeAll');
+    const missBtn = document.getElementById('rvMetaMissingOnly');
+    const trailersBtn = document.getElementById('rvMetaMissingTrailers');
+    const localBtn = document.getElementById('rvMetaLocalArt');
+    const uploadBtn = document.getElementById('rvMetaUploadR2');
+    const overwrite = document.getElementById('rvMetaOverwriteToggle');
+
+    if(allBtn) allBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.p');
+    if(missBtn) missBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.s');
+    if(trailersBtn) trailersBtn.onclick = ()=>{ if(typeof toast==='function') toast('Trailer scraping queue will be wired next pass.','warn'); };
+    if(localBtn) localBtn.onclick = ()=>{ if(typeof toast==='function') toast('Open Media Directories to map local ES-DE artwork.'); };
+    if(uploadBtn) uploadBtn.onclick = ()=>{ if(typeof toast==='function') toast('Use ROMs → Cloud Sync for bulk local artwork uploads.'); };
+    if(overwrite){
+      overwrite.checked = localStorage.getItem('rv-meta-overwrite') === '1';
+      overwrite.onchange = ()=>localStorage.setItem('rv-meta-overwrite', overwrite.checked ? '1' : '0');
+    }
+  }
+
+  function _rvApplyUsersFlowPreference(){
+    if(HYBRID_PREF.usersFlow !== 'old') return;
+    document.documentElement.classList.add('rv-old-users-compact');
+    try{ localStorage.setItem('rv-profile-picker-seen','1'); }catch(e){}
+  }
+
+  function _rvApplySettingsPreference(){
+    if(HYBRID_PREF.settingsDensity === 'hybrid') document.documentElement.classList.add('rv-settings-balanced');
+  }
+
+  function _rvPatchBrowseModeSwitching(){
+    if(window.__rvHybridBrowseWrapped) return;
+    window.__rvHybridBrowseWrapped = true;
+
+    const origBuildHome = window.buildHome;
+    const origBuildSysGrid = window.buildSysGrid;
+    const origBuildLib = window.buildLib;
+    const origFilterLib = window.filterLib;
+
+    function isCollections(){ return _rvHybridModeStore() === 'collections'; }
+
+    if(typeof origBuildHome === 'function'){
+      window.buildHome = async function(){
+        if(isCollections() && typeof window._rvBuildHomeCollections === 'function'){
+          return window._rvBuildHomeCollections();
+        }
+        return origBuildHome();
+      };
+    }
+    if(typeof origBuildSysGrid === 'function'){
+      window.buildSysGrid = async function(filter){
+        if(isCollections() && typeof window._rvBuildCollectionGrid === 'function'){
+          return window._rvBuildCollectionGrid();
+        }
+        return origBuildSysGrid(filter || 'all');
+      };
+    }
+    if(typeof origBuildLib === 'function'){
+      window.buildLib = async function(){
+        if(isCollections() && typeof window._rvBuildLibCollections === 'function'){
+          return window._rvBuildLibCollections();
+        }
+        return origBuildLib();
+      };
+    }
+    if(typeof origFilterLib === 'function'){
+      window.filterLib = async function(roms){
+        if(isCollections() && typeof window._rvFilterLibCollections === 'function'){
+          return window._rvFilterLibCollections(roms);
+        }
+        return origFilterLib(roms);
+      };
+    }
+
+    const navLinks = document.querySelectorAll('.nl');
+    if(navLinks && navLinks[1]){
+      const refreshLabel = ()=>{
+        navLinks[1].textContent = isCollections() ? 'Collections' : 'Systems';
+      };
+      refreshLabel();
+      const oldClick = navLinks[1].onclick;
+      navLinks[1].onclick = function(ev){
+        refreshLabel();
+        if(typeof oldClick === 'function') return oldClick.call(this, ev);
+      };
+    }
+
+    const libSel = document.getElementById('libSys');
+    if(libSel){
+      const first = libSel.querySelector('option[value=\"all\"]');
+      if(first) first.textContent = isCollections() ? 'All Collections' : 'All Systems';
+    }
+  }
+
+  function boot(){
+    _rvApplyHybridStyles();
+    _rvInjectBrowseToggle();
+    _rvPatchBrowseModeSwitching();
+    _rvPatchMetadataPanel();
+    _rvApplyUsersFlowPreference();
+    _rvApplySettingsPreference();
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else setTimeout(boot, 0);
+})();
+</script>`;
+    html = html.replace('</body>', `${hybridUxPatch}\n</body>`);
+  }
+
   if (!html.includes('function _rvGetScrapeSourceConfig(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
     const scraperSourceHelper = `
