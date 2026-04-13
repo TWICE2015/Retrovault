@@ -41,6 +41,200 @@ const CHUNKS = [
 
 // ── HTML cache ────────────────────────────────────────────────────────────
 let _cachedHtml = null;
+let _cachedLandingHtml = null;
+
+const RELEASE_LOG = [
+  {
+    id: '2026-04-13-a',
+    title: 'Owner-scoped cloud sync and migration',
+    details: [
+      'R2 sync is owner-scoped to keep user libraries isolated.',
+      'Shared Sync Owner ID can be reused across devices.',
+      'Legacy bucket migration tool added (preview + migrate).',
+    ],
+  },
+  {
+    id: '2026-04-13-b',
+    title: 'Online sessions and settings UX updates',
+    details: [
+      'Private Online Session create/join flow added.',
+      'Session controls moved into main Settings panel.',
+      'Home/library refresh behavior tightened after sync/upload.',
+    ],
+  },
+  {
+    id: '2026-04-13-c',
+    title: 'All-provider scraper controls',
+    details: [
+      'Per-provider toggles and API fields were added.',
+      'LaunchBox is now disabled by default.',
+      'No-login providers are prioritized first.',
+    ],
+  },
+  {
+    id: '2026-04-13-d',
+    title: 'Cover-art resilience improvements',
+    details: [
+      'Broken cover URLs are tracked and auto-retried.',
+      'Card fallback visuals now restore reliably.',
+      'Metadata updates avoid known-bad cover URLs.',
+    ],
+  },
+];
+
+const APP_RELEASE_VERSION = '2026.04.13-cloud-plus';
+const CHANGELOG_DATA = {
+  version: APP_RELEASE_VERSION,
+  updatedAt: '2026-04-13',
+  highlights: [
+    'Owner-scoped cloud ROM sync and migration tools',
+    'Online session create/join flow in settings',
+    'All-providers scraper settings with no-login defaults',
+    'Broken-cover recovery and card fallback fixes',
+    'Reduced noisy scraper failures when index is missing',
+  ],
+  selectedRoadmap: {
+    style: 'Netflix',
+    landingSplit: true,
+    auth: 'email+google',
+    profiles: 'multi-profile with single-user-first focus',
+    avatars: 'upload + presets',
+    perProfileData: ['favorites', 'save slots', 'metadata preferences', 'display name', 'avatar'],
+    hashMatching: 'crc32 + md5/sha1',
+    launchboxDefault: false,
+    quietScraperMode: true,
+    rescrapeBrokenOnly: true,
+    heroBanners: 'auto + custom toggle',
+    cloudHealthPanel: true,
+    backupRestoreFull: true,
+  },
+  nextSteps: [
+    'Landing page + /app split',
+    'Auth + multi-profile model',
+    'Avatar upload/preset manager',
+    'Hash-based metadata matcher',
+    'Cloud health and backup/restore dashboard',
+  ],
+};
+
+function getLandingHTML() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RetroVault Cloud</title>
+  <style>
+    :root { --bg:#0a0a0a; --card:#111; --line:#242424; --text:#f5f5f5; --muted:#a8a8a8; --accent:#e50914; --ok:#1db954; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:radial-gradient(circle at 20% 0%, #151515 0%, #090909 40%, #060606 100%); color:var(--text); }
+    .wrap { max-width:1080px; margin:0 auto; padding:28px 18px 64px; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:28px; }
+    .logo { font-weight:900; letter-spacing:2px; color:var(--accent); font-size:20px; }
+    .btn { border:1px solid var(--line); background:#171717; color:var(--text); padding:10px 14px; border-radius:8px; cursor:pointer; text-decoration:none; display:inline-block; font-size:14px; }
+    .btn.primary { background:var(--accent); border-color:var(--accent); font-weight:700; }
+    .hero { border:1px solid var(--line); background:linear-gradient(120deg, rgba(229,9,20,.22), rgba(20,20,20,.85) 45%, rgba(9,9,9,.96)); border-radius:16px; padding:26px; margin-bottom:18px; }
+    .eyebrow { font-size:11px; color:#ff8d95; letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+    .h1 { font-size:40px; line-height:1.05; font-weight:900; margin:0 0 10px; }
+    .sub { color:var(--muted); font-size:15px; max-width:760px; line-height:1.6; }
+    .cta { margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:16px; }
+    .card { border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--card); }
+    .card h3 { margin:0 0 7px; font-size:14px; }
+    .card p { margin:0; color:var(--muted); font-size:13px; line-height:1.5; }
+    .pill { display:inline-flex; align-items:center; gap:6px; border:1px solid #214026; color:#8ff0a4; background:rgba(29,185,84,.12); border-radius:999px; padding:4px 10px; font-size:11px; margin-top:8px; }
+    .small { color:var(--muted); font-size:12px; margin-top:16px; line-height:1.6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="logo">RETROVAULT</div>
+      <a class="btn" href="/changelog">View API changelog JSON</a>
+    </div>
+    <section class="hero">
+      <div class="eyebrow">Cloud Retro Frontend</div>
+      <h1 class="h1">Netflix-style retro gaming,<br/>built for cloud sync.</h1>
+      <div class="sub">
+        Multi-profile roadmap, owner-scoped cloud libraries, scraper provider controls, metadata recovery,
+        and cloud-first ROM streaming are now live. Enter the app to manage your library and settings.
+      </div>
+      <div class="cta">
+        <a class="btn primary" href="/app">Open App</a>
+        <a class="btn" href="/github-integration-status">GitHub Integration Status</a>
+      </div>
+      <div class="pill">Version ${APP_RELEASE_VERSION}</div>
+    </section>
+    <section class="grid">
+      <article class="card">
+        <h3>What is new</h3>
+        <p>Owner sync, session controls, migration tools, all-provider scraping, and broken-cover auto-recovery.</p>
+      </article>
+      <article class="card">
+        <h3>Next planned</h3>
+        <p>Auth (email+google), multi-profile avatars, hash-based metadata (CRC32 + MD5/SHA1), and cloud health dashboards.</p>
+      </article>
+      <article class="card">
+        <h3>GitHub-ready</h3>
+        <p>Use the integration status endpoint and setup doc to wire repo automation and webhooks safely.</p>
+      </article>
+    </section>
+    <div class="small">
+      Tip: bookmark <code>/app</code> for direct access to the game frontend.
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getReleaseNotesHTML() {
+  const items = RELEASE_LOG.map(entry => {
+    const points = (entry.details || []).map(d => `<li>${d}</li>`).join('');
+    return `<article class="card"><h3>${entry.title}</h3><ul>${points}</ul></article>`;
+  }).join('');
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RetroVault Release Notes</title>
+  <style>
+    :root { --bg:#080808; --card:#121212; --line:#262626; --text:#f3f3f3; --muted:#ababab; --accent:#e50914; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+    .wrap { max-width:980px; margin:0 auto; padding:28px 18px 64px; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; }
+    .logo { color:var(--accent); font-weight:900; letter-spacing:2px; font-size:20px; }
+    .btn { border:1px solid var(--line); background:#171717; color:var(--text); padding:10px 14px; border-radius:8px; text-decoration:none; }
+    .hero { border:1px solid var(--line); border-radius:14px; padding:20px; background:linear-gradient(110deg, rgba(229,9,20,.12), rgba(20,20,20,.9) 40%, #0d0d0d); margin-bottom:16px; }
+    .hero h1 { margin:0 0 8px; font-size:30px; }
+    .hero p { margin:0; color:var(--muted); line-height:1.6; }
+    .grid { display:grid; gap:12px; }
+    .card { border:1px solid var(--line); border-radius:12px; background:var(--card); padding:14px; }
+    .card h3 { margin:0 0 8px; font-size:15px; }
+    .card ul { margin:0; padding-left:18px; color:var(--muted); line-height:1.55; }
+    .foot { margin-top:14px; color:var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="logo">RETROVAULT</div>
+      <div>
+        <a class="btn" href="/">Landing</a>
+        <a class="btn" href="/app">Open App</a>
+      </div>
+    </div>
+    <section class="hero">
+      <h1>Release Notes · ${APP_RELEASE_VERSION}</h1>
+      <p>Change log for owner-scoped cloud sync, session tools, scraper upgrades, UI stabilization, and roadmap prep.</p>
+    </section>
+    <section class="grid">${items}</section>
+    <div class="foot">JSON version: <code>/changelog</code></div>
+  </div>
+</body>
+</html>`;
+}
 
 function getHTML() {
   if (_cachedHtml) return _cachedHtml;
@@ -770,6 +964,10 @@ if(document.readyState === 'loading'){
     .replace(
       "onerror=\"this.style.display='none';var p=this.parentElement&&this.parentElement.querySelector('.gp');if(p)p.style.display='flex'\"",
       "onerror=\"this.style.display='none';var p=this.parentElement&&this.parentElement.querySelector('.gp');if(p)p.style.display='flex';if(window._rvMarkCoverBroken)window._rvMarkCoverBroken(${rom.id},this.src)\""
+    )
+    .replace(
+      "<button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>",
+      "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
     );
 
   _cachedHtml = html;
@@ -1806,6 +2004,75 @@ export default {
           status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
         });
       }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // RELEASE LOG + GITHUB INTEGRATION STATUS
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/changelog' || path === '/release-notes') {
+      return new Response(JSON.stringify({
+        ok: true,
+        version: APP_RELEASE_VERSION,
+        releaseLog: RELEASE_LOG,
+        roadmap: CHANGELOG_DATA.selectedRoadmap,
+        nextSteps: CHANGELOG_DATA.nextSteps,
+      }, null, 2), {
+        status: 200,
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
+    if (path === '/github-integration-status') {
+      const token = request.headers.get('X-GitHub-Token') || '';
+      const hasToken = token.length > 0;
+      return new Response(JSON.stringify({
+        ok: true,
+        version: APP_RELEASE_VERSION,
+        github: {
+          configured: hasToken,
+          authHeader: hasToken ? 'provided-via-header' : 'missing',
+          setupHint: 'Send X-GitHub-Token header for runtime integration checks.',
+          recommendedScopes: ['repo', 'workflow', 'read:org'],
+        },
+        endpoints: {
+          changelog: '/changelog',
+          releaseNotes: '/release-notes',
+          app: '/app',
+        },
+      }, null, 2), {
+        status: 200,
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // LANDING + APP
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/') {
+      const landing = getLandingHTML();
+      return new Response(landing, {
+        headers: {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'X-Content-Type-Options': 'nosniff',
+          ...corsHeaders(origin),
+        },
+      });
+    }
+
+    if (path === '/app') {
+      const html = getHTML();
+      return new Response(html, {
+        headers: {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'SAMEORIGIN',
+          'Cross-Origin-Opener-Policy': 'same-origin',
+          'Cross-Origin-Embedder-Policy': 'require-corp',
+          ...corsHeaders(origin),
+        },
+      });
     }
 
     // ════════════════════════════════════════════════════════════════════
