@@ -356,7 +356,23 @@ function _rvNormTitle(v){
 }
 
 function _rvProxyUrl(url){
-  return window.location.origin + '/scraper-proxy?url=' + encodeURIComponent(url);
+  return window.location.origin + '/scraper-proxy?url=' + encodeURIComponent(url) + '&soft404=1';
+}
+
+async function _rvProbeViaProxy(url){
+  try{
+    const resp = await fetch(_rvProxyUrl(url) + '&probe=1');
+    if(!resp.ok) return { ok:false, upstreamStatus: resp.status, missing:false };
+    const data = await resp.json().catch(()=>({}));
+    if(data && typeof data === 'object'){
+      const missing = !!(data.miss || (data.proxy && data.proxy.missing));
+      if(missing) return { ok:false, upstreamStatus: 404, missing:true };
+      return data;
+    }
+    return { ok:false, upstreamStatus: 0, missing:false };
+  }catch(e){
+    return { ok:false, upstreamStatus: 0, missing:false };
+  }
 }
 
 function _rvToPlainText(v){
@@ -408,7 +424,11 @@ async function _rvFetchJsonViaProxy(url, init){
   if(!resp.ok) throw new Error('HTTP '+resp.status);
   const text = await resp.text();
   try{
-    return JSON.parse(text);
+    const payload = JSON.parse(text);
+    if(payload && (payload.miss || (payload.proxy && payload.proxy.missing))){
+      return null;
+    }
+    return payload;
   }catch(e){
     throw new Error('Invalid JSON response');
   }
@@ -537,8 +557,8 @@ async function _rvScrapeLibretro(romId){
     const sysSeg = encodeURIComponent(sys);
     const boxUrl = 'https://thumbnails.libretro.com/' + sysSeg + '/Named_Boxarts/' + rel;
     try{
-      const probe = await fetch(_rvProxyUrl(boxUrl));
-      if(probe.ok){
+      const probe = await _rvProbeViaProxy(boxUrl);
+      if(probe && probe.ok){
         const changed = await _rvApplyMetaPatch(romId, { coverUrl: boxUrl }, 'libretro');
         if(changed) return true;
       }
@@ -3379,6 +3399,8 @@ export default {
     if (path === '/scraper-proxy') {
       const target = url.searchParams.get('url');
       if (!target) return new Response(JSON.stringify({ ok: false, error: 'Missing url' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+      const requestSoftNotFound = parseTruthyQueryValue(url.searchParams.get('softNotFound'))
+        || parseTruthyQueryValue(url.searchParams.get('soft404'));
 
       let targetUrl;
       try {
@@ -3387,6 +3409,18 @@ export default {
       } catch {
         return new Response(JSON.stringify({ ok: false, error: 'Invalid URL — must be HTTPS' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       }
+
+      const knownScrapeHosts = new Set([
+        'gamesdb.launchbox-app.com',
+        'thumbnails.libretro.com',
+        'en.wikipedia.org',
+        'www.wikidata.org',
+        'api.thegamesdb.net',
+        'api.mobygames.com',
+        'api.igdb.com',
+        'www.giantbomb.com',
+      ]);
+      const softNotFound = requestSoftNotFound || (method === 'GET' && knownScrapeHosts.has(targetUrl.hostname));
 
       try {
         const upstreamInit = {
@@ -3410,6 +3444,28 @@ export default {
         const upstream = await fetch(target, upstreamInit);
         const respText = await upstream.text();
         const upstreamCt = upstream.headers.get('Content-Type') || 'text/plain';
+        if (softNotFound && upstream.status === 404) {
+          return new Response(JSON.stringify({
+            ok: false,
+            miss: true,
+            status: 404,
+            url: target,
+            proxy: {
+              missing: true,
+              status: 404,
+              host: targetUrl.hostname,
+            },
+          }), {
+            status: 200,
+            headers: {
+              ...corsHeaders(origin),
+              'Content-Type': 'application/json',
+              'Cache-Control': 'public, max-age=300',
+              'X-Retrovault-Soft-Miss': '1',
+              'X-Proxied-By': 'RetroVault Worker',
+            },
+          });
+        }
 
         return new Response(respText, {
           status: upstream.status,
