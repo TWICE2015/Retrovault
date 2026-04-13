@@ -41,6 +41,203 @@ const CHUNKS = [
 
 // ── HTML cache ────────────────────────────────────────────────────────────
 let _cachedHtml = null;
+let _cachedLandingHtml = null;
+
+const RELEASE_LOG = [
+  {
+    id: '2026-04-13-a',
+    title: 'Owner-scoped cloud sync and migration',
+    details: [
+      'R2 sync is owner-scoped to keep user libraries isolated.',
+      'Shared Sync Owner ID can be reused across devices.',
+      'Legacy bucket migration tool added (preview + migrate).',
+    ],
+  },
+  {
+    id: '2026-04-13-b',
+    title: 'Online sessions and settings UX updates',
+    details: [
+      'Private Online Session create/join flow added.',
+      'Session controls moved into main Settings panel.',
+      'Home/library refresh behavior tightened after sync/upload.',
+    ],
+  },
+  {
+    id: '2026-04-13-c',
+    title: 'All-provider scraper controls',
+    details: [
+      'Per-provider toggles and API fields were added.',
+      'LaunchBox is now disabled by default.',
+      'No-login providers are prioritized first.',
+    ],
+  },
+  {
+    id: '2026-04-13-d',
+    title: 'Cover-art resilience improvements',
+    details: [
+      'Broken cover URLs are tracked and auto-retried.',
+      'Card fallback visuals now restore reliably.',
+      'Metadata updates avoid known-bad cover URLs.',
+    ],
+  },
+];
+
+const APP_RELEASE_VERSION = '2026.04.13-cloud-plus';
+const CHANGELOG_DATA = {
+  version: APP_RELEASE_VERSION,
+  updatedAt: '2026-04-13',
+  highlights: [
+    'Owner-scoped cloud ROM sync and migration tools',
+    'Online session create/join flow in settings',
+    'All-providers scraper settings with no-login defaults',
+    'Broken-cover recovery and card fallback fixes',
+    'Reduced noisy scraper failures when index is missing',
+  ],
+  selectedRoadmap: {
+    style: 'Netflix',
+    landingSplit: true,
+    auth: 'email+google',
+    profiles: 'multi-profile with single-user-first focus',
+    avatars: 'upload + presets',
+    perProfileData: ['favorites', 'save slots', 'metadata preferences', 'display name', 'avatar'],
+    hashMatching: 'crc32 + md5/sha1',
+    launchboxDefault: false,
+    quietScraperMode: true,
+    rescrapeBrokenOnly: true,
+    heroBanners: 'auto + custom toggle',
+    cloudHealthPanel: true,
+    backupRestoreFull: true,
+  },
+  nextSteps: [
+    'Landing page + /app split',
+    'Auth + multi-profile model',
+    'Avatar upload/preset manager',
+    'Hash-based metadata matcher',
+    'Cloud health and backup/restore dashboard',
+  ],
+};
+
+function getLandingHTML() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RetroVault Cloud</title>
+  <style>
+    :root { --bg:#0a0a0a; --card:#111; --line:#242424; --text:#f5f5f5; --muted:#a8a8a8; --accent:#e50914; --ok:#1db954; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:radial-gradient(circle at 20% 0%, #151515 0%, #090909 40%, #060606 100%); color:var(--text); }
+    .wrap { max-width:1080px; margin:0 auto; padding:28px 18px 64px; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:28px; }
+    .logo { font-weight:900; letter-spacing:2px; color:var(--accent); font-size:20px; }
+    .btn { border:1px solid var(--line); background:#171717; color:var(--text); padding:10px 14px; border-radius:8px; cursor:pointer; text-decoration:none; display:inline-block; font-size:14px; }
+    .btn.primary { background:var(--accent); border-color:var(--accent); font-weight:700; }
+    .hero { border:1px solid var(--line); background:linear-gradient(120deg, rgba(229,9,20,.22), rgba(20,20,20,.85) 45%, rgba(9,9,9,.96)); border-radius:16px; padding:26px; margin-bottom:18px; }
+    .eyebrow { font-size:11px; color:#ff8d95; letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+    .h1 { font-size:40px; line-height:1.05; font-weight:900; margin:0 0 10px; }
+    .sub { color:var(--muted); font-size:15px; max-width:760px; line-height:1.6; }
+    .cta { margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:16px; }
+    .card { border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--card); }
+    .card h3 { margin:0 0 7px; font-size:14px; }
+    .card p { margin:0; color:var(--muted); font-size:13px; line-height:1.5; }
+    .pill { display:inline-flex; align-items:center; gap:6px; border:1px solid #214026; color:#8ff0a4; background:rgba(29,185,84,.12); border-radius:999px; padding:4px 10px; font-size:11px; margin-top:8px; }
+    .small { color:var(--muted); font-size:12px; margin-top:16px; line-height:1.6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="logo">RETROVAULT</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a class="btn" href="/release-notes">What's New</a>
+        <a class="btn" href="/changelog">API changelog JSON</a>
+      </div>
+    </div>
+    <section class="hero">
+      <div class="eyebrow">Cloud Retro Frontend</div>
+      <h1 class="h1">Netflix-style retro gaming,<br/>built for cloud sync.</h1>
+      <div class="sub">
+        Multi-profile roadmap, owner-scoped cloud libraries, scraper provider controls, metadata recovery,
+        and cloud-first ROM streaming are now live. Enter the app to manage your library and settings.
+      </div>
+      <div class="cta">
+        <a class="btn primary" href="/app">Open App</a>
+        <a class="btn" href="/github-integration-status">GitHub Integration Status</a>
+      </div>
+      <div class="pill">Version ${APP_RELEASE_VERSION}</div>
+    </section>
+    <section class="grid">
+      <article class="card">
+        <h3>What is new</h3>
+        <p>Owner sync, session controls, migration tools, all-provider scraping, and broken-cover auto-recovery.</p>
+      </article>
+      <article class="card">
+        <h3>Next planned</h3>
+        <p>Auth (email+google), multi-profile avatars, hash-based metadata (CRC32 + MD5/SHA1), and cloud health dashboards.</p>
+      </article>
+      <article class="card">
+        <h3>GitHub-ready</h3>
+        <p>Use the integration status endpoint and setup doc to wire repo automation and webhooks safely.</p>
+      </article>
+    </section>
+    <div class="small">
+      Tip: bookmark <code>/app</code> for direct access to the game frontend.
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getReleaseNotesHTML() {
+  const items = RELEASE_LOG.map(entry => {
+    const points = (entry.details || []).map(d => `<li>${d}</li>`).join('');
+    return `<article class="card"><h3>${entry.title}</h3><ul>${points}</ul></article>`;
+  }).join('');
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RetroVault Release Notes</title>
+  <style>
+    :root { --bg:#080808; --card:#121212; --line:#262626; --text:#f3f3f3; --muted:#ababab; --accent:#e50914; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+    .wrap { max-width:980px; margin:0 auto; padding:28px 18px 64px; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; }
+    .logo { color:var(--accent); font-weight:900; letter-spacing:2px; font-size:20px; }
+    .btn { border:1px solid var(--line); background:#171717; color:var(--text); padding:10px 14px; border-radius:8px; text-decoration:none; }
+    .hero { border:1px solid var(--line); border-radius:14px; padding:20px; background:linear-gradient(110deg, rgba(229,9,20,.12), rgba(20,20,20,.9) 40%, #0d0d0d); margin-bottom:16px; }
+    .hero h1 { margin:0 0 8px; font-size:30px; }
+    .hero p { margin:0; color:var(--muted); line-height:1.6; }
+    .grid { display:grid; gap:12px; }
+    .card { border:1px solid var(--line); border-radius:12px; background:var(--card); padding:14px; }
+    .card h3 { margin:0 0 8px; font-size:15px; }
+    .card ul { margin:0; padding-left:18px; color:var(--muted); line-height:1.55; }
+    .foot { margin-top:14px; color:var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="logo">RETROVAULT</div>
+      <div>
+        <a class="btn" href="/">Landing</a>
+        <a class="btn" href="/app">Open App</a>
+      </div>
+    </div>
+    <section class="hero">
+      <h1>Release Notes · ${APP_RELEASE_VERSION}</h1>
+      <p>Change log for owner-scoped cloud sync, session tools, scraper upgrades, UI stabilization, and roadmap prep.</p>
+    </section>
+    <section class="grid">${items}</section>
+    <div class="foot">JSON version: <code>/changelog</code></div>
+  </div>
+</body>
+</html>`;
+}
 
 function getHTML() {
   if (_cachedHtml) return _cachedHtml;
@@ -48,7 +245,1607 @@ function getHTML() {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  _cachedHtml = new TextDecoder('utf-8').decode(bytes);
+  let html = new TextDecoder('utf-8').decode(bytes);
+
+  // Inject owner-scoped sync calls into the embedded app so every browser
+  // gets an isolated R2 namespace without requiring a separate frontend build.
+  if (!html.includes('function _rvOwnerId(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const ownerHelper = "function _rvNormalizeOwner(v){ return String(v||'').trim().replace(/[^a-zA-Z0-9._-]/g,'').slice(0,128); }\nfunction _rvOwnerId(){ const k='rv-owner-id'; let v=_rvNormalizeOwner(localStorage.getItem(k)); if(!v){ v='u_'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem(k,v); } return v; }\nfunction _rvSetOwnerId(v){ const id=_rvNormalizeOwner(v); if(!id) return null; localStorage.setItem('rv-owner-id',id); return id; }\nfunction _rvMakeCard(title){ const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='10px'; const h=document.createElement('div'); h.style.fontWeight='700'; h.style.marginBottom='8px'; h.textContent=title; card.appendChild(h); return card; }\nfunction _rvInitOwnerControls(){ const r2Input=document.getElementById('r2UrlInput'); if(!r2Input||document.getElementById('rvOwnerInput')) return; const host=r2Input.closest('#rt-cloud')||r2Input.parentElement||r2Input; const card=_rvMakeCard('Shared Sync Owner'); const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvOwnerInput'; input.type='text'; input.placeholder='owner id (e.g. main)'; input.value=_rvOwnerId(); input.autocomplete='off'; input.spellcheck=false; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const btn=document.createElement('button'); btn.type='button'; btn.className='bb s'; btn.textContent='Save Owner'; btn.onclick=()=>{ const saved=_rvSetOwnerId(input.value); if(!saved){ toast('Enter a valid Owner ID (letters, numbers, . _ -)','err'); return; } input.value=saved; toast('Owner ID saved: '+saved); }; row.appendChild(input); row.appendChild(btn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; card.appendChild(row); card.appendChild(note); host.appendChild(card); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitOwnerControls); else setTimeout(_rvInitOwnerControls,0);\n";
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, ownerHelper + helperAnchor);
+    }
+  }
+
+  if (!html.includes('function _rvOwnerFromInput(') && html.includes('function _rvOwnerId(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const ownerInputBridge = "function _rvOwnerFromInput(){ const el=document.getElementById('rvOwnerInput'); if(!el) return ''; const v=_rvNormalizeOwner(el.value); if(!v) return ''; localStorage.setItem('rv-owner-id',v); return v; }\nconst __rvOwnerIdOriginal=_rvOwnerId; _rvOwnerId=function(){ return _rvOwnerFromInput() || __rvOwnerIdOriginal(); };\n";
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, helperAnchor + ownerInputBridge);
+    }
+  }
+
+  if (!html.includes('function _rvSessionPassword(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const sessionHelper = "function _rvNormalizeSessionPassword(v){ return String(v||'').trim().slice(0,64); }\nfunction _rvSessionPassword(){ return _rvNormalizeSessionPassword(localStorage.getItem('rv-session-password')); }\nfunction _rvSetSessionPassword(v){ const clean=_rvNormalizeSessionPassword(v); if(clean.length<4){ return null; } localStorage.setItem('rv-session-password', clean); return clean; }\nfunction _rvSessionStatus(msg, state){ const el=document.getElementById('rvSessionStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }\nasync function _rvCreateSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } try{ const resp=await fetch(window.location.origin+'/session-create',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password, hostName:(typeof _rvOwnerId==='function'?_rvOwnerId():'host') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', data.sessionId); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(data.sessionId).catch(()=>{}); } _rvSessionStatus('Session created: '+data.sessionId+' (copied to clipboard)','ok'); }catch(e){ _rvSessionStatus('Create session failed: '+e.message,'err'); } }\nasync function _rvJoinSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } const prev=localStorage.getItem('rv-last-session-id')||''; const sessionId=String(prompt('Enter session code',prev)||'').trim(); if(!sessionId){ return; } try{ const resp=await fetch(window.location.origin+'/session-join',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ sessionId, password, playerName:(typeof _rvOwnerId==='function'?_rvOwnerId():'player') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', sessionId); _rvSessionStatus('Joined session '+sessionId+' ('+(data.memberCount||0)+' players)','ok'); }catch(e){ _rvSessionStatus('Join failed: '+e.message,'err'); } }\nfunction _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=()=>{ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=_rvCreateSession; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=_rvJoinSession; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Only users with the same session code + password can join.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Set your password, then create or join a private session.'; card.appendChild(title); card.appendChild(row); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitSessionControls); else setTimeout(_rvInitSessionControls,0);\n";
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, sessionHelper + helperAnchor);
+    }
+  }
+
+  if (!html.includes('function _rvGetScrapeSourceConfig(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const scraperSourceHelper = `
+function _rvScrapeSourceDefaults(){
+  return {
+    providers: {
+      launchbox: false,
+      wikipedia: true,
+      libretro: true,
+      openvgdb: false,
+      thegamesdb: false,
+      mobygames: false,
+      igdb: false,
+      giantbomb: false,
+      screenscraper: false
+    },
+    tgdbKey: '',
+    mobyKey: '',
+    igdbClientId: '',
+    igdbToken: '',
+    giantbombKey: '',
+    openvgdbUrl: '',
+    quietExpectedMisses: true
+  };
+}
+
+function _rvGetScrapeSourceConfig(){
+  const defaults = _rvScrapeSourceDefaults();
+  try{
+    const raw = localStorage.getItem('rv-scrape-sources');
+    if(!raw) return defaults;
+    const parsed = JSON.parse(raw);
+    const cfg = Object.assign({}, defaults, parsed || {});
+    cfg.providers = Object.assign({}, defaults.providers, (parsed && parsed.providers) || {});
+    return cfg;
+  }catch(e){
+    return defaults;
+  }
+}
+
+function _rvSaveScrapeSourceConfig(cfg){
+  localStorage.setItem('rv-scrape-sources', JSON.stringify(cfg || _rvScrapeSourceDefaults()));
+}
+
+function _rvQuietExpectedMissesEnabled(){
+  const cfg = _rvGetScrapeSourceConfig();
+  return cfg.quietExpectedMisses !== false;
+}
+
+function _rvShouldQuietExpectedMissMessage(message){
+  if(!_rvQuietExpectedMissesEnabled()) return false;
+  const msg = String(message || '').toLowerCase();
+  return msg.includes('http 404')
+    || msg.includes('index_missing')
+    || msg.includes('no enabled provider matched')
+    || msg.includes('credentials are missing');
+}
+
+function _rvLogScrapeInfo(message){
+  if(typeof logScrape === 'function') logScrape(String(message || ''));
+}
+
+function _rvLogScrapeWarn(message){
+  const text = String(message || '');
+  if(_rvShouldQuietExpectedMissMessage(text)) return;
+  if(typeof logScrape === 'function') logScrape(text);
+}
+
+function _rvCleanScrapeName(name){
+  return String(name || '')
+    .replace(/_/g,' ')
+    .replace(/\\s*[\\(\\[][^\)\\]]*[\\)\\]]/g,'')
+    .replace(/\\s+-\\s*(Rev|Version|v)\\s*[\\d.]+\\s*$/i,'')
+    .replace(/\\s+(USA|Europe|Japan|World|En|Fr|De|Es|It)\\s*$/i,'')
+    .replace(/\\s+/g,' ')
+    .trim();
+}
+
+function _rvNormTitle(v){
+  return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+
+function _rvProxyUrl(url){
+  return window.location.origin + '/scraper-proxy?url=' + encodeURIComponent(url);
+}
+
+function _rvToPlainText(v){
+  const text = String(v || '');
+  return text.replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim();
+}
+
+function _rvShouldScrapeRomForRepair(rom){
+  if(!rom) return false;
+  const cover = _rvNormCoverUrl(rom.coverUrl);
+  return !cover || _rvIsBadCoverUrl(cover);
+}
+
+function _rvNormCoverUrl(v){
+  const raw = String(v || '').trim();
+  if(!raw) return '';
+  if(raw.startsWith('//')) return 'https:' + raw;
+  return raw;
+}
+
+function _rvGetBadCoverList(){
+  try{
+    const arr = JSON.parse(localStorage.getItem('rv-bad-cover-urls') || '[]');
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function _rvRememberBadCoverUrl(url){
+  const norm = _rvNormCoverUrl(url);
+  if(!norm) return;
+  const list = _rvGetBadCoverList();
+  if(list.includes(norm)) return;
+  list.push(norm);
+  while(list.length > 400) list.shift();
+  localStorage.setItem('rv-bad-cover-urls', JSON.stringify(list));
+}
+
+function _rvIsBadCoverUrl(url){
+  const norm = _rvNormCoverUrl(url);
+  if(!norm) return false;
+  const list = _rvGetBadCoverList();
+  return list.includes(norm);
+}
+
+async function _rvFetchJsonViaProxy(url, init){
+  const resp = await fetch(_rvProxyUrl(url), init || {});
+  if(!resp.ok) throw new Error('HTTP '+resp.status);
+  const text = await resp.text();
+  try{
+    return JSON.parse(text);
+  }catch(e){
+    throw new Error('Invalid JSON response');
+  }
+}
+
+async function _rvApplyMetaPatch(romId, patch, source){
+  const rom = await dbGet('roms', romId);
+  if(!rom || !patch) return false;
+  let changed = false;
+  const incomingCover = _rvNormCoverUrl(patch.coverUrl);
+  const existingCover = _rvNormCoverUrl(rom.coverUrl);
+
+  // Replace missing or previously-broken covers with a new candidate.
+  if(incomingCover && !_rvIsBadCoverUrl(incomingCover)){
+    if(!existingCover || _rvIsBadCoverUrl(existingCover)){
+      rom.coverUrl = incomingCover;
+      changed = true;
+    }
+  }
+
+  const setIfEmpty = (field, value) => {
+    if(value == null || value === '') return;
+    if(!rom[field]){
+      rom[field] = value;
+      changed = true;
+    }
+  };
+  setIfEmpty('description', patch.description);
+  setIfEmpty('year', patch.year);
+  setIfEmpty('rating', patch.rating);
+  setIfEmpty('developer', patch.developer);
+  setIfEmpty('genres', patch.genres);
+  if(changed){
+    await dbPut('roms', rom);
+    await r2SaveMeta(rom);
+    _rvLogScrapeInfo('[sources] ✓ ' + source + ' updated metadata for ' + rom.name);
+  }
+  return changed;
+}
+
+async function _rvMarkCoverBroken(romId, badUrl){
+  const normBad = _rvNormCoverUrl(badUrl);
+  if(normBad) _rvRememberBadCoverUrl(normBad);
+  try{
+    const rom = await dbGet('roms', romId);
+    if(!rom) return;
+    const current = _rvNormCoverUrl(rom.coverUrl);
+    if(current && normBad && current === normBad){
+      rom.coverUrl = null;
+      await dbPut('roms', rom);
+      await r2SaveMeta(rom);
+      // Re-try metadata using remaining enabled providers.
+      const running = window.__rvCoverRescrapeInFlight || (window.__rvCoverRescrapeInFlight = new Set());
+      if(!running.has(romId) && typeof autoScrapeWithFallback === 'function'){
+        running.add(romId);
+        const creds = (typeof getSsCreds === 'function') ? getSsCreds() : null;
+        autoScrapeWithFallback(romId, creds).catch(()=>{}).finally(()=>running.delete(romId));
+      }
+    }
+  }catch(e){}
+}
+
+async function _rvScrapeWikipediaWikidata(romId){
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename);
+  if(!q) return false;
+  const patch = {};
+  try{
+    const wiki = await _rvFetchJsonViaProxy('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(q));
+    if(wiki){
+      if(wiki.extract) patch.description = wiki.extract;
+      if(wiki.thumbnail && wiki.thumbnail.source) patch.coverUrl = wiki.thumbnail.source;
+      const y = String(wiki.description || '').match(/\\b(19|20)\\d{2}\\b/);
+      if(y) patch.year = y[0];
+    }
+  }catch(e){
+    _rvLogScrapeWarn('[wikipedia] ' + q + ' — ' + e.message);
+  }
+  try{
+    const search = await _rvFetchJsonViaProxy('https://www.wikidata.org/w/api.php?action=wbsearchentities&language=en&format=json&type=item&search=' + encodeURIComponent(q));
+    const qid = search && search.search && search.search[0] && search.search[0].id;
+    if(qid){
+      const entity = await _rvFetchJsonViaProxy('https://www.wikidata.org/wiki/Special:EntityData/' + qid + '.json');
+      const claims = entity && entity.entities && entity.entities[qid] && entity.entities[qid].claims;
+      const releaseTime = claims && claims.P577 && claims.P577[0] && claims.P577[0].mainsnak && claims.P577[0].mainsnak.datavalue && claims.P577[0].mainsnak.datavalue.value && claims.P577[0].mainsnak.datavalue.value.time;
+      const ym = String(releaseTime || '').match(/(19|20)\\d{2}/);
+      if(ym && !patch.year) patch.year = ym[0];
+    }
+  }catch(e){
+    _rvLogScrapeWarn('[wikidata] ' + q + ' — ' + e.message);
+  }
+  return _rvApplyMetaPatch(romId, patch, 'wikipedia/wikidata');
+}
+
+function _rvLibretroSystem(consoleId){
+  const map = {
+    nes: 'Nintendo - Nintendo Entertainment System',
+    snes: 'Nintendo - Super Nintendo Entertainment System',
+    n64: 'Nintendo - Nintendo 64',
+    gb: 'Nintendo - Game Boy',
+    gbc: 'Nintendo - Game Boy Color',
+    gba: 'Nintendo - Game Boy Advance',
+    nds: 'Nintendo - Nintendo DS',
+    genesis: 'Sega - Mega Drive - Genesis',
+    saturn: 'Sega - Saturn',
+    dreamcast: 'Sega - Dreamcast',
+    psx: 'Sony - PlayStation',
+    psp: 'Sony - PlayStation Portable',
+    atari2600: 'Atari - 2600',
+    atari7800: 'Atari - 7800'
+  };
+  return map[consoleId] || null;
+}
+
+async function _rvScrapeLibretro(romId){
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const sys = _rvLibretroSystem(rom.console);
+  if(!sys) return false;
+  const baseName = _rvCleanScrapeName(rom.name || rom.filename).replace(/:/g, ' - ');
+  if(!baseName) return false;
+  const candidates = [baseName, baseName.replace(/\\s+-\\s+.*$/,'').trim()].filter(Boolean);
+  for(const title of candidates){
+    const rel = encodeURIComponent(title) + '.png';
+    const sysSeg = encodeURIComponent(sys);
+    const boxUrl = 'https://thumbnails.libretro.com/' + sysSeg + '/Named_Boxarts/' + rel;
+    try{
+      const probe = await fetch(_rvProxyUrl(boxUrl));
+      if(probe.ok){
+        const changed = await _rvApplyMetaPatch(romId, { coverUrl: boxUrl }, 'libretro');
+        if(changed) return true;
+      }
+    }catch(e){}
+  }
+  return false;
+}
+
+async function _rvScrapeTheGamesDb(romId, cfg){
+  const key = String((cfg && cfg.tgdbKey) || '').trim();
+  if(!key) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename);
+  if(!q) return false;
+  try{
+    const url = 'https://api.thegamesdb.net/v1.1/Games/ByGameName?apikey=' + encodeURIComponent(key) + '&name=' + encodeURIComponent(q) + '&include=boxart';
+    const data = await _rvFetchJsonViaProxy(url);
+    const game = data && data.data && data.data.games && data.data.games[0];
+    if(!game) return false;
+    const patch = {
+      description: game.overview || '',
+      year: (game.release_date || '').slice(0,4),
+    };
+    const box = data && data.include && data.include.boxart;
+    const base = (box && box.base_url && (box.base_url.original || box.base_url.thumb)) || '';
+    const list = box && box.data && (box.data[game.id] || box.data[String(game.id)]);
+    if(base && Array.isArray(list) && list.length){
+      const front = list.find(x => /front/i.test(String(x.side||''))) || list[0];
+      if(front && front.filename) patch.coverUrl = base + front.filename;
+    }
+    return _rvApplyMetaPatch(romId, patch, 'thegamesdb');
+  }catch(e){
+    _rvLogScrapeWarn('[thegamesdb] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+async function _rvScrapeMobyGames(romId, cfg){
+  const key = String((cfg && cfg.mobyKey) || '').trim();
+  if(!key) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename);
+  if(!q) return false;
+  try{
+    const url = 'https://api.mobygames.com/v1/games?api_key=' + encodeURIComponent(key) + '&title=' + encodeURIComponent(q) + '&limit=1';
+    const data = await _rvFetchJsonViaProxy(url);
+    const game = data && data.games && data.games[0];
+    if(!game) return false;
+    const patch = {
+      description: _rvToPlainText(game.description || game.short_description || ''),
+      year: String(game.first_release_date || '').slice(0,4),
+      developer: (game.developers && game.developers[0] && game.developers[0].name) || '',
+    };
+    if(game.sample_cover && game.sample_cover.image) patch.coverUrl = game.sample_cover.image;
+    return _rvApplyMetaPatch(romId, patch, 'mobygames');
+  }catch(e){
+    _rvLogScrapeWarn('[mobygames] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+async function _rvScrapeIgdb(romId, cfg){
+  const clientId = String((cfg && cfg.igdbClientId) || '').trim();
+  const token = String((cfg && cfg.igdbToken) || '').trim();
+  if(!clientId || !token) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename).replace(/"/g,'');
+  if(!q) return false;
+  try{
+    const query = 'search "' + q + '"; fields name,summary,first_release_date,cover.image_id,rating; limit 1;';
+    const resp = await fetch(_rvProxyUrl('https://api.igdb.com/v4/games'), {
+      method:'POST',
+      headers:{
+        'Content-Type':'text/plain',
+        'Client-ID': clientId,
+        'Authorization': 'Bearer ' + token,
+      },
+      body: query,
+    });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const list = await resp.json();
+    const game = Array.isArray(list) ? list[0] : null;
+    if(!game) return false;
+    const patch = {
+      description: game.summary || '',
+      year: game.first_release_date ? String(new Date(game.first_release_date * 1000).getUTCFullYear()) : '',
+      rating: Number.isFinite(game.rating) ? (Math.max(0, Math.min(100, game.rating))/20).toFixed(1) + '/5' : '',
+    };
+    if(game.cover && game.cover.image_id) patch.coverUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/' + game.cover.image_id + '.jpg';
+    return _rvApplyMetaPatch(romId, patch, 'igdb');
+  }catch(e){
+    _rvLogScrapeWarn('[igdb] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+async function _rvScrapeGiantBomb(romId, cfg){
+  const key = String((cfg && cfg.giantbombKey) || '').trim();
+  if(!key) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename);
+  if(!q) return false;
+  try{
+    const url = 'https://www.giantbomb.com/api/search/?api_key=' + encodeURIComponent(key) + '&format=json&resources=game&limit=1&query=' + encodeURIComponent(q);
+    const data = await _rvFetchJsonViaProxy(url);
+    const game = data && data.results && data.results[0];
+    if(!game) return false;
+    const patch = {
+      description: _rvToPlainText(game.deck || game.description || ''),
+    };
+    const ym = String(game.original_release_date || game.expected_release_year || '').match(/(19|20)\\d{2}/);
+    if(ym) patch.year = ym[0];
+    if(game.image) patch.coverUrl = game.image.medium_url || game.image.original_url || '';
+    return _rvApplyMetaPatch(romId, patch, 'giantbomb');
+  }catch(e){
+    _rvLogScrapeWarn('[giantbomb] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+async function _rvScrapeOpenVgdb(romId, cfg){
+  const url = String((cfg && cfg.openvgdbUrl) || '').trim();
+  if(!url) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvNormTitle(_rvCleanScrapeName(rom.name || rom.filename));
+  if(!q) return false;
+  try{
+    const data = await _rvFetchJsonViaProxy(url);
+    const list = Array.isArray(data) ? data : (Array.isArray(data && data.games) ? data.games : []);
+    if(!list.length) return false;
+    let match = list.find(g => _rvNormTitle(g && (g.title || g.name)) === q);
+    if(!match) match = list.find(g => _rvNormTitle(g && (g.title || g.name)).includes(q));
+    if(!match) return false;
+    const patch = {
+      description: _rvToPlainText(match.overview || match.description || ''),
+      year: String(match.releaseYear || match.year || '').slice(0,4),
+      coverUrl: match.coverUrl || match.cover || '',
+      developer: match.developer || '',
+      genres: match.genres || '',
+    };
+    return _rvApplyMetaPatch(romId, patch, 'openvgdb');
+  }catch(e){
+    _rvLogScrapeWarn('[openvgdb] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+function _rvScrapeProviderOrder(){
+  // Default priority: no-login first, optional API/login sources after.
+  return ['libretro','wikipedia','launchbox','thegamesdb','mobygames','igdb','giantbomb','openvgdb','screenscraper'];
+}
+
+async function _rvRunScrapeProvider(providerId, romId, ssCreds, cfg){
+  if(providerId === 'launchbox'){
+    await lbScrapeRom(romId);
+    const updated = await dbGet('roms', romId);
+    return !!(updated && (updated.coverUrl || updated.description));
+  }
+  if(providerId === 'screenscraper'){
+    if(!(ssCreds && ssCreds.user)){
+      _rvLogScrapeWarn('[sources] ScreenScraper enabled but credentials are missing — skipped');
+      return false;
+    }
+    await scrapeRomById(romId, ssCreds);
+    const updated = await dbGet('roms', romId);
+    return !!(updated && (updated.coverUrl || updated.description));
+  }
+  if(providerId === 'wikipedia') return _rvScrapeWikipediaWikidata(romId);
+  if(providerId === 'libretro') return _rvScrapeLibretro(romId);
+  if(providerId === 'thegamesdb') return _rvScrapeTheGamesDb(romId, cfg);
+  if(providerId === 'mobygames') return _rvScrapeMobyGames(romId, cfg);
+  if(providerId === 'igdb') return _rvScrapeIgdb(romId, cfg);
+  if(providerId === 'giantbomb') return _rvScrapeGiantBomb(romId, cfg);
+  if(providerId === 'openvgdb') return _rvScrapeOpenVgdb(romId, cfg);
+  return false;
+}
+
+async function _rvAutoScrapeAllSources(romId, ssCreds){
+  const rom = await dbGet('roms', romId);
+  if(!rom) return;
+  const cfg = _rvGetScrapeSourceConfig();
+  const order = _rvScrapeProviderOrder();
+  const active = order.filter(id => cfg.providers && cfg.providers[id]);
+  if(!active.length){
+    _rvLogScrapeWarn('[sources] All providers disabled — skipping scrape for this game');
+    if(typeof toast === 'function') toast('All scraper providers are disabled in Sources settings','warn');
+    return;
+  }
+  _rvLogScrapeInfo('[sources] Active providers: ' + active.join(', '));
+  let done = false;
+  for(const provider of active){
+    try{
+      _rvLogScrapeInfo('[sources] Trying ' + provider + ' for ' + rom.name);
+      const ok = await _rvRunScrapeProvider(provider, romId, ssCreds, cfg);
+      if(ok){
+        done = true;
+        _rvLogScrapeInfo('[sources] ✓ ' + provider + ' matched ' + rom.name);
+        break;
+      }
+    }catch(e){
+      _rvLogScrapeWarn('[sources] ' + provider + ' failed: ' + e.message);
+    }
+  }
+  if(!done) _rvLogScrapeWarn('[sources] ⚠ No enabled provider matched ' + rom.name);
+  if(cloudSignedIn()) sbPush().catch(()=>{});
+  await refreshAll();
+}
+
+async function _rvScrapeBrokenOnly(){
+  const creds = (typeof getSsCreds === 'function') ? getSsCreds() : null;
+  const roms = await dbGetAll('roms');
+  const targets = (roms || []).filter(_rvShouldScrapeRomForRepair);
+  if(!targets.length){
+    if(typeof toast==='function') toast('No missing/broken covers found','warn');
+    const st = document.getElementById('rvSourceCfgStatus');
+    if(st) st.textContent = 'No missing/broken covers to repair.';
+    return { scanned: roms.length || 0, repaired: 0 };
+  }
+  const st = document.getElementById('rvSourceCfgStatus');
+  if(st) st.textContent = 'Repairing ' + targets.length + ' missing/broken cover(s)…';
+  const prog = document.getElementById('scrProg');
+  if(prog) prog.style.display = 'block';
+  let repaired = 0;
+  for(let i=0;i<targets.length;i++){
+    const rom = targets[i];
+    const pct = Math.round((i / Math.max(1, targets.length)) * 100);
+    const fill = document.getElementById('scrFill');
+    const pctEl = document.getElementById('scrPct');
+    const sub = document.getElementById('scrSub');
+    if(fill) fill.style.width = pct + '%';
+    if(pctEl) pctEl.textContent = pct + '%';
+    if(sub) sub.textContent = 'Repairing: ' + (rom && rom.name ? rom.name : ('#'+i));
+    try{
+      await _rvAutoScrapeAllSources(rom.id, creds);
+      repaired++;
+    }catch(e){
+      _rvLogScrapeWarn('[sources] repair failed for ' + (rom && rom.name ? rom.name : ('#'+i)) + ': ' + e.message);
+    }
+    await new Promise(r=>setTimeout(r,850));
+  }
+  const fill = document.getElementById('scrFill');
+  const pctEl = document.getElementById('scrPct');
+  const sub = document.getElementById('scrSub');
+  if(fill) fill.style.width = '100%';
+  if(pctEl) pctEl.textContent = '100%';
+  if(sub) sub.textContent = 'Repair finished';
+  if(st) st.textContent = 'Repair complete: ' + repaired + '/' + targets.length + ' processed.';
+  if(typeof toast==='function') toast('Repair complete: ' + repaired + '/' + targets.length);
+  return { scanned: roms.length || 0, repaired };
+}
+
+function _rvPatchScrapePipeline(){
+  if(window.__rvAllSourcesPatched) return;
+  if(typeof autoScrapeWithFallback !== 'function') return;
+  window.__rvAutoScrapeWithFallbackOriginal = autoScrapeWithFallback;
+  autoScrapeWithFallback = async function(romId, ssCreds){
+    return _rvAutoScrapeAllSources(romId, ssCreds);
+  };
+  if(typeof scrapeMissing === 'function'){
+    window.__rvScrapeMissingOriginal = scrapeMissing;
+    scrapeMissing = async function(){
+      return _rvScrapeBrokenOnly();
+    };
+  }
+  window._rvScrapeBrokenOnly = _rvScrapeBrokenOnly;
+  window.__rvAllSourcesPatched = true;
+}
+
+function _rvInitScrapeSourceControls(){
+  const host = document.getElementById('sc-sources');
+  if(!host || document.getElementById('rvScrapeSourcesCard')) return;
+  const cfg = _rvGetScrapeSourceConfig();
+  const card = document.createElement('div');
+  card.id = 'rvScrapeSourcesCard';
+  card.className = 'sblk';
+  card.style.marginTop = '12px';
+  card.innerHTML = '<h3>All Providers</h3>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Enable any mix of sources, or disable any you do not want. Priority is fixed top-to-bottom (Libretro → Wikidata/Wikipedia → LaunchBox → API/login sources).</div>'
+    + '<div style="display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;">'
+    + '<label><input type="checkbox" id="rvp-launchbox"> LaunchBox (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
+    + '<label><input type="checkbox" id="rvp-wikipedia"> Wikidata + Wikipedia (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
+    + '<label><input type="checkbox" id="rvp-libretro"> Libretro Thumbnails (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
+    + '<label><input type="checkbox" id="rvp-thegamesdb"> TheGamesDB (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-mobygames"> MobyGames (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-igdb"> IGDB (Client ID + Bearer token)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-giantbomb"> GiantBomb (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-openvgdb"> OpenVGDB (JSON URL)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-screenscraper"> ScreenScraper fallback (login)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '</div>'
+    + '<div style="display:grid;gap:8px;margin-top:12px;">'
+    + '<input id="rvTgdbKey" placeholder="TheGamesDB API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvMobyKey" placeholder="MobyGames API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvIgdbClientId" placeholder="IGDB Client ID" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvIgdbToken" placeholder="IGDB Bearer token" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvGiantbombKey" placeholder="GiantBomb API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvOpenvgdbUrl" placeholder="OpenVGDB JSON URL (optional)" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
+    + '<button class="bb p" type="button" id="rvSaveSourceCfg">Save Source Settings</button>'
+    + '<button class="bb s" type="button" id="rvResetSourceCfg">Reset Defaults</button>'
+    + '<button class="bb s" type="button" id="rvRepairBrokenBtn">Repair Missing/Broken Covers</button>'
+    + '</div>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvQuietExpectedMisses"> Quiet mode (hide expected misses)</label>'
+    + '<div id="rvSourceCfgStatus" style="font-size:11px;color:var(--muted);margin-top:6px;">Saved source profile is loaded automatically.</div>';
+  host.appendChild(card);
+
+  const setChecks = (c) => {
+    const p = c.providers || {};
+    const on = (id, key) => { const el = document.getElementById(id); if(el) el.checked = !!p[key]; };
+    on('rvp-launchbox','launchbox');
+    on('rvp-wikipedia','wikipedia');
+    on('rvp-libretro','libretro');
+    on('rvp-thegamesdb','thegamesdb');
+    on('rvp-mobygames','mobygames');
+    on('rvp-igdb','igdb');
+    on('rvp-giantbomb','giantbomb');
+    on('rvp-openvgdb','openvgdb');
+    on('rvp-screenscraper','screenscraper');
+    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+    setVal('rvTgdbKey', c.tgdbKey);
+    setVal('rvMobyKey', c.mobyKey);
+    setVal('rvIgdbClientId', c.igdbClientId);
+    setVal('rvIgdbToken', c.igdbToken);
+    setVal('rvGiantbombKey', c.giantbombKey);
+    setVal('rvOpenvgdbUrl', c.openvgdbUrl);
+    const quiet = document.getElementById('rvQuietExpectedMisses');
+    if(quiet) quiet.checked = c.quietExpectedMisses !== false;
+  };
+  setChecks(cfg);
+
+  document.getElementById('rvSaveSourceCfg').onclick = () => {
+    const out = _rvGetScrapeSourceConfig();
+    const pick = (id) => !!(document.getElementById(id) && document.getElementById(id).checked);
+    out.providers.launchbox = pick('rvp-launchbox');
+    out.providers.wikipedia = pick('rvp-wikipedia');
+    out.providers.libretro = pick('rvp-libretro');
+    out.providers.thegamesdb = pick('rvp-thegamesdb');
+    out.providers.mobygames = pick('rvp-mobygames');
+    out.providers.igdb = pick('rvp-igdb');
+    out.providers.giantbomb = pick('rvp-giantbomb');
+    out.providers.openvgdb = pick('rvp-openvgdb');
+    out.providers.screenscraper = pick('rvp-screenscraper');
+    const getVal = (id) => String((document.getElementById(id) && document.getElementById(id).value) || '').trim();
+    out.tgdbKey = getVal('rvTgdbKey');
+    out.mobyKey = getVal('rvMobyKey');
+    out.igdbClientId = getVal('rvIgdbClientId');
+    out.igdbToken = getVal('rvIgdbToken');
+    out.giantbombKey = getVal('rvGiantbombKey');
+    out.openvgdbUrl = getVal('rvOpenvgdbUrl');
+    out.quietExpectedMisses = !!(document.getElementById('rvQuietExpectedMisses') && document.getElementById('rvQuietExpectedMisses').checked);
+    _rvSaveScrapeSourceConfig(out);
+    const st = document.getElementById('rvSourceCfgStatus');
+    if(st){
+      const enabled = _rvScrapeProviderOrder().filter(id => out.providers && out.providers[id]);
+      st.textContent = enabled.length
+        ? ('Saved. Active providers: ' + enabled.join(', '))
+        : 'Saved. All providers are OFF.';
+    }
+    toast('Source settings saved');
+    setTimeout(_rvPatchScrapePipeline, 0);
+  };
+
+  document.getElementById('rvResetSourceCfg').onclick = () => {
+    const reset = _rvScrapeSourceDefaults();
+    _rvSaveScrapeSourceConfig(reset);
+    setChecks(reset);
+    const st = document.getElementById('rvSourceCfgStatus');
+    if(st) st.textContent = 'Defaults restored.';
+    toast('Source settings reset');
+  };
+
+  const repairBtn = document.getElementById('rvRepairBrokenBtn');
+  if(repairBtn){
+    repairBtn.onclick = () => _rvScrapeBrokenOnly();
+  }
+}
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', () => {
+    _rvInitScrapeSourceControls();
+    setTimeout(_rvPatchScrapePipeline, 0);
+    setTimeout(_rvPatchScrapePipeline, 1200);
+  });
+} else {
+  setTimeout(_rvInitScrapeSourceControls, 0);
+  setTimeout(_rvPatchScrapePipeline, 0);
+  setTimeout(_rvPatchScrapePipeline, 1200);
+}
+`;
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, scraperSourceHelper + helperAnchor);
+    }
+  }
+
+  if (!html.includes('function _rvMigrateLegacyBucket(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const migrateHelper = "function _rvMigrationStatus(msg,state){ const el=document.getElementById('rvMigrationStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }\nasync function _rvMigrateLegacyBucket(dryRun){ const owner=(typeof _rvOwnerId==='function'?_rvOwnerId():''); if(!owner){ _rvMigrationStatus('Set Shared Sync Owner ID first.','err'); return; } if(!dryRun){ const yes=confirm('Migrate legacy bucket ROMs into users/'+owner+'/? This will move old root ROM keys so sync can see them again.'); if(!yes) return; } _rvMigrationStatus((dryRun?'Previewing':'Migrating')+' legacy bucket keys…',''); try{ const resp=await fetch(window.location.origin+'/r2-migrate-owner',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ owner, dryRun:!!dryRun, removeLegacy:true }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); const msg=(dryRun?'Preview':'Migration')+': '+(data.migratable||0)+' eligible, '+(data.migrated||0)+' copied, '+(data.deleted||0)+' moved, '+(data.failed||0)+' failed.'; _rvMigrationStatus(msg,'ok'); }catch(e){ _rvMigrationStatus('Legacy migration failed: '+e.message,'err'); } }\nfunction _rvInitMigrationControls(){ const ownerInput=document.getElementById('rvOwnerInput'); if(!ownerInput||document.getElementById('rvMigrateLegacyBtn')) return; const host=(ownerInput.closest('div') && ownerInput.closest('div').parentElement) || ownerInput.parentElement || ownerInput; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='10px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Legacy ROM Migration'; const wrap=document.createElement('div'); wrap.style.display='flex'; wrap.style.gap='8px'; wrap.style.flexWrap='wrap'; const previewBtn=document.createElement('button'); previewBtn.type='button'; previewBtn.className='bb s'; previewBtn.textContent='Preview Migration'; previewBtn.onclick=()=>_rvMigrateLegacyBucket(true); const migrateBtn=document.createElement('button'); migrateBtn.type='button'; migrateBtn.className='bb p'; migrateBtn.id='rvMigrateLegacyBtn'; migrateBtn.textContent='Migrate Existing ROMs'; migrateBtn.onclick=()=>_rvMigrateLegacyBucket(false); wrap.appendChild(previewBtn); wrap.appendChild(migrateBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Run once if your ROMs were uploaded before owner-scoped sync was enabled.'; const status=document.createElement('div'); status.id='rvMigrationStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Legacy migration not run yet.'; card.appendChild(title); card.appendChild(wrap); card.appendChild(note); card.appendChild(status); host.appendChild(card); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitMigrationControls); else setTimeout(_rvInitMigrationControls,0);\n";
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, migrateHelper + helperAnchor);
+    }
+  }
+
+  html = html
+    .replace(
+      "formData.append('key', key);",
+      "formData.append('key', key); formData.append('owner', _rvOwnerId());"
+    )
+    .replace(
+      "body: JSON.stringify({ key, meta: payload }),",
+      "body: JSON.stringify({ key, meta: payload, owner: _rvOwnerId() }),"
+    )
+    .replace(
+      "fetch(window.location.origin+'/r2-list');",
+      "fetch(window.location.origin+'/r2-list?owner='+encodeURIComponent(_rvOwnerId()));"
+    )
+    .replace(
+      "fetch(window.location.origin+'/r2-meta-list');",
+      "fetch(window.location.origin+'/r2-meta-list?owner='+encodeURIComponent(_rvOwnerId()));"
+    )
+    .replace(
+      "      const parts = obj.key.split('/');\n      if(parts.length < 2) continue;\n      // Support both {console}/{file} and {prefix}/{console}/{file} layouts\n      let consoleId, filename;\n      const s0 = getSys(parts[0]);\n      if(s0 && s0.ejsSys){\n        // Direct layout: nes/game.nes\n        consoleId = parts[0];\n        filename = parts.slice(1).join('/');\n      } else if(parts.length >= 3 && getSys(parts[1])?.ejsSys){\n        // Prefixed layout: game-roms/nes/game.nes\n        consoleId = parts[1];\n        filename = parts.slice(2).join('/');\n      } else {\n        continue; // can't identify console — skip\n      }\n",
+      "      const parts = obj.key.split('/').filter(Boolean);\n      if(parts.length < 2) continue;\n      // Accept nested layouts like users/main/nes/game.nes by locating\n      // a real console id segment (not getSys fallback for unknown ids).\n      let consoleIndex = -1;\n      for(let i=0; i<parts.length-1; i++){\n        const candidate = getSys(parts[i]);\n        if(candidate && candidate.ejsSys && candidate.id === parts[i]){\n          consoleIndex = i;\n          break;\n        }\n      }\n      if(consoleIndex === -1) continue;\n      const consoleId = parts[consoleIndex];\n      const filename = parts.slice(consoleIndex + 1).join('/');\n      if(!filename) continue;\n"
+    )
+    .replace(
+      "    const existing = await dbGetAll('roms');\n    const existingKeys = new Set(existing.map(r=>r.cloudStoragePath));\n",
+      "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[r.cloudStoragePath,r]));\n"
+    )
+    .replace(
+      "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[r.cloudStoragePath,r]));\n",
+      "    const normalizeCloudKey = k => String(k||'').replace(/%2F/gi,'/').replace(/^\\/+/, '');\n    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[normalizeCloudKey(r.cloudStoragePath),r]));\n"
+    )
+    .replace(
+      "      if(existingKeys.has(obj.key)) continue;\n",
+      "      const existingRom = existingByKey.get(obj.key);\n"
+    )
+    .replace(
+      "      const existingRom = existingByKey.get(obj.key);\n",
+      "      const normalizedKey = normalizeCloudKey(obj.key);\n      const existingRom = existingByKey.get(normalizedKey);\n"
+    )
+    .replace(
+      "      await dbAdd('roms',{\n        name: cleanName(filename),\n        filename,\n        console: consoleId,\n        consoleName: s.name,\n        size: obj.size||0,\n        coverUrl: null, description: null, year: null, rating: null,\n        added: Date.now(),\n        ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n        romUrl: publicUrl,\n        cloudStoragePath: obj.key,\n        data: null,\n      });\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n",
+      "      if(existingRom){\n        let changed = false;\n        if(existingRom.console !== consoleId){ existingRom.console = consoleId; changed = true; }\n        if(existingRom.consoleName !== s.name){ existingRom.consoleName = s.name; changed = true; }\n        if(existingRom.filename !== filename){ existingRom.filename = filename; changed = true; }\n        const cleanedName = cleanName(filename);\n        if(existingRom.name !== cleanedName){ existingRom.name = cleanedName; changed = true; }\n        if(existingRom.romUrl !== publicUrl){ existingRom.romUrl = publicUrl; changed = true; }\n        if(existingRom.ejsSys !== (s.ejsSys||'')){ existingRom.ejsSys = s.ejsSys||''; changed = true; }\n        if(existingRom.ejsCore !== (s.ejsCore||'')){ existingRom.ejsCore = s.ejsCore||''; changed = true; }\n        if(changed){ await dbPut('roms', existingRom); }\n      } else {\n        await dbAdd('roms',{\n          name: cleanName(filename),\n          filename,\n          console: consoleId,\n          consoleName: s.name,\n          size: obj.size||0,\n          coverUrl: null, description: null, year: null, rating: null,\n          added: Date.now(),\n          ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n          romUrl: publicUrl,\n          cloudStoragePath: obj.key,\n          data: null,\n        });\n      }\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n"
+    )
+    .replace(
+      "return { publicUrl, fullPath: key };",
+      "return { publicUrl, fullPath: result.key || key };"
+    )
+    .replace(
+      "  const publicUrl = result.url || (r2Base ? r2Base+'/'+key : null);",
+      "  const owner = (typeof _rvOwnerId==='function' ? _rvOwnerId() : '');\n  const effectiveKey = result.key || key;\n  const publicUrl = result.url || (window.location.origin + '/r2-rom?key=' + encodeURIComponent(effectiveKey) + (owner ? ('&owner=' + encodeURIComponent(owner)) : ''));"
+    )
+    .replace(
+      "          saved.romUrl = publicUrl;\n          saved.cloudStoragePath = fullPath;\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);",
+      "          const safeFilename = String(file.name||'').replace(/[^a-zA-Z0-9._-]/g,'_');\n          const owner = (typeof _rvOwnerId==='function' ? _rvOwnerId() : '');\n          const fallbackCloudPath = owner ? ('users/'+owner+'/'+saved.console+'/'+safeFilename) : (saved.console+'/'+safeFilename);\n          saved.cloudStoragePath = fullPath || fallbackCloudPath;\n          saved.romUrl = publicUrl || (window.location.origin + '/r2-rom?key=' + encodeURIComponent(saved.cloudStoragePath) + (owner ? ('&owner=' + encodeURIComponent(owner)) : ''));\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);\n          await r2SaveMeta(saved);"
+    )
+    .replace(
+      "      const proxyUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(rom.romUrl);\n      const resp = await fetch(proxyUrl);",
+      "      let sourceUrl = rom.romUrl;\n      let fetchUrl = '';\n      try{\n        const parsedUrl = new URL(sourceUrl, window.location.href);\n        if(parsedUrl.origin === window.location.origin){\n          if(parsedUrl.pathname === '/rom-proxy'){\n            const innerUrl = parsedUrl.searchParams.get('url');\n            if(innerUrl) sourceUrl = innerUrl;\n          } else if(parsedUrl.pathname === '/r2-rom'){\n            fetchUrl = sourceUrl;\n          }\n        }\n      }catch(e){}\n      if(!fetchUrl) fetchUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(sourceUrl);\n      const resp = await fetch(fetchUrl);"
+    )
+    .replace(
+      "async function refreshAll(){\n  await buildHome();\n",
+      "async function refreshAll(){\n  try{ window.__rvHomeLastRefresh = Date.now(); }catch(e){}\n  await buildHome();\n"
+    )
+    .replace(
+      "  if(name==='settings'){ buildCoreMapList(); buildThemeGrid(); updateAbout(); buildBiosRows(); }\n}",
+      "  if(name==='settings'){ buildCoreMapList(); buildThemeGrid(); updateAbout(); buildBiosRows(); }\n  if(name==='home'){ buildHome(); }\n}"
+    )
+    .replace(
+      "      const publicUrl = r2Base+'/'+obj.key;",
+      "      const publicUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(obj.key) + '&owner=' + encodeURIComponent(_rvOwnerId());"
+    )
+    .replace(
+      "Scraper initialized. Login to ScreenScraper.fr to begin.",
+      "Scraper initialized. No-login scraping is ready (LaunchBox first). Add ScreenScraper only as optional fallback."
+    )
+    .replace(
+      "<strong style=\"color:var(--text);\">Tip:</strong> If ScreenScraper has better retro coverage, use both — run LaunchBox first for modern/PC games, then ScreenScraper for retro consoles.",
+      "<strong style=\"color:var(--text);\">Tip:</strong> Default mode is no-login (LaunchBox first). ScreenScraper is optional fallback for games LaunchBox cannot match."
+    )
+    .replace(
+      "Configure which databases to query for metadata.",
+      "No-login sources are used first. Optional logged-in sources are fallback only."
+    )
+    .replace(
+      "Best retro coverage — box art, screenshots, videos",
+      "Optional fallback (requires login) — use when no-login sources miss a game"
+    )
+    .replace(
+      "name.replace(/_/g,' ').replace(/s*[([][^)]]*[)]]/g,'')\n        .replace(/s*-s*(Rev|Version|v)s*[d.]+s*$/i,'')\n        .replace(/s+(USA|Europe|Japan|World|En|Fr|De|Es|It)s*$/i,'')\n        .replace(/s+/g,' ').trim();",
+      "name.replace(/_/g,' ').replace(/\\s*[\\(\\[][^\u005c)\\]]*[\\)\\]]/g,'')\n        .replace(/\\s*-\\s*(Rev|Version|v)\\s*[\\d.]+\\s*$/i,'')\n        .replace(/\\s+(USA|Europe|Japan|World|En|Fr|De|Es|It)\\s*$/i,'')\n        .replace(/\\s+/g,' ').trim();"
+    )
+    .replace(
+      "async function scrapeThisGame(){\n  if(!detRomId){ toast('No game selected','err'); return; }\n  const creds=getSsCreds();\n  if(!creds){ toast('Login to ScreenScraper.fr first','warn'); sv('scraper',null); closeDet(); return; }\n  toast('Scraping artwork…');\n  await scrapeRomById(detRomId,creds);\n  await showDet(detRomId);\n}",
+      "async function scrapeThisGame(){\n  if(!detRomId){ toast('No game selected','err'); return; }\n  const creds=getSsCreds();\n  toast('Scraping artwork…');\n  await autoScrapeWithFallback(detRomId, creds);\n  await showDet(detRomId);\n}"
+    )
+    .replace(
+      "async function scrapeAll(){\n  const creds=getSsCreds();\n  if(!creds){ toast('Login to ScreenScraper.fr first','err'); scTab('sc-login',document.querySelectorAll('#view-scraper .si')[1]); return; }\n  const roms=await dbGetAll('roms');\n  if(!roms.length){ toast('No ROMs to scrape','warn'); return; }\n  const prog=document.getElementById('scrProg'); prog.style.display='block';\n  let done=0;\n  for(const rom of roms){\n    document.getElementById('scrFill').style.width=Math.round((done/roms.length)*100)+'%';\n    document.getElementById('scrPct').textContent=Math.round((done/roms.length)*100)+'%';\n    document.getElementById('scrSub').textContent='Scraping: '+rom.name;\n    await scrapeRomById(rom.id,creds);\n    done++;\n    await new Promise(r=>setTimeout(r,1100)); // rate limit: 1 req/sec\n  }\n  document.getElementById('scrFill').style.width='100%';\n  document.getElementById('scrLbl').textContent='Done ✓';\n  document.getElementById('scrPct').textContent='100%';\n  document.getElementById('scrSub').textContent='All ROMs scraped';\n  toast('✓ Scraping complete');\n  if(cloudSignedIn()) await sbPush();\n}",
+      "async function scrapeAll(){\n  const creds=getSsCreds();\n  const roms=await dbGetAll('roms');\n  if(!roms.length){ toast('No ROMs to scrape','warn'); return; }\n  const prog=document.getElementById('scrProg'); prog.style.display='block';\n  let done=0;\n  for(const rom of roms){\n    document.getElementById('scrFill').style.width=Math.round((done/roms.length)*100)+'%';\n    document.getElementById('scrPct').textContent=Math.round((done/roms.length)*100)+'%';\n    document.getElementById('scrSub').textContent='Scraping: '+rom.name;\n    await autoScrapeWithFallback(rom.id, creds);\n    done++;\n    await new Promise(r=>setTimeout(r,850)); // modest pacing for free APIs\n  }\n  document.getElementById('scrFill').style.width='100%';\n  document.getElementById('scrLbl').textContent='Done ✓';\n  document.getElementById('scrPct').textContent='100%';\n  document.getElementById('scrSub').textContent='All ROMs scraped';\n  toast('✓ Scraping complete');\n  if(cloudSignedIn()) await sbPush();\n}"
+    )
+    .replace(
+      "async function scrapeMissing(){\n  const creds=getSsCreds();\n  if(!creds){ toast('Login to ScreenScraper first','err'); return; }\n  const roms=(await dbGetAll('roms')).filter(r=>!r.coverUrl);\n  toast(`Scraping ${roms.length} ROMs without artwork…`);\n  for(const r of roms){ await scrapeRomById(r.id,creds); await new Promise(x=>setTimeout(x,1100)); }\n  toast('Done — check covers');\n}",
+      "async function scrapeMissing(){\n  const creds=getSsCreds();\n  const roms=(await dbGetAll('roms')).filter(r=>!r.coverUrl);\n  toast(`Scraping ${roms.length} ROMs without artwork…`);\n  for(const r of roms){ await autoScrapeWithFallback(r.id, creds); await new Promise(x=>setTimeout(x,850)); }\n  toast('Done — check covers');\n}"
+    )
+    .replace(
+      "async function autoScrapeWithFallback(romId, ssCreds){\n  const rom = await dbGet('roms', romId);\n  if(!rom) return;\n  let gotMeta = false;\n\n  // Try ScreenScraper first (best retro coverage)\n  if(ssCreds && ssCreds.user){\n    logScrape(`[auto-scrape] Trying ScreenScraper for: ${rom.name}`);\n    await scrapeRomById(romId, ssCreds);\n    const updated = await dbGet('roms', romId);\n    gotMeta = !!(updated?.coverUrl);\n    if(gotMeta) logScrape(`[auto-scrape] ✓ ScreenScraper found metadata for ${rom.name}`);\n  }\n\n  // Fallback to LaunchBox if SS found nothing\n  if(!gotMeta){\n    logScrape(`[auto-scrape] SS no match — trying LaunchBox for: ${rom.name}`);\n    await lbScrapeRom(romId);\n    const updated2 = await dbGet('roms', romId);\n    if(updated2?.coverUrl) logScrape(`[auto-scrape] ✓ LaunchBox found metadata for ${rom.name}`);\n    else logScrape(`[auto-scrape] ⚠ No metadata found for ${rom.name} in either source`);\n  }\n\n  // Push updated metadata to cloud\n  if(cloudSignedIn()) sbPush().catch(()=>{});\n  await refreshAll();\n}",
+      "async function autoScrapeWithFallback(romId, ssCreds){\n  const rom = await dbGet('roms', romId);\n  if(!rom) return;\n  let gotMeta = false;\n\n  // Try LaunchBox first (no-login default source)\n  logScrape(`[auto-scrape] Trying LaunchBox for: ${rom.name}`);\n  await lbScrapeRom(romId);\n  const afterLb = await dbGet('roms', romId);\n  gotMeta = !!(afterLb?.coverUrl);\n  if(gotMeta) logScrape(`[auto-scrape] ✓ LaunchBox found metadata for ${rom.name}`);\n\n  // Optional fallback to ScreenScraper when credentials are saved\n  if(!gotMeta && ssCreds && ssCreds.user){\n    logScrape(`[auto-scrape] LaunchBox no match — trying ScreenScraper for: ${rom.name}`);\n    await scrapeRomById(romId, ssCreds);\n    const afterSs = await dbGet('roms', romId);\n    gotMeta = !!(afterSs?.coverUrl);\n    if(gotMeta) logScrape(`[auto-scrape] ✓ ScreenScraper fallback found metadata for ${rom.name}`);\n  } else if(!gotMeta){\n    logScrape(`[auto-scrape] LaunchBox no match and ScreenScraper not configured for ${rom.name}`);\n  }\n\n  // Push updated metadata to cloud\n  if(cloudSignedIn()) sbPush().catch(()=>{});\n  await refreshAll();\n}"
+    )
+    .replace(
+      "onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\"",
+      "onerror=\"this.style.display='none';var p=this.parentElement&&this.parentElement.querySelector('.gp');if(p)p.style.display='flex'\""
+    )
+    .replace(
+      "onerror=\"this.style.display='none';var p=this.parentElement&&this.parentElement.querySelector('.gp');if(p)p.style.display='flex'\"",
+      "onerror=\"this.style.display='none';var p=this.parentElement&&this.parentElement.querySelector('.gp');if(p)p.style.display='flex';if(window._rvMarkCoverBroken)window._rvMarkCoverBroken(${rom.id},this.src)\""
+    )
+    .replace(
+      "<button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>",
+      "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" id=\"rvUsersNavBtn\" onclick=\"window._rvOpenProfilePicker&&window._rvOpenProfilePicker()\">👥 Users</button>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
+    )
+    .replace(
+      "function cloudAppReady(){ return _rvFbInited && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0; }\nfunction cloudSignedIn(){ return cloudAppReady() && firebase.auth().currentUser; }",
+      "function cloudAppReady(){ return false; }\nfunction cloudSignedIn(){ return false; }"
+    )
+    .replace(
+      "if(cloudSignedIn()) await sbPush();",
+      "if(window.__rvEnableFirebaseCloud===true) await sbPush();"
+    )
+    .replace(
+      "if(cloudSignedIn()) sbPush().catch(()=>{});",
+      "if(window.__rvEnableFirebaseCloud===true) sbPush().catch(()=>{});"
+    )
+    .replace(
+      "const raw = localStorage.getItem('rv-fb-config');\n  if(!raw || typeof firebase==='undefined') return;",
+      "const raw = localStorage.getItem('rv-fb-config');\n  if(!raw || true) return;"
+    )
+    .replace(
+      "dot.classList.toggle('show', !signedIn && !!localStorage.getItem('rv-fb-config'));",
+      "dot.classList.toggle('show', false);"
+    )
+    .replace(
+      "document.getElementById('sb-signin-form')?.scrollIntoView({behavior:'smooth',block:'center'});",
+      "const note=document.getElementById('rvCloudModeNotice'); if(note) note.scrollIntoView({behavior:'smooth',block:'center'});"
+    )
+    .replace(
+      "const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; card.appendChild(row); card.appendChild(note); host.appendChild(card); }",
+      "const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; const mode=document.createElement('div'); mode.id='rvCloudModeNotice'; mode.style.fontSize='11px'; mode.style.color='var(--blue)'; mode.style.marginTop='6px'; mode.textContent='Cloud mode: Owner-scoped R2 (Firebase disabled).'; card.appendChild(row); card.appendChild(note); card.appendChild(mode); host.appendChild(card); }"
+    )
+    .replace(
+      "Upload each file — when signed into Firebase it is stored under your user folder in Cloud Storage and auto-linked when you launch a game.",
+      "Upload each file — stored in your owner-scoped R2 path and auto-linked when you launch a game."
+    )
+    .replace(
+      "<strong style=\"color:var(--text);\">Firebase required for cloud BIOS.</strong> Connect and sign in under ROMs → Cloud Sync. BIOS files are tiny (under 1MB each) and load automatically when you play a game that needs them.",
+      "<strong style=\"color:var(--text);\">Owner-scoped cloud BIOS.</strong> Set your Shared Sync Owner ID in ROMs → Cloud Sync. BIOS files are tiny (under 1MB each) and load automatically when needed."
+    )
+    .replace(
+      "Connect Firebase",
+      "Owner Cloud Mode"
+    )
+    .replace(
+      "Paste your Firebase web app config JSON from Project settings.",
+      "Firebase is disabled. Use Shared Sync Owner ID + R2 cloud sync."
+    )
+    .replace(
+      "Click Connect and paste Firebase config first.",
+      "Firebase cloud login is disabled in this build."
+    )
+    .replace(
+      "Connect Firebase first",
+      "Owner cloud mode is active"
+    )
+    .replace(
+      "const boot = function(){ patchText(); loadProfile().catch(()=>{}); };",
+      "const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); };"
+    )
+    .replace(
+      "dot.classList.toggle('show', false);",
+      "dot.classList.toggle('show', false);"
+    );
+
+  if (!html.includes('window.__rvNoFirebaseMode=true')) {
+    const noFirebasePatch = `<script>
+(function(){
+  if(window.__rvNoFirebaseMode) return;
+  window.__rvNoFirebaseMode = true;
+  window.__rvEnableFirebaseCloud = false;
+  const disabledMsg = 'Legacy cloud login is disabled. Use Shared Sync Owner ID + R2 sync.';
+  const disabledAsync = async function(){ if(typeof toast==='function') toast(disabledMsg, 'warn'); return { ok:false, disabled:true }; };
+  window.cloudAppReady = function(){ return false; };
+  window.cloudSignedIn = function(){ return false; };
+  window.initCloud = function(){};
+  window.sbConnect = disabledAsync;
+  window.sbSignIn = disabledAsync;
+  window.sbSignInGoogle = disabledAsync;
+  window.sbSignOut = disabledAsync;
+  window.sbPull = disabledAsync;
+  window.sbPush = disabledAsync;
+  window.cloudBannerShow = function(){};
+  window.cloudBannerHide = function(){};
+
+  function ownerId(){
+    try{
+      if(typeof window._rvOwnerId === 'function') return window._rvOwnerId();
+      return localStorage.getItem('rv-owner-id') || 'main';
+    }catch(e){
+      return 'main';
+    }
+  }
+
+  function _rvPresetEmoji(preset){
+    const p = String(preset || '').toLowerCase();
+    if(p === 'pixel') return '🟩';
+    if(p === 'retro') return '🕹️';
+    if(p === 'neon') return '🟣';
+    return '🙂';
+  }
+
+  function _rvEscapeHtml(value){
+    return String(value == null ? '' : value)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+
+  function _rvProfileAvatarHtml(profile){
+    const p = profile && typeof profile === 'object' ? profile : {};
+    const avatar = p.avatar && typeof p.avatar === 'object' ? p.avatar : { type:'preset', preset:'neon' };
+    const avatarUrl = String(p.avatarUrl || '').trim();
+    if(avatar.type === 'upload' && avatarUrl){
+      return '<img src="'+_rvEscapeHtml(avatarUrl)+'" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" />';
+    }
+    return '<span style="font-size:44px;line-height:1;">'+_rvEscapeHtml(_rvPresetEmoji(avatar.preset))+'</span>';
+  }
+
+  function _rvEnsureUsersNavButton(){
+    const nav = document.querySelector('.nav');
+    if(!nav || document.getElementById('rvUsersNavBtn')) return;
+    const whatsNew = Array.from(nav.querySelectorAll('.nb')).find(function(el){
+      return /what\\s*'?s\\s*new/i.test((el.textContent || '').trim());
+    });
+    const btn = document.createElement('button');
+    btn.id = 'rvUsersNavBtn';
+    btn.className = 'nb';
+    btn.type = 'button';
+    btn.textContent = '👥 Users';
+    btn.onclick = function(){ _rvOpenProfilePicker(); };
+    if(whatsNew && whatsNew.parentElement){
+      whatsNew.insertAdjacentElement('afterend', btn);
+    } else {
+      nav.appendChild(btn);
+    }
+  }
+
+  function _rvProfilePickerStyles(){
+    if(document.getElementById('rvProfilePickerStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'rvProfilePickerStyle';
+    style.textContent = [
+      '#rvProfilePicker{position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at 35% 0%, rgba(34,34,34,.8), rgba(4,4,4,.96));display:none;align-items:center;justify-content:center;padding:20px;}',
+      '#rvProfilePicker.show{display:flex;}',
+      '#rvProfilePicker .rv-wrap{width:min(980px,96vw);max-height:92vh;overflow:auto;}',
+      '#rvProfilePicker .rv-title{font-size:52px;font-weight:900;text-align:center;line-height:1.05;margin:0 0 10px;}',
+      '#rvProfilePicker .rv-sub{font-size:14px;color:var(--muted);text-align:center;margin-bottom:22px;}',
+      '#rvProfilePicker .rv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:18px;justify-items:center;}',
+      '#rvProfilePicker .rv-tile{width:140px;background:transparent;border:1px solid transparent;border-radius:12px;color:var(--text);padding:0;cursor:pointer;}',
+      '#rvProfilePicker .rv-tile:hover{border-color:var(--line);background:rgba(255,255,255,.03);}',
+      '#rvProfilePicker .rv-avatar{width:120px;height:120px;margin:10px auto 8px;border-radius:10px;background:var(--s2);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 0 0 1px var(--line) inset;}',
+      '#rvProfilePicker .rv-name{padding:0 8px 12px;font-size:15px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '#rvProfilePicker .rv-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:24px;}',
+      '#rvProfilePicker .rv-btn{border:1px solid var(--line);background:#171717;color:var(--text);padding:10px 14px;border-radius:8px;cursor:pointer;}',
+      '#rvProfilePicker .rv-btn.primary{background:var(--red);border-color:var(--red);font-weight:700;}',
+      '#rvProfilePicker .rv-btn.ghost{background:transparent;}',
+      '#rvProfilePicker .rv-badge{font-size:11px;color:var(--muted);text-align:center;margin-top:10px;}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function _rvGetActiveProfileId(){
+    return String(localStorage.getItem('rv-active-profile-id') || '').trim();
+  }
+
+  function _rvSetActiveProfileId(value){
+    const next = String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0,24);
+    if(!next) return '';
+    localStorage.setItem('rv-active-profile-id', next);
+    return next;
+  }
+
+  function _rvProfileOwnerId(baseOwner, profileId){
+    const bo = String(baseOwner || '').trim() || 'main';
+    const pid = String(profileId || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,24);
+    if(!pid || pid === 'main') return bo;
+    return bo + '--' + pid;
+  }
+
+  function _rvBaseOwnerIdFromCurrentOwner(){
+    const raw = ownerId();
+    const idx = raw.indexOf('--');
+    return idx > 0 ? raw.slice(0, idx) : raw;
+  }
+
+  async function _rvFetchProfileSlots(baseOwner){
+    const resp = await fetch('/profiles-list?owner='+encodeURIComponent(baseOwner), {
+      headers: {'X-Retrovault-Owner': baseOwner}
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+    return data;
+  }
+
+  async function _rvPersistProfileSelection(baseOwner, profileId){
+    const resp = await fetch('/profiles-select?owner='+encodeURIComponent(baseOwner), {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+      body: JSON.stringify({ profileId: profileId })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+    return data;
+  }
+
+  function _rvProfilePickerEl(){
+    let root = document.getElementById('rvProfilePicker');
+    if(root) return root;
+    root = document.createElement('div');
+    root.id = 'rvProfilePicker';
+    root.innerHTML = ''+
+      '<div class="rv-wrap">'+
+        '<h2 class="rv-title">Who\\'s watching?</h2>'+
+        '<div class="rv-sub">Choose a profile for this owner cloud library.</div>'+
+        '<div class="rv-grid" id="rvProfilePickerGrid"></div>'+
+        '<div class="rv-badge" id="rvProfilePickerStatus">Loading profiles…</div>'+
+        '<div class="rv-actions">'+
+          '<button type="button" class="rv-btn" id="rvProfileAddBtn">➕ Add Profile</button>'+
+          '<button type="button" class="rv-btn" id="rvProfileManageBtn">Manage Profiles</button>'+
+          '<button type="button" class="rv-btn ghost" id="rvProfileCloseBtn">Close</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(root);
+    const closeBtn = document.getElementById('rvProfileCloseBtn');
+    if(closeBtn) closeBtn.onclick = function(){ _rvCloseProfilePicker(); };
+    const addBtn = document.getElementById('rvProfileAddBtn');
+    if(addBtn) addBtn.onclick = function(){ _rvPromptAddProfile(); };
+    const manageBtn = document.getElementById('rvProfileManageBtn');
+    if(manageBtn) manageBtn.onclick = function(){ _rvManageProfilesPrompt(); };
+    root.addEventListener('click', function(ev){
+      if(ev.target === root) _rvCloseProfilePicker();
+    });
+    return root;
+  }
+
+  function _rvSetPickerStatus(text, isError){
+    const el = document.getElementById('rvProfilePickerStatus');
+    if(!el) return;
+    el.textContent = String(text || '');
+    el.style.color = isError ? '#ff6c6c' : 'var(--muted)';
+  }
+
+  function _rvRenderProfileGrid(slots, activeId){
+    const grid = document.getElementById('rvProfilePickerGrid');
+    if(!grid) return;
+    const safe = Array.isArray(slots) ? slots : [];
+    grid.innerHTML = '';
+    safe.forEach(function(slot){
+      const id = String(slot && (slot.id || slot.profileId) || '').trim();
+      if(!id) return;
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'rv-tile';
+      tile.dataset.profileId = id;
+      const avatar = '<div class="rv-avatar">'+_rvProfileAvatarHtml(slot)+'</div>';
+      const name = '<div class="rv-name">'+_rvEscapeHtml(slot.displayName || id)+'</div>';
+      tile.innerHTML = avatar + name;
+      if(id === activeId){
+        tile.style.borderColor = 'var(--red)';
+        tile.style.boxShadow = '0 0 0 1px var(--red) inset';
+      }
+      tile.onclick = function(){ _rvSelectProfile(id); };
+      grid.appendChild(tile);
+    });
+    const addTile = document.createElement('button');
+    addTile.type = 'button';
+    addTile.className = 'rv-tile';
+    addTile.innerHTML = '<div class="rv-avatar"><span style="font-size:54px;line-height:1;opacity:.72;">＋</span></div><div class="rv-name">Add Profile</div>';
+    addTile.onclick = function(){ _rvPromptAddProfile(); };
+    grid.appendChild(addTile);
+  }
+
+  async function _rvOpenProfilePicker(force){
+    _rvProfilePickerStyles();
+    const root = _rvProfilePickerEl();
+    root.classList.add('show');
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    try{
+      _rvSetPickerStatus('Loading profiles…', false);
+      const data = await _rvFetchProfileSlots(baseOwner);
+      window.__rvProfileSlots = data;
+      const active = _rvSetActiveProfileId(data.activeProfileId || _rvGetActiveProfileId() || 'main');
+      _rvRenderProfileGrid(data.profiles || [], active);
+      _rvSetPickerStatus('Owner '+baseOwner+' • '+((data.profiles||[]).length)+' profiles', false);
+      if(force !== true){
+        const skip = localStorage.getItem('rv-profile-picker-dismissed') === '1';
+        if(skip) root.classList.remove('show');
+      }
+    }catch(e){
+      _rvSetPickerStatus('Could not load profiles: '+e.message, true);
+    }
+  }
+
+  function _rvCloseProfilePicker(){
+    const root = document.getElementById('rvProfilePicker');
+    if(root) root.classList.remove('show');
+    localStorage.setItem('rv-profile-picker-dismissed','1');
+  }
+
+  async function _rvSelectProfile(profileId){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const pid = _rvSetActiveProfileId(profileId);
+    if(!pid) return;
+    try{
+      _rvSetPickerStatus('Switching profile…', false);
+      await _rvPersistProfileSelection(baseOwner, pid);
+    }catch(e){
+      _rvSetPickerStatus('Profile select warning: '+e.message, true);
+    }
+    const nextOwner = _rvProfileOwnerId(baseOwner, pid);
+    if(typeof window._rvSetOwnerId === 'function'){
+      window._rvSetOwnerId(nextOwner);
+    } else {
+      localStorage.setItem('rv-owner-id', nextOwner);
+    }
+    localStorage.removeItem('rv-profile-picker-dismissed');
+    if(typeof toast==='function') toast('Profile switched to '+pid);
+    _rvCloseProfilePicker();
+    setTimeout(function(){ window.location.reload(); }, 120);
+  }
+
+  async function _rvPromptAddProfile(){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const name = String(prompt('New profile name') || '').trim();
+    if(!name) return;
+    const preset = String(prompt('Avatar preset (neon / pixel / retro)', 'neon') || 'neon').trim().toLowerCase();
+    try{
+      const resp = await fetch('/profiles-add?owner='+encodeURIComponent(baseOwner), {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+        body: JSON.stringify({ displayName:name, avatar:{ type:'preset', preset:preset } })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      if(typeof toast==='function') toast('Profile added: '+(data.profile && data.profile.displayName ? data.profile.displayName : name));
+      await _rvOpenProfilePicker(true);
+    }catch(e){
+      if(typeof toast==='function') toast('Add profile failed: '+e.message, 'err');
+      _rvSetPickerStatus('Add profile failed: '+e.message, true);
+    }
+  }
+
+  async function _rvManageProfilesPrompt(){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const slots = (window.__rvProfileSlots && Array.isArray(window.__rvProfileSlots.profiles)) ? window.__rvProfileSlots.profiles : [];
+    if(!slots.length){
+      if(typeof toast==='function') toast('No profiles loaded', 'warn');
+      return;
+    }
+    const list = slots.map(function(p){ return (p.id + ': ' + (p.displayName || p.id)); }).join('\\n');
+    const target = String(prompt('Remove profile ID (cannot remove main):\\n\\n'+list) || '').trim().toLowerCase();
+    if(!target) return;
+    if(target === 'main'){
+      if(typeof toast==='function') toast('Main profile cannot be removed', 'warn');
+      return;
+    }
+    const yes = confirm('Remove profile "'+target+'"?');
+    if(!yes) return;
+    try{
+      const resp = await fetch('/profiles-remove?owner='+encodeURIComponent(baseOwner), {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+        body: JSON.stringify({ profileId: target })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      if(typeof toast==='function') toast('Profile removed: '+target);
+      await _rvOpenProfilePicker(true);
+    }catch(e){
+      if(typeof toast==='function') toast('Remove profile failed: '+e.message, 'err');
+      _rvSetPickerStatus('Remove profile failed: '+e.message, true);
+    }
+  }
+
+  window._rvOpenProfilePicker = _rvOpenProfilePicker;
+  window._rvCloseProfilePicker = _rvCloseProfilePicker;
+  window._rvPromptAddProfile = _rvPromptAddProfile;
+  window._rvManageProfilesPrompt = _rvManageProfilesPrompt;
+  window._rvSelectProfile = _rvSelectProfile;
+
+  function upsertChip(profileLike){
+    const profile = (profileLike && typeof profileLike === 'object') ? profileLike : {};
+    const display = String(profile.displayName || ownerId());
+    const avatar = profile.avatar && typeof profile.avatar === 'object' ? profile.avatar : { type:'preset', preset:'neon' };
+    const avatarUrl = String(profile.avatarUrl || '').trim();
+    const host = document.querySelector('.nr') || document.querySelector('.nav') || document.body;
+    if(!host) return null;
+    let chip = document.getElementById('rvOwnerChip');
+    if(!chip){
+      chip = document.createElement('button');
+      chip.id = 'rvOwnerChip';
+      chip.className = 'nb';
+      chip.type = 'button';
+      chip.style.display = 'inline-flex';
+      chip.style.alignItems = 'center';
+      chip.style.gap = '6px';
+      chip.style.maxWidth = '220px';
+      chip.style.overflow = 'hidden';
+      chip.style.textOverflow = 'ellipsis';
+      chip.style.whiteSpace = 'nowrap';
+      chip.style.padding = '4px 10px';
+      chip.onclick = async function(){
+        const current = (window.__rvProfile && window.__rvProfile.displayName) || ownerId();
+        const next = String(prompt('Profile display name', current) || '').trim();
+        if(!next) return;
+        try{
+          const oid = ownerId();
+          const resp = await fetch('/profile-save?owner='+encodeURIComponent(oid), {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-Retrovault-Owner':oid},
+            body: JSON.stringify({ displayName: next })
+          });
+          const data = await resp.json().catch(()=>({}));
+          if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+          window.__rvProfile = data.profile || null;
+          upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'preset', preset:'neon' } });
+          if(typeof toast==='function') toast('Profile updated');
+        }catch(e){
+          if(typeof toast==='function') toast('Profile save failed: '+e.message, 'err');
+        }
+      };
+      const avatarNode = document.createElement('span');
+      avatarNode.id = 'rvOwnerChipAvatar';
+      avatarNode.style.width = '20px';
+      avatarNode.style.height = '20px';
+      avatarNode.style.borderRadius = '50%';
+      avatarNode.style.display = 'inline-flex';
+      avatarNode.style.alignItems = 'center';
+      avatarNode.style.justifyContent = 'center';
+      avatarNode.style.background = 'var(--s2)';
+      avatarNode.style.overflow = 'hidden';
+      avatarNode.style.fontSize = '12px';
+      avatarNode.style.flex = '0 0 20px';
+      const labelNode = document.createElement('span');
+      labelNode.id = 'rvOwnerChipText';
+      labelNode.style.maxWidth = '170px';
+      labelNode.style.overflow = 'hidden';
+      labelNode.style.textOverflow = 'ellipsis';
+      labelNode.style.whiteSpace = 'nowrap';
+      chip.appendChild(avatarNode);
+      chip.appendChild(labelNode);
+      host.prepend(chip);
+    }
+    const avatarNode = document.getElementById('rvOwnerChipAvatar');
+    const labelNode = document.getElementById('rvOwnerChipText');
+    if(avatarNode){
+      avatarNode.innerHTML = '';
+      if(avatar.type === 'upload' && avatarUrl){
+        const img = document.createElement('img');
+        img.src = avatarUrl + (avatarUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+        img.alt = 'avatar';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        avatarNode.appendChild(img);
+      } else {
+        avatarNode.textContent = _rvPresetEmoji(avatar.preset);
+      }
+    }
+    if(labelNode) labelNode.textContent = display;
+    return chip;
+  }
+
+  async function loadProfile(){
+    try{
+      const oid = ownerId();
+      const resp = await fetch('/profile-get?owner='+encodeURIComponent(oid), {
+        headers:{'X-Retrovault-Owner':oid}
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(resp.ok && data && data.ok){
+        window.__rvProfile = data.profile || null;
+        upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'preset', preset:'neon' } });
+      } else {
+        upsertChip({ displayName: oid, avatar:{ type:'preset', preset:'neon' } });
+      }
+    }catch(e){
+      upsertChip({ displayName: ownerId(), avatar:{ type:'preset', preset:'neon' } });
+    }
+  }
+
+  async function _rvSetAvatarPreset(preset){
+    const oid = ownerId();
+    const out = document.getElementById('rvCloudBackupStatus');
+    try{
+      const resp = await fetch('/profile-avatar-save?owner='+encodeURIComponent(oid), {
+        method:'POST',
+        headers: ownerHeaders(oid),
+        body: JSON.stringify({ type:'preset', preset: String(preset || 'neon') })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      window.__rvProfile = data.profile || data || window.__rvProfile;
+      upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'preset', preset } });
+      if(out) out.textContent = 'Avatar preset applied.';
+    }catch(e){
+      if(out) out.textContent = 'Preset failed: ' + e.message;
+      if(typeof toast==='function') toast('Preset failed: ' + e.message, 'err');
+    }
+  }
+
+  async function _rvUploadAvatar(file){
+    if(!file) return;
+    const oid = ownerId();
+    const out = document.getElementById('rvCloudBackupStatus');
+    if(out) out.textContent = 'Uploading avatar…';
+    const fd = new FormData();
+    fd.append('file', file);
+    try{
+      const resp = await fetch('/profile-avatar-upload?owner='+encodeURIComponent(oid), {
+        method:'POST',
+        headers:{'X-Retrovault-Owner': oid},
+        body: fd
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      window.__rvProfile = data.profile || window.__rvProfile;
+      upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'upload', key:'' }, avatarUrl: data.avatarUrl || '' });
+      if(out) out.textContent = 'Avatar uploaded.';
+    }catch(e){
+      if(out) out.textContent = 'Avatar upload failed: ' + e.message;
+      if(typeof toast==='function') toast('Avatar upload failed: ' + e.message, 'err');
+    }
+  }
+
+  function patchText(){
+    const bios = document.querySelector('#st-bios .sub');
+    if(bios && /Firebase/i.test(bios.textContent || '')){
+      bios.textContent = 'Some consoles require BIOS firmware. Files are stored in your owner-scoped cloud path and auto-linked when launching supported games.';
+    }
+  }
+
+  function ownerHeaders(oid){
+    return {'Content-Type':'application/json','X-Retrovault-Owner':oid};
+  }
+
+  async function _rvCloudRefreshHealth(){
+    const out = document.getElementById('rvCloudHealthStatus');
+    const oid = ownerId();
+    try{
+      const resp = await fetch('/cloud-health?owner='+encodeURIComponent(oid), {
+        headers: {'X-Retrovault-Owner': oid}
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      const s = data.summary || {};
+      const gb = (Number(s.totalBytes||0) / (1024*1024*1024)).toFixed(3);
+      if(out) out.textContent = 'ROMs: '+(s.romCount||0)+' • Meta: '+(s.metaCount||0)+' • BIOS: '+(s.biosCount||0)+' • Size: '+gb+' GB';
+      return data;
+    }catch(e){
+      if(out) out.textContent = 'Cloud health failed: '+e.message;
+      throw e;
+    }
+  }
+
+  async function _rvCloudDownloadBackup(){
+    const oid = ownerId();
+    const out = document.getElementById('rvCloudBackupStatus');
+    if(out) out.textContent = 'Building backup…';
+    try{
+      const resp = await fetch('/profiles-backup?owner='+encodeURIComponent(oid)+'&includeData=1', {
+        headers: {'X-Retrovault-Owner': oid}
+      });
+      const text = await resp.text();
+      let data = null;
+      try{ data = JSON.parse(text); }catch(e){}
+      if(!resp.ok || !(data && data.ok)) throw new Error((data && data.error) || ('HTTP '+resp.status));
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'retrovault-backup-'+oid+'-'+Date.now()+'.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=> URL.revokeObjectURL(a.href), 1000);
+      if(out) out.textContent = 'Backup downloaded.';
+    }catch(e){
+      if(out) out.textContent = 'Backup failed: '+e.message;
+      if(typeof toast==='function') toast('Backup failed: '+e.message, 'err');
+    }
+  }
+
+  async function _rvCloudCheckBackupFile(){
+    const picker = document.getElementById('rvBackupFileInput');
+    const out = document.getElementById('rvCloudBackupStatus');
+    if(!picker || !picker.files || !picker.files[0]){
+      if(out) out.textContent = 'Choose a backup file first.';
+      return;
+    }
+    const raw = await picker.files[0].text();
+    let payload;
+    try{ payload = JSON.parse(raw); }catch(e){
+      if(out) out.textContent = 'Invalid JSON backup file.';
+      return;
+    }
+    const oid = ownerId();
+    try{
+      const resp = await fetch('/profiles-restore-check?owner='+encodeURIComponent(oid), {
+        method:'POST',
+        headers: ownerHeaders(oid),
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      const v = data.validation || {};
+      if(out) out.textContent = v.ok ? 'Backup check passed.' : ('Backup check failed: ' + ((v.errors||[]).join(' ') || v.error || 'unknown'));
+    }catch(e){
+      if(out) out.textContent = 'Backup check failed: '+e.message;
+    }
+  }
+
+  async function _rvCloudRestoreBackup(){
+    const picker = document.getElementById('rvBackupFileInput');
+    const out = document.getElementById('rvCloudBackupStatus');
+    if(!picker || !picker.files || !picker.files[0]){
+      if(out) out.textContent = 'Choose a backup file first.';
+      return;
+    }
+    const yes = confirm('Restore this backup for the current owner? This can overwrite metadata/profile settings.');
+    if(!yes) return;
+    const raw = await picker.files[0].text();
+    let payload;
+    try{ payload = JSON.parse(raw); }catch(e){
+      if(out) out.textContent = 'Invalid JSON backup file.';
+      return;
+    }
+    const oid = ownerId();
+    try{
+      const resp = await fetch('/profiles-restore?owner='+encodeURIComponent(oid), {
+        method:'POST',
+        headers: ownerHeaders(oid),
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      if(out) out.textContent = 'Backup restored: '+(data.restoredObjects||0)+' objects, '+(data.restoredMeta||0)+' meta.';
+      loadProfile().catch(()=>{});
+      if(typeof refreshAll==='function') refreshAll().catch(()=>{});
+    }catch(e){
+      if(out) out.textContent = 'Restore failed: '+e.message;
+      if(typeof toast==='function') toast('Restore failed: '+e.message, 'err');
+    }
+  }
+
+  function _rvInitOwnerCloudTools(){
+    const ownerInput = document.getElementById('rvOwnerInput');
+    if(!ownerInput || document.getElementById('rvCloudHealthStatus')) return;
+    const host = (ownerInput.closest('div') && ownerInput.closest('div').parentElement) || ownerInput.parentElement || ownerInput;
+    const card = document.createElement('div');
+    card.style.background='var(--s2)';
+    card.style.border='1px solid var(--line)';
+    card.style.borderRadius='10px';
+    card.style.padding='12px';
+    card.style.marginTop='10px';
+    const title = document.createElement('div');
+    title.style.fontWeight='700';
+    title.style.marginBottom='8px';
+    title.textContent='Cloud Health + Full Owner Backup';
+    const actions = document.createElement('div');
+    actions.style.display='flex';
+    actions.style.gap='8px';
+    actions.style.flexWrap='wrap';
+    const refreshBtn = document.createElement('button');
+    refreshBtn.type='button';
+    refreshBtn.className='bb s';
+    refreshBtn.textContent='Refresh Cloud Health';
+    refreshBtn.onclick=()=>_rvCloudRefreshHealth();
+    const downloadBtn = document.createElement('button');
+    downloadBtn.type='button';
+    downloadBtn.className='bb s';
+    downloadBtn.textContent='Download Full Backup';
+    downloadBtn.onclick=()=>_rvCloudDownloadBackup();
+    actions.appendChild(refreshBtn);
+    actions.appendChild(downloadBtn);
+    const fileRow = document.createElement('div');
+    fileRow.style.display='flex';
+    fileRow.style.gap='8px';
+    fileRow.style.flexWrap='wrap';
+    fileRow.style.marginTop='8px';
+    const fileInput = document.createElement('input');
+    fileInput.type='file';
+    fileInput.id='rvBackupFileInput';
+    fileInput.accept='.json,application/json';
+    fileInput.style.maxWidth='320px';
+    const checkBtn = document.createElement('button');
+    checkBtn.type='button';
+    checkBtn.className='bb s';
+    checkBtn.textContent='Check Backup File';
+    checkBtn.onclick=()=>_rvCloudCheckBackupFile();
+    const restoreBtn = document.createElement('button');
+    restoreBtn.type='button';
+    restoreBtn.className='bb p';
+    restoreBtn.textContent='Restore Backup File';
+    restoreBtn.onclick=()=>_rvCloudRestoreBackup();
+    const avatarRow = document.createElement('div');
+    avatarRow.style.display='flex';
+    avatarRow.style.gap='8px';
+    avatarRow.style.flexWrap='wrap';
+    avatarRow.style.marginTop='8px';
+    const presetSelect = document.createElement('select');
+    presetSelect.id = 'rvAvatarPresetSelect';
+    presetSelect.style.padding='8px';
+    presetSelect.style.borderRadius='8px';
+    presetSelect.style.border='1px solid var(--line)';
+    presetSelect.style.background='var(--s1)';
+    presetSelect.style.color='var(--text)';
+    ['neon','pixel','retro'].forEach(v=>{
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = 'Avatar preset: ' + v;
+      presetSelect.appendChild(opt);
+    });
+    const presetBtn = document.createElement('button');
+    presetBtn.type='button';
+    presetBtn.className='bb s';
+    presetBtn.textContent='Apply Preset';
+    presetBtn.onclick=()=>_rvSetAvatarPreset(presetSelect.value);
+    const avatarInput = document.createElement('input');
+    avatarInput.type='file';
+    avatarInput.id='rvAvatarUploadInput';
+    avatarInput.accept='image/png,image/jpeg,image/webp,image/gif';
+    avatarInput.style.display='none';
+    avatarInput.onchange=()=>{ const f = avatarInput.files && avatarInput.files[0]; if(f) _rvUploadAvatar(f); };
+    const uploadBtn = document.createElement('button');
+    uploadBtn.type='button';
+    uploadBtn.className='bb s';
+    uploadBtn.textContent='Upload Avatar';
+    uploadBtn.onclick=()=>avatarInput.click();
+    fileRow.appendChild(fileInput);
+    fileRow.appendChild(checkBtn);
+    fileRow.appendChild(restoreBtn);
+    avatarRow.appendChild(presetSelect);
+    avatarRow.appendChild(presetBtn);
+    avatarRow.appendChild(uploadBtn);
+    avatarRow.appendChild(avatarInput);
+    const health = document.createElement('div');
+    health.id='rvCloudHealthStatus';
+    health.style.fontSize='11px';
+    health.style.color='var(--muted)';
+    health.style.marginTop='8px';
+    health.textContent='Cloud health not checked yet.';
+    const status = document.createElement('div');
+    status.id='rvCloudBackupStatus';
+    status.style.fontSize='11px';
+    status.style.color='var(--muted)';
+    status.style.marginTop='6px';
+    status.textContent='No backup action yet.';
+    card.appendChild(title);
+    card.appendChild(actions);
+    card.appendChild(fileRow);
+    card.appendChild(avatarRow);
+    card.appendChild(health);
+    card.appendChild(status);
+    host.appendChild(card);
+    _rvCloudRefreshHealth().catch(()=>{});
+  }
+
+  window._rvInitOwnerCloudTools = _rvInitOwnerCloudTools;
+  window._rvCloudRefreshHealth = _rvCloudRefreshHealth;
+  window._rvCloudDownloadBackup = _rvCloudDownloadBackup;
+  window._rvCloudCheckBackupFile = _rvCloudCheckBackupFile;
+  window._rvCloudRestoreBackup = _rvCloudRestoreBackup;
+
+  const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); };
+  const boot2 = function(){
+    _rvEnsureUsersNavButton();
+    const forced = localStorage.getItem('rv-profile-picker-seen');
+    if(!forced){
+      localStorage.setItem('rv-profile-picker-seen','1');
+      _rvOpenProfilePicker(true).catch(()=>{});
+    } else {
+      _rvOpenProfilePicker(false).catch(()=>{});
+    }
+  };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else setTimeout(boot, 0);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot2);
+  else setTimeout(boot2, 0);
+})();
+</script>`;
+    html = html.replace('</body>', `${noFirebasePatch}\n</body>`);
+  }
+
+  _cachedHtml = html;
   return _cachedHtml;
 }
 
@@ -57,8 +1854,867 @@ function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin || '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-File-Name, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-File-Name, X-Requested-With, X-Retrovault-Owner, X-Retrovault-User, X-User-Id',
     'Access-Control-Max-Age': '86400',
+  };
+}
+
+function sanitizeOwnerId(value) {
+  if (value == null) return null;
+  const cleaned = String(value).trim().replace(/[^a-zA-Z0-9._-]/g, '');
+  if (!cleaned) return null;
+  return cleaned.slice(0, 128);
+}
+
+function resolveOwnerId(request, url, fallbackValues = []) {
+  const headerOrQueryOwner = sanitizeOwnerId(
+    request.headers.get('X-Retrovault-Owner')
+      || request.headers.get('X-Retrovault-User')
+      || request.headers.get('X-User-Id')
+      || url.searchParams.get('owner')
+      || url.searchParams.get('user')
+  );
+  if (headerOrQueryOwner) return headerOrQueryOwner;
+  for (const value of fallbackValues) {
+    const ownerId = sanitizeOwnerId(value);
+    if (ownerId) return ownerId;
+  }
+  return null;
+}
+
+function ownerPrefix(ownerId) {
+  return `users/${ownerId}/`;
+}
+
+function normalizeR2Key(rawKey) {
+  return String(rawKey || '').replace(/\.\./g, '').replace(/^\/+/, '');
+}
+
+function toOwnedKey(rawKey, ownerId) {
+  const key = normalizeR2Key(rawKey);
+  if (!key) return null;
+  const prefix = ownerPrefix(ownerId);
+  if (key.startsWith('users/')) {
+    if (!key.startsWith(prefix)) return null;
+    return key;
+  }
+  return prefix + key;
+}
+
+function isGlobalUnscopedKey(key) {
+  const normalized = normalizeR2Key(key);
+  return normalized.startsWith('bios/')
+    || normalized === 'meta/lb_index.json.gz'
+    || normalized === 'meta/lb_index.json';
+}
+
+function profileStorageKey(ownerId) {
+  return `${ownerPrefix(ownerId)}meta/profile.json`;
+}
+
+function profileSetStorageKey(ownerId) {
+  return `${ownerPrefix(ownerId)}meta/profiles.set.json`;
+}
+
+function sanitizeProfileSlotId(value) {
+  const cleaned = String(value || '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  return cleaned.slice(0, 24);
+}
+
+function normalizeProfileSlotAvatar(payload) {
+  const avatar = normalizeAvatarPayload(payload || {});
+  if (avatar.type !== 'preset') return { type: 'preset', preset: 'neon' };
+  return avatar;
+}
+
+function normalizeProfileSlotPayload(payload, fallbackId = 'main', fallbackName = '') {
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const id = sanitizeProfileSlotId(src.id || src.profileId || src.ownerId || fallbackId);
+  if (!id) return null;
+  const displayName = String(src.displayName || fallbackName || id)
+    .trim()
+    .replace(/[<>]/g, '')
+    .slice(0, 40) || id;
+  return {
+    id,
+    displayName,
+    avatar: normalizeProfileSlotAvatar(src.avatar || {}),
+    updatedAt: Date.now(),
+  };
+}
+
+function defaultProfileSet(ownerId, profileLike = null) {
+  const seed = profileLike && typeof profileLike === 'object' ? profileLike : {};
+  const main = normalizeProfileSlotPayload({
+    id: 'main',
+    displayName: seed.displayName || ownerId,
+    avatar: seed.avatar || { type: 'preset', preset: 'neon' },
+  }, 'main', ownerId) || {
+    id: 'main',
+    displayName: ownerId,
+    avatar: { type: 'preset', preset: 'neon' },
+    updatedAt: Date.now(),
+  };
+  return {
+    ownerId,
+    schemaVersion: 1,
+    activeProfileId: main.id,
+    profiles: [main],
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeProfileSetPayload(ownerId, payload, fallbackProfile = null) {
+  const base = defaultProfileSet(ownerId, fallbackProfile);
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const list = Array.isArray(src.profiles) ? src.profiles : [];
+  const profiles = [];
+  const seen = new Set();
+
+  for (const item of list) {
+    const fallbackName = item && item.displayName ? String(item.displayName) : 'Player';
+    const fallbackId = sanitizeProfileSlotId(fallbackName) || `player${profiles.length + 1}`;
+    const slot = normalizeProfileSlotPayload(item, fallbackId, fallbackName);
+    if (!slot || seen.has(slot.id)) continue;
+    seen.add(slot.id);
+    profiles.push(slot);
+    if (profiles.length >= 12) break;
+  }
+
+  if (!profiles.length) {
+    profiles.push(base.profiles[0]);
+  }
+
+  let activeProfileId = sanitizeProfileSlotId(src.activeProfileId || src.activeProfile || '');
+  if (!activeProfileId || !profiles.some((p) => p.id === activeProfileId)) {
+    activeProfileId = profiles[0].id;
+  }
+
+  return {
+    ownerId,
+    schemaVersion: 1,
+    activeProfileId,
+    profiles,
+    updatedAt: Date.now(),
+  };
+}
+
+async function loadProfileSet(bucket, ownerId, fallbackProfile = null) {
+  const key = profileSetStorageKey(ownerId);
+  const obj = await bucket.get(key);
+  if (!obj) return defaultProfileSet(ownerId, fallbackProfile);
+  try {
+    const parsed = JSON.parse(await obj.text());
+    return normalizeProfileSetPayload(ownerId, parsed, fallbackProfile);
+  } catch {
+    return defaultProfileSet(ownerId, fallbackProfile);
+  }
+}
+
+async function saveProfileSet(bucket, ownerId, profileSet) {
+  const key = profileSetStorageKey(ownerId);
+  await bucket.put(key, JSON.stringify(profileSet), {
+    httpMetadata: { contentType: 'application/json' },
+    customMetadata: { ownerId, kind: 'profile-set' },
+  });
+}
+
+function profileSetPublic(ownerId, profileSet) {
+  const clean = normalizeProfileSetPayload(ownerId, profileSet);
+  return {
+    ownerId,
+    schemaVersion: clean.schemaVersion,
+    activeProfileId: clean.activeProfileId,
+    profiles: clean.profiles.map((p) => ({
+      id: p.id,
+      profileId: p.id,
+      displayName: p.displayName,
+      avatar: p.avatar,
+      updatedAt: p.updatedAt || Date.now(),
+    })),
+    updatedAt: clean.updatedAt || Date.now(),
+  };
+}
+
+function selectedProfileOwnerId(baseOwnerId, profileId) {
+  const base = sanitizeOwnerId(baseOwnerId) || 'main';
+  const pid = sanitizeProfileSlotId(profileId) || 'main';
+  return pid === 'main' ? base : `${base}--${pid}`;
+}
+
+async function profileSetPublicWithResolvedProfiles(bucket, ownerId, profileSet) {
+  const clean = normalizeProfileSetPayload(ownerId, profileSet);
+  const profiles = [];
+  for (const slot of clean.profiles) {
+    const selectedOwnerId = selectedProfileOwnerId(ownerId, slot.id);
+    let selectedProfile = null;
+    try {
+      selectedProfile = await loadProfile(bucket, selectedOwnerId);
+    } catch {
+      selectedProfile = null;
+    }
+    const chosenAvatar = selectedProfile && selectedProfile.avatar ? selectedProfile.avatar : slot.avatar;
+    const chosenName = selectedProfile && selectedProfile.displayName
+      ? selectedProfile.displayName
+      : slot.displayName;
+    profiles.push({
+      id: slot.id,
+      profileId: slot.id,
+      ownerId: selectedOwnerId,
+      displayName: chosenName,
+      avatar: chosenAvatar,
+      avatarUrl: selectedProfile ? profileAvatarUrl(selectedOwnerId, selectedProfile) : null,
+      updatedAt: (selectedProfile && selectedProfile.updatedAt) || slot.updatedAt || Date.now(),
+    });
+  }
+  return {
+    ownerId,
+    schemaVersion: clean.schemaVersion,
+    activeProfileId: clean.activeProfileId,
+    profiles,
+    updatedAt: clean.updatedAt || Date.now(),
+  };
+}
+
+function baseOwnerFromProfileOwner(ownerId) {
+  const clean = sanitizeOwnerId(ownerId) || 'main';
+  const idx = clean.indexOf('--');
+  return idx > 0 ? clean.slice(0, idx) : clean;
+}
+
+function profileOwnerId(baseOwner, profileId) {
+  const base = sanitizeOwnerId(baseOwner) || 'main';
+  const pid = sanitizeProfileSlotId(profileId) || 'main';
+  return `${base}--${pid}`;
+}
+
+function baseOwnerFromCompositeOwner(ownerId) {
+  const clean = sanitizeOwnerId(ownerId) || 'main';
+  const idx = clean.indexOf('--');
+  return idx > 0 ? clean.slice(0, idx) : clean;
+}
+
+function profileIdFromCompositeOwner(ownerId) {
+  const clean = sanitizeOwnerId(ownerId) || 'main';
+  const idx = clean.indexOf('--');
+  if (idx <= 0) return 'main';
+  return sanitizeProfileSlotId(clean.slice(idx + 2)) || 'main';
+}
+
+function compositeOwnerId(baseOwnerId, profileId) {
+  const base = baseOwnerFromCompositeOwner(baseOwnerId);
+  const slot = sanitizeProfileSlotId(profileId) || 'main';
+  if (slot === 'main') return base;
+  return `${base}--${slot}`;
+}
+
+function defaultProfile(ownerId) {
+  return {
+    ownerId,
+    displayName: ownerId,
+    avatar: { type: 'preset', preset: 'neon' },
+    preferences: {
+      heroBannerMode: 'auto', // auto | custom
+      quietScraperMode: true,
+      launchboxEnabled: false,
+      showCloudHealth: true,
+      backupMode: 'full',
+    },
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeProfilePayload(ownerId, payload) {
+  const base = defaultProfile(ownerId);
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const displayName = String(src.displayName || base.displayName).trim().replace(/[<>]/g, '').slice(0, 40) || ownerId;
+  const avatar = normalizeAvatarPayload(src.avatar || {});
+  const prefs = src.preferences && typeof src.preferences === 'object' ? src.preferences : {};
+  return {
+    ownerId,
+    displayName,
+    avatar,
+    preferences: {
+      heroBannerMode: prefs.heroBannerMode === 'custom' ? 'custom' : 'auto',
+      quietScraperMode: prefs.quietScraperMode !== false,
+      launchboxEnabled: prefs.launchboxEnabled === true,
+      showCloudHealth: prefs.showCloudHealth !== false,
+      backupMode: prefs.backupMode === 'full' ? 'full' : 'full',
+    },
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeAvatarPayload(payload) {
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const type = src.type === 'upload' ? 'upload' : 'preset';
+  if (type === 'upload') {
+    const key = normalizeR2Key(src.key || src.path || '');
+    if (!key) return { type: 'preset', preset: 'neon' };
+    return { type: 'upload', key };
+  }
+  const preset = String(src.preset || 'neon').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'neon';
+  return { type: 'preset', preset };
+}
+
+async function loadProfile(bucket, ownerId) {
+  const key = profileStorageKey(ownerId);
+  const obj = await bucket.get(key);
+  if (!obj) return defaultProfile(ownerId);
+  try {
+    const parsed = JSON.parse(await obj.text());
+    return normalizeProfilePayload(ownerId, parsed);
+  } catch {
+    return defaultProfile(ownerId);
+  }
+}
+
+async function saveProfile(bucket, ownerId, profile) {
+  const key = profileStorageKey(ownerId);
+  await bucket.put(key, JSON.stringify(profile), {
+    httpMetadata: { contentType: 'application/json' },
+    customMetadata: { ownerId },
+  });
+}
+
+const AVATAR_CONTENT_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]);
+
+function sanitizeAvatarFilename(value) {
+  const safe = String(value || 'avatar')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 80);
+  return safe || 'avatar';
+}
+
+function avatarExtensionFromType(contentType) {
+  if (contentType === 'image/jpeg') return '.jpg';
+  if (contentType === 'image/webp') return '.webp';
+  if (contentType === 'image/gif') return '.gif';
+  return '.png';
+}
+
+function normalizeAvatarContentType(contentType, filename = '') {
+  const type = String(contentType || '').trim().toLowerCase();
+  if (AVATAR_CONTENT_TYPES.has(type)) return type;
+  const lower = String(filename || '').toLowerCase();
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.png')) return 'image/png';
+  return null;
+}
+
+function profileAvatarOwnedKey(ownerId, profile) {
+  const avatar = profile && profile.avatar && typeof profile.avatar === 'object' ? profile.avatar : null;
+  if (!avatar || avatar.type !== 'upload') return null;
+  const key = toOwnedKey(avatar.key || avatar.path || '', ownerId);
+  if (!key) return null;
+  const requiredPrefix = ownerPrefix(ownerId) + 'meta/avatar/';
+  if (!key.startsWith(requiredPrefix)) return null;
+  return key;
+}
+
+function profileAvatarUrl(ownerId, profile) {
+  const key = profileAvatarOwnedKey(ownerId, profile);
+  if (!key) return null;
+  const version = Number(profile && profile.updatedAt) || Date.now();
+  return `/profile-avatar?owner=${encodeURIComponent(ownerId)}&v=${encodeURIComponent(version)}`;
+}
+
+function profilePublic(ownerId, profile) {
+  const clean = normalizeProfilePayload(ownerId, profile || {});
+  clean.avatarUrl = profileAvatarUrl(ownerId, clean);
+  return clean;
+}
+
+function ownerRelativeKey(ownerId, key) {
+  const normalized = normalizeR2Key(key);
+  const prefix = ownerPrefix(ownerId);
+  if (!normalized.startsWith(prefix)) return null;
+  return normalized.slice(prefix.length);
+}
+
+function classifyOwnerObject(relativeKey) {
+  const rel = normalizeR2Key(relativeKey);
+  if (rel.startsWith('meta/')) return 'meta';
+  if (rel.startsWith('bios/')) return 'bios';
+  return 'rom';
+}
+
+async function buildOwnerBackupSnapshot(bucket, ownerId) {
+  const prefix = ownerPrefix(ownerId);
+  const objects = await listAllObjects(bucket, { prefix });
+  const profile = await loadProfile(bucket, ownerId);
+  const manifest = [];
+  const metaDocuments = {};
+  let totalBytes = 0;
+  let romCount = 0;
+  let metaCount = 0;
+  let biosCount = 0;
+  let newestUploadedAt = 0;
+
+  for (const obj of objects) {
+    const relativeKey = ownerRelativeKey(ownerId, obj.key);
+    if (!relativeKey) continue;
+    const kind = classifyOwnerObject(relativeKey);
+    const size = Number(obj.size || 0);
+    totalBytes += size;
+    if (kind === 'rom') romCount++;
+    if (kind === 'meta') metaCount++;
+    if (kind === 'bios') biosCount++;
+    const uploadedAt = obj.uploaded ? new Date(obj.uploaded).getTime() : 0;
+    if (uploadedAt > newestUploadedAt) newestUploadedAt = uploadedAt;
+    manifest.push({
+      key: relativeKey,
+      size,
+      uploaded: obj.uploaded || null,
+      kind,
+    });
+
+    if (
+      kind === 'meta'
+      && relativeKey.endsWith('.json')
+      && relativeKey !== 'meta/profile.json'
+      && relativeKey !== 'meta/manifest.snapshot.json'
+    ) {
+      try {
+        const metaObj = await bucket.get(obj.key);
+        if (!metaObj) continue;
+        const parsed = JSON.parse(await metaObj.text());
+        metaDocuments[relativeKey] = parsed;
+      } catch {
+        // Skip malformed sidecars and continue exporting the rest.
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    ownerId,
+    schemaVersion: 2,
+    exportedAt: Date.now(),
+    profile,
+    settings: profile.preferences || {},
+    summary: {
+      objectCount: manifest.length,
+      romCount,
+      metaCount,
+      biosCount,
+      totalBytes,
+      newestUploadedAt: newestUploadedAt || null,
+    },
+    manifest,
+    metaDocuments,
+  };
+}
+
+async function restoreOwnerBackupSnapshot(bucket, ownerId, payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const existingProfile = await loadProfile(bucket, ownerId);
+  const incomingProfile = source.profile && typeof source.profile === 'object' ? source.profile : {};
+  const incomingSettings = source.settings && typeof source.settings === 'object' ? source.settings : {};
+  const mergedProfile = normalizeProfilePayload(ownerId, {
+    ...existingProfile,
+    ...incomingProfile,
+    preferences: {
+      ...(existingProfile.preferences || {}),
+      ...((incomingProfile && incomingProfile.preferences) || {}),
+      ...incomingSettings,
+    },
+  });
+  await saveProfile(bucket, ownerId, mergedProfile);
+
+  let restoredMeta = 0;
+  let failedMeta = 0;
+  if (source.metaDocuments && typeof source.metaDocuments === 'object') {
+    const entries = Object.entries(source.metaDocuments);
+    for (const [relativeKey, meta] of entries) {
+      try {
+        const normalizedRelative = normalizeR2Key(relativeKey);
+        if (!normalizedRelative.startsWith('meta/')) continue;
+        const destinationKey = toOwnedKey(normalizedRelative, ownerId);
+        if (!destinationKey) continue;
+        await bucket.put(destinationKey, JSON.stringify(meta || {}), {
+          httpMetadata: { contentType: 'application/json' },
+          customMetadata: { ownerId },
+        });
+        restoredMeta++;
+      } catch {
+        failedMeta++;
+      }
+    }
+  }
+
+  let manifestSaved = false;
+  if (Array.isArray(source.manifest)) {
+    const manifestKey = toOwnedKey('meta/manifest.snapshot.json', ownerId);
+    if (manifestKey) {
+      await bucket.put(manifestKey, JSON.stringify({
+        ownerId,
+        restoredAt: Date.now(),
+        sourceExportedAt: Number(source.exportedAt) || null,
+        sourceSchemaVersion: Number(source.schemaVersion) || null,
+        manifest: source.manifest,
+      }), {
+        httpMetadata: { contentType: 'application/json' },
+        customMetadata: { ownerId },
+      });
+      manifestSaved = true;
+    }
+  }
+
+  return {
+    ok: true,
+    ownerId,
+    profile: mergedProfile,
+    restoredMeta,
+    failedMeta,
+    manifestSaved,
+  };
+}
+
+function sanitizeSessionId(value) {
+  const cleaned = String(value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+  return cleaned || null;
+}
+
+function sanitizeSessionName(value, fallback) {
+  const cleaned = String(value || '').trim().replace(/[<>]/g, '').slice(0, 40);
+  return cleaned || fallback;
+}
+
+function randomToken(length = 12) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += alphabet[bytes[i] % alphabet.length];
+  }
+  return out;
+}
+
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(String(text || ''));
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const bytes = new Uint8Array(hash);
+  let out = '';
+  for (const b of bytes) out += b.toString(16).padStart(2, '0');
+  return out;
+}
+
+function buildSessionPublic(session) {
+  const members = Array.isArray(session.members) ? session.members : [];
+  return {
+    sessionId: session.sessionId,
+    roomName: session.roomName,
+    createdAt: session.createdAt || Date.now(),
+    updatedAt: session.updatedAt || Date.now(),
+    maxPlayers: session.maxPlayers || 4,
+    memberCount: members.length,
+    members: members.map(m => ({
+      memberId: m.memberId,
+      name: m.name,
+      role: m.role || 'player',
+      joinedAt: m.joinedAt || Date.now(),
+      lastSeenAt: m.lastSeenAt || m.joinedAt || Date.now(),
+    })),
+  };
+}
+
+function normalizeSessionPassword(value) {
+  return String(value || '').trim().slice(0, 64);
+}
+
+function sessionStorageKey(sessionId) {
+  return `meta/sessions/${sessionId}.json`;
+}
+
+async function loadSessionFromR2(bucket, sessionId) {
+  const obj = await bucket.get(sessionStorageKey(sessionId));
+  if (!obj) return null;
+  const text = await obj.text();
+  return JSON.parse(text);
+}
+
+async function saveSessionToR2(bucket, session) {
+  await bucket.put(sessionStorageKey(session.sessionId), JSON.stringify(session), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+}
+
+async function isValidSessionPassword(session, password) {
+  const normalized = normalizeSessionPassword(password);
+  if (normalized.length < 4) return false;
+  if (!session || !session.passwordHash) return false;
+  if (session.passwordSalt) {
+    const hash = await sha256Hex(`${session.passwordSalt}:${normalized}`);
+    return hash === session.passwordHash;
+  }
+  const legacyHash = await sha256Hex(normalized);
+  return legacyHash === session.passwordHash;
+}
+
+function sanitizeMaxPlayers(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 4;
+  return Math.max(2, Math.min(16, Math.floor(parsed)));
+}
+
+function isLegacyRomKey(key) {
+  const normalized = normalizeR2Key(key);
+  if (!normalized) return false;
+  if (normalized.startsWith('users/')) return false;
+  if (normalized.startsWith('bios/')) return false;
+  if (normalized.startsWith('meta/')) return false;
+  if (normalized.startsWith('tmp/')) return false;
+  return normalized.includes('/');
+}
+
+function migrateLegacyObjectKey(key, ownerId) {
+  const normalized = normalizeR2Key(key);
+  if (!isLegacyRomKey(normalized)) return null;
+  return ownerPrefix(ownerId) + normalized;
+}
+
+function migrateLegacyMetaKey(key, ownerId) {
+  const normalized = normalizeR2Key(key);
+  if (!normalized.startsWith('meta/')) return null;
+  if (normalized === 'meta/lb_index.json' || normalized === 'meta/lb_index.json.gz') return null;
+  return ownerPrefix(ownerId) + normalized;
+}
+
+async function listAllObjects(bucket, options = {}) {
+  const all = [];
+  let cursor;
+  for (let i = 0; i < 50; i++) {
+    const listed = await bucket.list({ ...options, limit: 1000, cursor });
+    all.push(...(listed.objects || []));
+    if (!listed.truncated) break;
+    cursor = listed.cursor;
+    if (!cursor) break;
+  }
+  return all;
+}
+
+function isLegacyMigratableKey(key) {
+  const normalized = normalizeR2Key(key);
+  if (!normalized) return false;
+  if (normalized.startsWith('users/')) return false;
+  if (normalized.startsWith('bios/')) return false;
+  if (normalized === 'meta/lb_index.json.gz' || normalized === 'meta/lb_index.json') return false;
+  if (normalized.startsWith('meta/sessions/')) return false;
+  return true;
+}
+
+function legacyDestinationKey(ownerId, sourceKey) {
+  const normalized = normalizeR2Key(sourceKey);
+  if (!isLegacyMigratableKey(normalized)) return null;
+  return ownerPrefix(ownerId) + normalized;
+}
+
+function cloneJsonResponse(origin, payload, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', ...extraHeaders },
+  });
+}
+
+function safeBase64Encode(bytes) {
+  let out = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const slice = bytes.subarray(i, i + chunkSize);
+    out += String.fromCharCode(...slice);
+  }
+  return btoa(out);
+}
+
+function safeBase64DecodeToBytes(base64Value) {
+  const normalized = String(base64Value || '').replace(/\s+/g, '');
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function parseBooleanFlag(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function uint8ToBase64(bytes) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || 0);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < u8.length; i += chunkSize) {
+    binary += String.fromCharCode(...u8.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8(value) {
+  const binary = atob(String(value || ''));
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+function parseTruthyQueryValue(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+async function ownerStorageSummary(bucket, ownerId) {
+  const prefix = ownerPrefix(ownerId);
+  const objects = await listAllObjects(bucket, { prefix });
+  let romCount = 0;
+  let metaCount = 0;
+  let biosCount = 0;
+  let totalBytes = 0;
+  for (const obj of objects) {
+    const relativeKey = ownerRelativeKey(ownerId, obj.key);
+    if (!relativeKey) continue;
+    const kind = classifyOwnerObject(relativeKey);
+    if (kind === 'rom') romCount++;
+    if (kind === 'meta') metaCount++;
+    if (kind === 'bios') biosCount++;
+    totalBytes += Number(obj.size || 0);
+  }
+  const hasProfile = !!(await bucket.head(profileStorageKey(ownerId)));
+  return {
+    objectCount: objects.length,
+    romCount,
+    metaCount,
+    biosCount,
+    totalBytes,
+    hasProfile,
+  };
+}
+
+function validateOwnerSnapshotShape(payload) {
+  const src = payload && typeof payload === 'object' ? payload : null;
+  const errors = [];
+  if (!src) errors.push('Snapshot body must be a JSON object.');
+  if (src && src.schemaVersion != null && Number(src.schemaVersion) < 1) {
+    errors.push('schemaVersion must be >= 1.');
+  }
+  if (src && src.profile != null && typeof src.profile !== 'object') {
+    errors.push('profile must be an object when provided.');
+  }
+  if (src && src.metaDocuments != null && typeof src.metaDocuments !== 'object') {
+    errors.push('metaDocuments must be an object keyed by relative meta path.');
+  }
+  if (src && src.manifest != null && !Array.isArray(src.manifest)) {
+    errors.push('manifest must be an array when provided.');
+  }
+  if (src && src.library != null && typeof src.library !== 'object') {
+    errors.push('library must be an object when provided.');
+  }
+  if (src && src.library && src.library.objects != null && !Array.isArray(src.library.objects)) {
+    errors.push('library.objects must be an array when provided.');
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+function validateOwnerBackupSnapshotShape(payload) {
+  const validation = validateOwnerSnapshotShape(payload);
+  return {
+    ok: validation.ok,
+    error: validation.errors.join(' '),
+    errors: validation.errors,
+  };
+}
+
+async function buildOwnerSnapshot(bucket, ownerId, options = {}) {
+  const includeData = !!options.includeData;
+  const maxInlineExportBytes = Number(options.maxInlineExportBytes || (80 * 1024 * 1024));
+  const snapshot = await buildOwnerBackupSnapshot(bucket, ownerId);
+  snapshot.library = {
+    included: includeData,
+    totalBytes: 0,
+    objectCount: 0,
+    truncated: false,
+    objects: [],
+  };
+  if (!includeData) return snapshot;
+
+  const prefix = ownerPrefix(ownerId);
+  const objects = await listAllObjects(bucket, { prefix });
+  let runningBytes = 0;
+  for (const obj of objects) {
+    const relativeKey = ownerRelativeKey(ownerId, obj.key);
+    if (!relativeKey) continue;
+    const nextSize = Number(obj.size || 0);
+    if (runningBytes + nextSize > maxInlineExportBytes) {
+      snapshot.library.truncated = true;
+      continue;
+    }
+    const source = await bucket.get(obj.key);
+    if (!source) continue;
+    const data = new Uint8Array(await source.arrayBuffer());
+    runningBytes += data.byteLength;
+    snapshot.library.objects.push({
+      key: relativeKey,
+      kind: classifyOwnerObject(relativeKey),
+      contentType: source.httpMetadata?.contentType || obj.httpMetadata?.contentType || 'application/octet-stream',
+      base64Data: uint8ToBase64(data),
+      size: data.byteLength,
+    });
+  }
+  snapshot.library.objectCount = snapshot.library.objects.length;
+  snapshot.library.totalBytes = runningBytes;
+  return snapshot;
+}
+
+async function restoreOwnerSnapshot(bucket, ownerId, payload) {
+  const source = payload && payload.snapshot && typeof payload.snapshot === 'object'
+    ? payload.snapshot
+    : payload;
+  const validation = validateOwnerSnapshotShape(source);
+  if (!validation.ok) {
+    throw new Error('Invalid snapshot: ' + validation.errors.join(' '));
+  }
+
+  const restored = await restoreOwnerBackupSnapshot(bucket, ownerId, source);
+  let restoredObjects = 0;
+  let failedObjects = 0;
+  const objects = source && source.library && Array.isArray(source.library.objects)
+    ? source.library.objects
+    : [];
+  for (const item of objects) {
+    try {
+      const relativeKey = normalizeR2Key(item && item.key);
+      if (!relativeKey) throw new Error('missing key');
+      const destinationKey = toOwnedKey(relativeKey, ownerId);
+      if (!destinationKey) throw new Error('key outside owner scope');
+      const bytes = base64ToUint8(item.base64Data || '');
+      const contentType = String(item.contentType || '').trim() || 'application/octet-stream';
+      await bucket.put(destinationKey, bytes, {
+        httpMetadata: { contentType },
+        customMetadata: { ownerId },
+      });
+      restoredObjects++;
+    } catch {
+      failedObjects++;
+    }
+  }
+
+  return {
+    ...restored,
+    restoredObjects,
+    failedObjects,
+    validation,
   };
 }
 
@@ -73,6 +2729,233 @@ export default {
     // CORS pre-flight
     if (method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // ONLINE SESSIONS — private password-protected room metadata
+    // Note: this stores room membership/state only. Netplay transport still
+    // needs to be wired separately in emulator runtime.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/session-create' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const body = await request.json();
+        const password = normalizeSessionPassword(body.password);
+        if (password.length < 4) {
+          return new Response(JSON.stringify({ ok: false, error: 'Password must be at least 4 characters.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const hostName = sanitizeSessionName(body.hostName, 'Host');
+        const roomName = sanitizeSessionName(body.roomName, `${hostName}'s Room`);
+        const maxPlayers = sanitizeMaxPlayers(body.maxPlayers);
+        const now = Date.now();
+
+        let sessionId = null;
+        for (let i = 0; i < 5; i++) {
+          const candidate = randomToken(8);
+          const existing = await loadSessionFromR2(env.ROM_BUCKET, candidate);
+          if (!existing) {
+            sessionId = candidate;
+            break;
+          }
+        }
+        if (!sessionId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Failed to allocate session id. Try again.' }), {
+            status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const hostMember = {
+          memberId: randomToken(12),
+          name: hostName,
+          role: 'host',
+          joinedAt: now,
+          lastSeenAt: now,
+        };
+        const passwordSalt = randomToken(16);
+        const passwordHash = await sha256Hex(`${passwordSalt}:${password}`);
+        const session = {
+          sessionId,
+          roomName,
+          createdAt: now,
+          updatedAt: now,
+          maxPlayers,
+          passwordSalt,
+          passwordHash,
+          members: [hostMember],
+        };
+        await saveSessionToR2(env.ROM_BUCKET, session);
+        return new Response(JSON.stringify({
+          ok: true,
+          sessionId,
+          memberId: hostMember.memberId,
+          session: buildSessionPublic(session),
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Create session failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/session-join' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const body = await request.json();
+        const sessionId = sanitizeSessionId(body.sessionId);
+        if (!sessionId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing or invalid sessionId.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const session = await loadSessionFromR2(env.ROM_BUCKET, sessionId);
+        if (!session) {
+          return new Response(JSON.stringify({ ok: false, error: 'Session not found.' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const validPassword = await isValidSessionPassword(session, body.password);
+        if (!validPassword) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid session password.' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const maxPlayers = sanitizeMaxPlayers(session.maxPlayers);
+        session.maxPlayers = maxPlayers;
+        session.members = Array.isArray(session.members) ? session.members : [];
+        if (session.members.length >= maxPlayers) {
+          return new Response(JSON.stringify({ ok: false, error: 'Session is full.' }), {
+            status: 409, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const now = Date.now();
+        const member = {
+          memberId: randomToken(12),
+          name: sanitizeSessionName(body.playerName, 'Player'),
+          role: 'player',
+          joinedAt: now,
+          lastSeenAt: now,
+        };
+        session.members.push(member);
+        session.updatedAt = now;
+        await saveSessionToR2(env.ROM_BUCKET, session);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          sessionId,
+          memberId: member.memberId,
+          memberCount: session.members.length,
+          session: buildSessionPublic(session),
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Join session failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/session-get') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const sessionId = sanitizeSessionId(url.searchParams.get('sessionId'));
+        const password = url.searchParams.get('password') || '';
+        if (!sessionId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing sessionId.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const session = await loadSessionFromR2(env.ROM_BUCKET, sessionId);
+        if (!session) {
+          return new Response(JSON.stringify({ ok: false, error: 'Session not found.' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const validPassword = await isValidSessionPassword(session, password);
+        if (!validPassword) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid session password.' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ ok: true, session: buildSessionPublic(session) }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Get session failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/session-leave' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const body = await request.json();
+        const sessionId = sanitizeSessionId(body.sessionId);
+        const memberId = sanitizeSessionId(body.memberId);
+        if (!sessionId || !memberId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing sessionId/memberId.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const session = await loadSessionFromR2(env.ROM_BUCKET, sessionId);
+        if (!session) {
+          return new Response(JSON.stringify({ ok: false, error: 'Session not found.' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const validPassword = await isValidSessionPassword(session, body.password);
+        if (!validPassword) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid session password.' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const before = Array.isArray(session.members) ? session.members.length : 0;
+        session.members = (session.members || []).filter(m => m.memberId !== memberId);
+        if (session.members.length === before) {
+          return new Response(JSON.stringify({ ok: false, error: 'Member not found in session.' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        session.updatedAt = Date.now();
+        if (!session.members.length) {
+          await env.ROM_BUCKET.delete(sessionStorageKey(sessionId));
+          return new Response(JSON.stringify({ ok: true, removed: true, memberCount: 0 }), {
+            status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        await saveSessionToR2(env.ROM_BUCKET, session);
+        return new Response(JSON.stringify({ ok: true, memberCount: session.members.length, session: buildSessionPublic(session) }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Leave session failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -100,17 +2983,20 @@ export default {
         try {
           let key, fileData, contentType;
           const ct = request.headers.get('Content-Type') || '';
+          let ownerId = resolveOwnerId(request, url);
 
           if (ct.includes('multipart/form-data')) {
             const formData = await request.formData();
             const file = formData.get('file');
             key = formData.get('key') || (file ? file.name : null);
+            ownerId = ownerId || resolveOwnerId(request, url, [formData.get('owner'), formData.get('user'), formData.get('userId')]);
             if (!file) return new Response(JSON.stringify({ ok: false, error: 'No file in FormData' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
             fileData = await file.arrayBuffer();
             contentType = file.type || 'application/octet-stream';
           } else if (ct.includes('application/json')) {
             const body = await request.json();
             key = body.key;
+            ownerId = ownerId || resolveOwnerId(request, url, [body.owner, body.user, body.userId, body.ownerId]);
             fileData = Uint8Array.from(atob(body.data), c => c.charCodeAt(0));
             contentType = body.contentType || 'application/octet-stream';
           } else {
@@ -120,9 +3006,17 @@ export default {
           }
 
           if (!key) return new Response(JSON.stringify({ ok: false, error: 'Missing key/filename' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
-          key = key.replace(/\.\./g, '').replace(/^\/+/, '');
+          key = normalizeR2Key(key);
 
-          await env.ROM_BUCKET.put(key, fileData, { httpMetadata: { contentType } });
+          if (!isGlobalUnscopedKey(key)) {
+            if (!ownerId) return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+            key = toOwnedKey(key, ownerId);
+            if (!key) return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), { status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+          }
+
+          const putOptions = { httpMetadata: { contentType } };
+          if (ownerId) putOptions.customMetadata = { ownerId };
+          await env.ROM_BUCKET.put(key, fileData, putOptions);
 
           const r2PublicUrl = env.R2_PUBLIC_URL
             ? env.R2_PUBLIC_URL.replace(/\/+$/, '') + '/' + key
@@ -139,12 +3033,21 @@ export default {
 
       // PUT /r2-upload/{key} — binary
       if (method === 'PUT') {
+        const ownerId = resolveOwnerId(request, url);
         let key = decodeURIComponent(path.replace('/r2-upload/', '')).replace(/\.\./g, '').replace(/^\/+/, '');
         if (!key || key === 'ping') return new Response(JSON.stringify({ ok: true, r2: 'ready' }), { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         try {
+          key = normalizeR2Key(key);
+          if (!isGlobalUnscopedKey(key)) {
+            if (!ownerId) return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+            key = toOwnedKey(key, ownerId);
+            if (!key) return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), { status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+          }
           const body = await request.arrayBuffer();
           const contentType = request.headers.get('Content-Type') || 'application/octet-stream';
-          await env.ROM_BUCKET.put(key, body, { httpMetadata: { contentType } });
+          const putOptions = { httpMetadata: { contentType } };
+          if (ownerId) putOptions.customMetadata = { ownerId };
+          await env.ROM_BUCKET.put(key, body, putOptions);
           const r2PublicUrl = env.R2_PUBLIC_URL ? env.R2_PUBLIC_URL.replace(/\/+$/, '') + '/' + key : null;
           return new Response(JSON.stringify({ ok: true, key, url: r2PublicUrl }), { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         } catch (err) {
@@ -154,8 +3057,15 @@ export default {
 
       // DELETE /r2-upload/{key}
       if (method === 'DELETE') {
-        const key = decodeURIComponent(path.replace('/r2-upload/', '')).replace(/\.\./g, '');
+        const ownerId = resolveOwnerId(request, url);
+        let key = decodeURIComponent(path.replace('/r2-upload/', '')).replace(/\.\./g, '');
         try {
+          key = normalizeR2Key(key);
+          if (!isGlobalUnscopedKey(key)) {
+            if (!ownerId) return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+            key = toOwnedKey(key, ownerId);
+            if (!key) return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), { status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+          }
           await env.ROM_BUCKET.delete(key);
           return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         } catch (err) {
@@ -187,6 +3097,52 @@ export default {
       }
     }
 
+    // ════════════════════════════════════════════════════════════════════
+    // R2 ROM STREAM — GET /r2-rom?key=...
+    // Serves owner-scoped ROM objects directly from R2 without needing
+    // public bucket URLs; validates owner scope before reading.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/r2-rom' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response('ROM_BUCKET not configured', { status: 503, headers: corsHeaders(origin) });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const rawKey = normalizeR2Key(url.searchParams.get('key') || '');
+        if (!rawKey) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing key' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const key = toOwnedKey(rawKey, ownerId);
+        if (!key) {
+          return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const obj = await env.ROM_BUCKET.get(key);
+        if (!obj) {
+          return new Response('ROM not found', { status: 404, headers: corsHeaders(origin) });
+        }
+        return new Response(obj.body, {
+          status: 200,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
+            'Cache-Control': 'public, max-age=86400',
+            'Cross-Origin-Resource-Policy': 'cross-origin',
+          },
+        });
+      } catch (err) {
+        return new Response('ROM stream error: ' + err.message, { status: 500, headers: corsHeaders(origin) });
+      }
+    }
+
 
     // ════════════════════════════════════════════════════════════════════
     // R2 LIST — GET /r2-list  lists all objects in ROM_BUCKET
@@ -198,15 +3154,21 @@ export default {
           { status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       }
       try {
-        const listed = await env.ROM_BUCKET.list({ limit: 1000 });
+        const ownerId = resolveOwnerId(request, url);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }),
+            { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+        }
+        const prefix = ownerPrefix(ownerId);
+        const listed = await env.ROM_BUCKET.list({ prefix, limit: 1000 });
         const objects = listed.objects
-          .filter(o => !o.key.startsWith('bios/') && !o.key.startsWith('meta/'))
+          .filter(o => !o.key.startsWith(prefix + 'bios/') && !o.key.startsWith(prefix + 'meta/'))
           .map(o => ({
             key: o.key,
             size: o.size,
             uploaded: o.uploaded,
           }));
-        return new Response(JSON.stringify({ ok: true, objects, truncated: listed.truncated }),
+        return new Response(JSON.stringify({ ok: true, ownerId, objects, truncated: listed.truncated }),
           { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }),
@@ -226,15 +3188,23 @@ export default {
       }
       try {
         const body = await request.json();
-        const key = (body.key || '').replace(/\.\./g, '').replace(/^\/+/, '');
-        if (!key || !key.startsWith('meta/')) {
+        const ownerId = resolveOwnerId(request, url, [body.owner, body.user, body.userId, body.ownerId]);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }),
+            { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+        }
+        let rawKey = normalizeR2Key(body.key || '');
+        if (rawKey.startsWith('meta/')) rawKey = ownerPrefix(ownerId) + rawKey;
+        const key = toOwnedKey(rawKey, ownerId);
+        if (!key || !key.startsWith(ownerPrefix(ownerId) + 'meta/')) {
           return new Response(JSON.stringify({ ok: false, error: 'Invalid meta key' }),
             { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         }
         await env.ROM_BUCKET.put(key, JSON.stringify(body.meta || {}), {
-          httpMetadata: { contentType: 'application/json' }
+          httpMetadata: { contentType: 'application/json' },
+          customMetadata: { ownerId }
         });
-        return new Response(JSON.stringify({ ok: true, key }),
+        return new Response(JSON.stringify({ ok: true, ownerId, key }),
           { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }),
@@ -251,7 +3221,13 @@ export default {
           { status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       }
       try {
-        const listed = await env.ROM_BUCKET.list({ prefix: 'meta/', limit: 1000 });
+        const ownerId = resolveOwnerId(request, url);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Send X-Retrovault-Owner header or ?owner= in request.' }),
+            { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+        }
+        const metaPrefix = ownerPrefix(ownerId) + 'meta/';
+        const listed = await env.ROM_BUCKET.list({ prefix: metaPrefix, limit: 1000 });
         const metas = await Promise.all(
           listed.objects.map(async o => {
             try {
@@ -264,11 +3240,135 @@ export default {
             }
           })
         );
-        return new Response(JSON.stringify({ ok: true, metas: metas.filter(Boolean) }),
+        return new Response(JSON.stringify({ ok: true, ownerId, metas: metas.filter(Boolean) }),
           { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }),
           { status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // OWNER CLOUD HEALTH — GET /cloud-health
+    // Quick diagnostics for owner-scoped storage visibility.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/cloud-health' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return cloneJsonResponse(origin, { ok: false, error: 'ROM_BUCKET not configured' }, 503);
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const summary = await ownerStorageSummary(env.ROM_BUCKET, ownerId);
+        return cloneJsonResponse(origin, {
+          ok: true,
+          ownerId,
+          mode: 'owner-scoped-r2',
+          summary,
+          checks: {
+            romsVisible: summary.romCount > 0,
+            metaVisible: summary.metaCount >= 0,
+            profileFound: summary.hasProfile,
+          },
+          generatedAt: Date.now(),
+        }, 200, { 'Cache-Control': 'no-store' });
+      } catch (err) {
+        return cloneJsonResponse(origin, { ok: false, error: 'cloud-health failed: ' + err.message }, 500);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // R2 LEGACY MIGRATION — POST /r2-migrate-owner
+    // Moves pre-owner-scoped root keys into users/{owner}/... so modern
+    // owner-scoped sync can see old ROM uploads without re-uploading.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/r2-migrate-owner' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const body = await request.json();
+        const ownerId = resolveOwnerId(request, url, [body.owner, body.user, body.userId, body.ownerId]);
+        if (!ownerId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing owner id. Set Shared Sync Owner ID first.' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const dryRun = !!body.dryRun;
+        const removeLegacy = body.removeLegacy !== false;
+
+        const objects = await listAllObjects(env.ROM_BUCKET);
+        let migratable = 0;
+        let migrated = 0;
+        let deleted = 0;
+        let failed = 0;
+        let skippedExisting = 0;
+        const errors = [];
+
+        for (const item of objects) {
+          const sourceKey = normalizeR2Key(item.key);
+          const destinationKey = legacyDestinationKey(ownerId, sourceKey);
+          if (!destinationKey || destinationKey === sourceKey) continue;
+          migratable++;
+          if (dryRun) continue;
+          try {
+            const existing = await env.ROM_BUCKET.head(destinationKey);
+            if (existing) {
+              skippedExisting++;
+              if (removeLegacy) {
+                await env.ROM_BUCKET.delete(sourceKey);
+                deleted++;
+              }
+              continue;
+            }
+
+            const sourceObject = await env.ROM_BUCKET.get(sourceKey);
+            if (!sourceObject) {
+              failed++;
+              if (errors.length < 20) errors.push(`Missing source object: ${sourceKey}`);
+              continue;
+            }
+            const bodyBytes = await sourceObject.arrayBuffer();
+            const putOptions = {};
+            const sourceContentType = sourceObject.httpMetadata?.contentType || (sourceKey.endsWith('.json') ? 'application/json' : null);
+            if (sourceContentType) putOptions.httpMetadata = { contentType: sourceContentType };
+            putOptions.customMetadata = {
+              ...(sourceObject.customMetadata || {}),
+              ownerId,
+            };
+            await env.ROM_BUCKET.put(destinationKey, bodyBytes, putOptions);
+            migrated++;
+
+            if (removeLegacy) {
+              await env.ROM_BUCKET.delete(sourceKey);
+              deleted++;
+            }
+          } catch (err) {
+            failed++;
+            if (errors.length < 20) errors.push(`${sourceKey}: ${err.message}`);
+          }
+        }
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          dryRun,
+          removeLegacy,
+          scanned: objects.length,
+          migratable,
+          migrated,
+          deleted,
+          skippedExisting,
+          failed,
+          errors,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'Migration failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
       }
     }
 
@@ -417,8 +3517,10 @@ export default {
       try {
         const obj = await env.ROM_BUCKET.get('meta/lb_index.json.gz');
         if (!obj) {
-          return new Response(JSON.stringify({ ok: false, error: 'Index not found — upload meta/lb_index.json.gz to R2' }), {
-            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          // Return a successful empty result so the frontend can silently fall
+          // back to live providers without flooding console/network logs.
+          return new Response(JSON.stringify({ ok: true, game: null, score: -1, reason: 'index_missing' }), {
+            status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
         const compressed = await obj.arrayBuffer();
@@ -475,6 +3577,614 @@ export default {
           status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
         });
       }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // RELEASE LOG + GITHUB INTEGRATION STATUS
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/changelog' || path === '/release-notes.json') {
+      return new Response(JSON.stringify({
+        ok: true,
+        version: APP_RELEASE_VERSION,
+        releaseLog: RELEASE_LOG,
+        roadmap: CHANGELOG_DATA.selectedRoadmap,
+        nextSteps: CHANGELOG_DATA.nextSteps,
+      }, null, 2), {
+        status: 200,
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
+    if (path === '/release-notes') {
+      const releaseNotes = getReleaseNotesHTML();
+      return new Response(releaseNotes, {
+        headers: {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'X-Content-Type-Options': 'nosniff',
+          ...corsHeaders(origin),
+        },
+      });
+    }
+
+    if (path === '/github-integration-status') {
+      const token = request.headers.get('X-GitHub-Token') || '';
+      const hasToken = token.length > 0;
+      return new Response(JSON.stringify({
+        ok: true,
+        version: APP_RELEASE_VERSION,
+        github: {
+          configured: hasToken,
+          authHeader: hasToken ? 'provided-via-header' : 'missing',
+          setupHint: 'Send X-GitHub-Token header for runtime integration checks.',
+          recommendedScopes: ['repo', 'workflow', 'read:org'],
+        },
+        endpoints: {
+          changelog: '/changelog',
+          releaseNotes: '/release-notes',
+          releaseNotesJson: '/release-notes.json',
+          app: '/app',
+        },
+      }, null, 2), {
+        status: 200,
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // OWNER PROFILE (R2-backed, no Firebase/Supabase dependency)
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/profile-avatar' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const profile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const avatarKey = profileAvatarOwnedKey(ownerId, profile);
+        if (!avatarKey) {
+          return new Response(JSON.stringify({ ok: false, error: 'Avatar not configured' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const avatarObj = await env.ROM_BUCKET.get(avatarKey);
+        if (!avatarObj) {
+          return new Response(JSON.stringify({ ok: false, error: 'Avatar file missing' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(avatarObj.body, {
+          status: 200,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': avatarObj.httpMetadata?.contentType || 'image/png',
+            'Cache-Control': 'public, max-age=300',
+            'Cross-Origin-Resource-Policy': 'cross-origin',
+          },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profile-avatar failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profile-avatar-upload' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const contentType = request.headers.get('Content-Type') || '';
+        let filename = 'avatar.png';
+        let fileType = '';
+        let bytes = null;
+
+        if (contentType.includes('multipart/form-data')) {
+          const formData = await request.formData();
+          const file = formData.get('file');
+          if (!file) {
+            return new Response(JSON.stringify({ ok: false, error: 'Missing file in multipart payload' }), {
+              status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+            });
+          }
+          filename = String(file.name || filename);
+          fileType = normalizeAvatarContentType(file.type || '', filename) || '';
+          bytes = new Uint8Array(await file.arrayBuffer());
+        } else {
+          const body = await request.json();
+          filename = String((body && body.filename) || filename);
+          fileType = normalizeAvatarContentType((body && body.contentType) || '', filename) || '';
+          bytes = base64ToUint8(body && body.base64Data ? body.base64Data : '');
+        }
+
+        if (!bytes || !bytes.byteLength) {
+          return new Response(JSON.stringify({ ok: false, error: 'Empty avatar file' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        if (bytes.byteLength > 5 * 1024 * 1024) {
+          return new Response(JSON.stringify({ ok: false, error: 'Avatar too large (max 5 MB)' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        if (!fileType) {
+          return new Response(JSON.stringify({ ok: false, error: 'Unsupported avatar type. Use png/jpg/webp/gif' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const baseName = sanitizeAvatarFilename(filename).replace(/\.[a-z0-9]+$/i, '');
+        const ext = avatarExtensionFromType(fileType);
+        const relativeKey = `meta/avatar/${Date.now()}-${randomToken(6)}-${baseName}${ext}`;
+        const ownedKey = toOwnedKey(relativeKey, ownerId);
+        if (!ownedKey) {
+          return new Response(JSON.stringify({ ok: false, error: 'Failed to resolve avatar key' }), {
+            status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const current = await loadProfile(env.ROM_BUCKET, ownerId);
+        const previousAvatarKey = profileAvatarOwnedKey(ownerId, current);
+        await env.ROM_BUCKET.put(ownedKey, bytes, {
+          httpMetadata: { contentType: fileType },
+          customMetadata: { ownerId, avatar: 'true' },
+        });
+
+        const profile = normalizeProfilePayload(ownerId, { ...current, avatar: { type: 'upload', key: relativeKey } });
+        await saveProfile(env.ROM_BUCKET, ownerId, profile);
+
+        if (previousAvatarKey && previousAvatarKey !== ownedKey) {
+          await env.ROM_BUCKET.delete(previousAvatarKey).catch(() => {});
+        }
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          avatar: profile.avatar,
+          avatarUrl: profileAvatarUrl(ownerId, profile),
+          profile: profilePublic(ownerId, profile),
+          bytes: bytes.byteLength,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profile-avatar-upload failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profile-get' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+      const profile = await loadProfile(env.ROM_BUCKET, ownerId);
+      return new Response(JSON.stringify({ ok: true, ownerId, profile: profilePublic(ownerId, profile) }), {
+        status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
+    }
+
+    if (path === '/profile-save' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json();
+        const current = await loadProfile(env.ROM_BUCKET, ownerId);
+        const patch = body && typeof body === 'object' ? body : {};
+        const merged = {
+          ...current,
+          ...patch,
+          avatar: (patch && patch.avatar) ? patch.avatar : current.avatar,
+          preferences: {
+            ...(current.preferences || {}),
+            ...((patch && patch.preferences && typeof patch.preferences === 'object') ? patch.preferences : {}),
+          },
+        };
+        const profile = normalizeProfilePayload(ownerId, merged);
+        await saveProfile(env.ROM_BUCKET, ownerId, profile);
+        return new Response(JSON.stringify({ ok: true, ownerId, profile: profilePublic(ownerId, profile) }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profile-save failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profile-avatar-save' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json();
+        const avatar = normalizeAvatarPayload(body || {});
+        const current = await loadProfile(env.ROM_BUCKET, ownerId);
+        const profile = normalizeProfilePayload(ownerId, { ...current, avatar });
+        await saveProfile(env.ROM_BUCKET, ownerId, profile);
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          avatar: profile.avatar,
+          avatarUrl: profileAvatarUrl(ownerId, profile),
+          profile: profilePublic(ownerId, profile),
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profile-avatar-save failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profile-list' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+      const profile = await loadProfile(env.ROM_BUCKET, ownerId);
+      return new Response(JSON.stringify({
+        ok: true,
+        ownerId,
+        profiles: [{
+          ownerId: profile.ownerId,
+          displayName: profile.displayName,
+          avatar: profile.avatar,
+          avatarUrl: profileAvatarUrl(ownerId, profile),
+          updatedAt: profile.updatedAt || Date.now(),
+        }]
+      }), {
+        status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
+    }
+
+    if (path === '/profiles-list' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const profileSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          ...profileSetPublic(ownerId, profileSet),
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-list failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-select' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json().catch(() => ({}));
+        const profileId = sanitizeProfileSlotId(body && (body.profileId || body.id));
+        if (!profileId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing profileId' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const profileSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        const selected = profileSet.profiles.find((p) => p.id === profileId);
+        if (!selected) {
+          return new Response(JSON.stringify({ ok: false, error: 'Profile not found' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const updatedSet = {
+          ...profileSet,
+          activeProfileId: profileId,
+          updatedAt: Date.now(),
+        };
+        await saveProfileSet(env.ROM_BUCKET, ownerId, updatedSet);
+
+        const selectedOwnerId = `${ownerId}--${profileId}`;
+        const currentSelectedProfile = await loadProfile(env.ROM_BUCKET, selectedOwnerId);
+        const mergedSelectedProfile = normalizeProfilePayload(selectedOwnerId, {
+          ...currentSelectedProfile,
+          displayName: selected.displayName || currentSelectedProfile.displayName,
+          avatar: selected.avatar || currentSelectedProfile.avatar,
+        });
+        await saveProfile(env.ROM_BUCKET, selectedOwnerId, mergedSelectedProfile);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          selectedOwnerId,
+          activeProfileId: profileId,
+          profile: profilePublic(selectedOwnerId, mergedSelectedProfile),
+          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-select failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-add' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json().catch(() => ({}));
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const currentSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        if (currentSet.profiles.length >= 12) {
+          return new Response(JSON.stringify({ ok: false, error: 'Profile limit reached (12)' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const displayName = String(body && body.displayName ? body.displayName : '').trim().slice(0, 40) || `Player ${currentSet.profiles.length + 1}`;
+        const requestedId = sanitizeProfileSlotId(body && (body.profileId || body.id || displayName));
+        let profileId = requestedId || `player${currentSet.profiles.length + 1}`;
+        let suffix = 2;
+        while (currentSet.profiles.some((p) => p.id === profileId) && suffix < 100) {
+          profileId = `${requestedId || 'player'}${suffix}`;
+          suffix++;
+        }
+        if (currentSet.profiles.some((p) => p.id === profileId)) {
+          return new Response(JSON.stringify({ ok: false, error: 'Unable to allocate unique profile id' }), {
+            status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const slot = normalizeProfileSlotPayload({
+          id: profileId,
+          displayName,
+          avatar: body && body.avatar ? body.avatar : { type: 'preset', preset: 'neon' },
+        }, profileId, displayName);
+        if (!slot) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid profile payload' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const updatedSet = {
+          ...currentSet,
+          profiles: [...currentSet.profiles, slot],
+          updatedAt: Date.now(),
+        };
+        await saveProfileSet(env.ROM_BUCKET, ownerId, updatedSet);
+
+        const selectedOwnerId = `${ownerId}--${slot.id}`;
+        const createdProfile = normalizeProfilePayload(selectedOwnerId, {
+          displayName: slot.displayName,
+          avatar: slot.avatar,
+        });
+        await saveProfile(env.ROM_BUCKET, selectedOwnerId, createdProfile);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          profile: {
+            id: slot.id,
+            profileId: slot.id,
+            displayName: slot.displayName,
+            avatar: slot.avatar,
+            updatedAt: slot.updatedAt || Date.now(),
+          },
+          activeProfileId: updatedSet.activeProfileId,
+          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-add failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-remove' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json().catch(() => ({}));
+        const profileId = sanitizeProfileSlotId(body && (body.profileId || body.id));
+        if (!profileId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing profileId' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        if (profileId === 'main') {
+          return new Response(JSON.stringify({ ok: false, error: 'Main profile cannot be removed' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const currentSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        const nextProfiles = currentSet.profiles.filter((p) => p.id !== profileId);
+        if (nextProfiles.length === currentSet.profiles.length) {
+          return new Response(JSON.stringify({ ok: false, error: 'Profile not found' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const safeProfiles = nextProfiles.length ? nextProfiles : [defaultProfileSet(ownerId, baseProfile).profiles[0]];
+        const nextActive = currentSet.activeProfileId === profileId
+          ? safeProfiles[0].id
+          : (safeProfiles.some((p) => p.id === currentSet.activeProfileId) ? currentSet.activeProfileId : safeProfiles[0].id);
+
+        const updatedSet = {
+          ...currentSet,
+          profiles: safeProfiles,
+          activeProfileId: nextActive,
+          updatedAt: Date.now(),
+        };
+        await saveProfileSet(env.ROM_BUCKET, ownerId, updatedSet);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          removedProfileId: profileId,
+          activeProfileId: updatedSet.activeProfileId,
+          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-remove failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-backup' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const includeData = parseTruthyQueryValue(url.searchParams.get('includeData'));
+        const maxInlineExportBytes = Number(url.searchParams.get('maxInlineExportBytes') || 0) || undefined;
+        const snapshot = await buildOwnerSnapshot(env.ROM_BUCKET, ownerId, {
+          includeData,
+          maxInlineExportBytes,
+        });
+        return new Response(JSON.stringify(snapshot, null, 2), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-backup failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-restore-check' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json();
+        const source = body && body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : body;
+        const validation = validateOwnerBackupSnapshotShape(source);
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          validation,
+          summary: {
+            manifestCount: Array.isArray(source && source.manifest) ? source.manifest.length : 0,
+            metaDocumentCount: source && source.metaDocuments && typeof source.metaDocuments === 'object'
+              ? Object.keys(source.metaDocuments).length
+              : 0,
+            libraryObjectCount: source && source.library && Array.isArray(source.library.objects)
+              ? source.library.objects.length
+              : 0,
+          },
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-restore-check failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-restore' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json();
+        const source = body && body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : body;
+        const validation = validateOwnerBackupSnapshotShape(source);
+        if (!validation.ok) {
+          return new Response(JSON.stringify({ ok: false, error: validation.error, validation }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const imported = await restoreOwnerSnapshot(env.ROM_BUCKET, ownerId, source);
+        return new Response(JSON.stringify(imported), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-restore failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // LANDING + APP
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/') {
+      const landing = getLandingHTML();
+      return new Response(landing, {
+        headers: {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'X-Content-Type-Options': 'nosniff',
+          ...corsHeaders(origin),
+        },
+      });
+    }
+
+    if (path === '/app') {
+      const html = getHTML();
+      return new Response(html, {
+        headers: {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'SAMEORIGIN',
+          'Cross-Origin-Opener-Policy': 'same-origin',
+          'Cross-Origin-Embedder-Policy': 'require-corp',
+          ...corsHeaders(origin),
+        },
+      });
     }
 
     // ════════════════════════════════════════════════════════════════════
