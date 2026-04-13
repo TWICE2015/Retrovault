@@ -968,7 +968,169 @@ if(document.readyState === 'loading'){
     .replace(
       "<button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>",
       "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
+    )
+    .replace(
+      "function cloudAppReady(){ return _rvFbInited && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0; }\nfunction cloudSignedIn(){ return cloudAppReady() && firebase.auth().currentUser; }",
+      "function cloudAppReady(){ return false; }\nfunction cloudSignedIn(){ return false; }"
+    )
+    .replace(
+      "if(cloudSignedIn()) await sbPush();",
+      "if(window.__rvEnableFirebaseCloud===true) await sbPush();"
+    )
+    .replace(
+      "if(cloudSignedIn()) sbPush().catch(()=>{});",
+      "if(window.__rvEnableFirebaseCloud===true) sbPush().catch(()=>{});"
+    )
+    .replace(
+      "const raw = localStorage.getItem('rv-fb-config');\n  if(!raw || typeof firebase==='undefined') return;",
+      "const raw = localStorage.getItem('rv-fb-config');\n  if(!raw || true) return;"
+    )
+    .replace(
+      "dot.classList.toggle('show', !signedIn && !!localStorage.getItem('rv-fb-config'));",
+      "dot.classList.toggle('show', false);"
+    )
+    .replace(
+      "document.getElementById('sb-signin-form')?.scrollIntoView({behavior:'smooth',block:'center'});",
+      "const note=document.getElementById('rvCloudModeNotice'); if(note) note.scrollIntoView({behavior:'smooth',block:'center'});"
+    )
+    .replace(
+      "const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; card.appendChild(row); card.appendChild(note); host.appendChild(card); }",
+      "const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; const mode=document.createElement('div'); mode.id='rvCloudModeNotice'; mode.style.fontSize='11px'; mode.style.color='var(--blue)'; mode.style.marginTop='6px'; mode.textContent='Cloud mode: Owner-scoped R2 (Firebase disabled).'; card.appendChild(row); card.appendChild(note); card.appendChild(mode); host.appendChild(card); }"
+    )
+    .replace(
+      "Upload each file — when signed into Firebase it is stored under your user folder in Cloud Storage and auto-linked when you launch a game.",
+      "Upload each file — stored in your owner-scoped R2 path and auto-linked when you launch a game."
+    )
+    .replace(
+      "<strong style=\"color:var(--text);\">Firebase required for cloud BIOS.</strong> Connect and sign in under ROMs → Cloud Sync. BIOS files are tiny (under 1MB each) and load automatically when you play a game that needs them.",
+      "<strong style=\"color:var(--text);\">Owner-scoped cloud BIOS.</strong> Set your Shared Sync Owner ID in ROMs → Cloud Sync. BIOS files are tiny (under 1MB each) and load automatically when needed."
+    )
+    .replace(
+      "Connect Firebase",
+      "Owner Cloud Mode"
+    )
+    .replace(
+      "Paste your Firebase web app config JSON from Project settings.",
+      "Firebase is disabled. Use Shared Sync Owner ID + R2 cloud sync."
+    )
+    .replace(
+      "Click Connect and paste Firebase config first.",
+      "Firebase cloud login is disabled in this build."
+    )
+    .replace(
+      "Connect Firebase first",
+      "Owner cloud mode is active"
+    )
+    .replace(
+      "dot.classList.toggle('show', false);",
+      "dot.classList.toggle('show', false);"
     );
+
+  if (!html.includes('window.__rvNoFirebaseMode=true')) {
+    const noFirebasePatch = `<script>
+(function(){
+  if(window.__rvNoFirebaseMode) return;
+  window.__rvNoFirebaseMode = true;
+  window.__rvEnableFirebaseCloud = false;
+  const disabledMsg = 'Legacy cloud login is disabled. Use Shared Sync Owner ID + R2 sync.';
+  const disabledAsync = async function(){ if(typeof toast==='function') toast(disabledMsg, 'warn'); return { ok:false, disabled:true }; };
+  window.cloudAppReady = function(){ return false; };
+  window.cloudSignedIn = function(){ return false; };
+  window.initCloud = function(){};
+  window.sbConnect = disabledAsync;
+  window.sbSignIn = disabledAsync;
+  window.sbSignInGoogle = disabledAsync;
+  window.sbSignOut = disabledAsync;
+  window.sbPull = disabledAsync;
+  window.sbPush = disabledAsync;
+  window.cloudBannerShow = function(){};
+  window.cloudBannerHide = function(){};
+
+  function ownerId(){
+    try{
+      if(typeof window._rvOwnerId === 'function') return window._rvOwnerId();
+      return localStorage.getItem('rv-owner-id') || 'main';
+    }catch(e){
+      return 'main';
+    }
+  }
+
+  function upsertChip(label){
+    const host = document.querySelector('.nr') || document.querySelector('.nav') || document.body;
+    if(!host) return null;
+    let chip = document.getElementById('rvOwnerChip');
+    if(!chip){
+      chip = document.createElement('button');
+      chip.id = 'rvOwnerChip';
+      chip.className = 'nb';
+      chip.type = 'button';
+      chip.style.display = 'inline-flex';
+      chip.style.alignItems = 'center';
+      chip.style.gap = '6px';
+      chip.style.maxWidth = '220px';
+      chip.style.overflow = 'hidden';
+      chip.style.textOverflow = 'ellipsis';
+      chip.style.whiteSpace = 'nowrap';
+      chip.onclick = async function(){
+        const current = (window.__rvProfile && window.__rvProfile.displayName) || ownerId();
+        const next = String(prompt('Profile display name', current) || '').trim();
+        if(!next) return;
+        try{
+          const oid = ownerId();
+          const resp = await fetch('/profile-save?owner='+encodeURIComponent(oid), {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-Retrovault-Owner':oid},
+            body: JSON.stringify({ displayName: next })
+          });
+          const data = await resp.json().catch(()=>({}));
+          if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+          window.__rvProfile = data.profile || null;
+          const nm = (data.profile && data.profile.displayName) || oid;
+          upsertChip('🙂 '+nm);
+          if(typeof toast==='function') toast('Profile updated');
+        }catch(e){
+          if(typeof toast==='function') toast('Profile save failed: '+e.message, 'err');
+        }
+      };
+      host.prepend(chip);
+    }
+    chip.textContent = label;
+    return chip;
+  }
+
+  async function loadProfile(){
+    try{
+      const oid = ownerId();
+      const resp = await fetch('/profile-get?owner='+encodeURIComponent(oid), {
+        headers:{'X-Retrovault-Owner':oid}
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(resp.ok && data && data.ok){
+        window.__rvProfile = data.profile || null;
+        const nm = (data.profile && data.profile.displayName) || oid;
+        upsertChip('🙂 '+nm);
+      } else {
+        upsertChip('🙂 '+oid);
+      }
+    }catch(e){
+      upsertChip('🙂 '+ownerId());
+    }
+  }
+
+  function patchText(){
+    const bios = document.querySelector('#st-bios .sub');
+    if(bios && /Firebase/i.test(bios.textContent || '')){
+      bios.textContent = 'Some consoles require BIOS firmware. Files are stored in your owner-scoped cloud path and auto-linked when launching supported games.';
+    }
+  }
+
+  const boot = function(){ patchText(); loadProfile().catch(()=>{}); };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else setTimeout(boot, 0);
+})();
+</script>`;
+    html = html.replace('</body>', `${noFirebasePatch}\n</body>`);
+  }
 
   _cachedHtml = html;
   return _cachedHtml;
@@ -1031,6 +1193,79 @@ function isGlobalUnscopedKey(key) {
   return normalized.startsWith('bios/')
     || normalized === 'meta/lb_index.json.gz'
     || normalized === 'meta/lb_index.json';
+}
+
+function profileStorageKey(ownerId) {
+  return `${ownerPrefix(ownerId)}meta/profile.json`;
+}
+
+function defaultProfile(ownerId) {
+  return {
+    ownerId,
+    displayName: ownerId,
+    avatar: { type: 'preset', preset: 'neon' },
+    preferences: {
+      heroBannerMode: 'auto', // auto | custom
+      quietScraperMode: true,
+      launchboxEnabled: false,
+      showCloudHealth: true,
+      backupMode: 'full',
+    },
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeProfilePayload(ownerId, payload) {
+  const base = defaultProfile(ownerId);
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const displayName = String(src.displayName || base.displayName).trim().replace(/[<>]/g, '').slice(0, 40) || ownerId;
+  const avatar = normalizeAvatarPayload(src.avatar || {});
+  const prefs = src.preferences && typeof src.preferences === 'object' ? src.preferences : {};
+  return {
+    ownerId,
+    displayName,
+    avatar,
+    preferences: {
+      heroBannerMode: prefs.heroBannerMode === 'custom' ? 'custom' : 'auto',
+      quietScraperMode: prefs.quietScraperMode !== false,
+      launchboxEnabled: prefs.launchboxEnabled === true,
+      showCloudHealth: prefs.showCloudHealth !== false,
+      backupMode: prefs.backupMode === 'full' ? 'full' : 'full',
+    },
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeAvatarPayload(payload) {
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const type = src.type === 'upload' ? 'upload' : 'preset';
+  if (type === 'upload') {
+    const key = normalizeR2Key(src.key || src.path || '');
+    if (!key) return { type: 'preset', preset: 'neon' };
+    return { type: 'upload', key };
+  }
+  const preset = String(src.preset || 'neon').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'neon';
+  return { type: 'preset', preset };
+}
+
+async function loadProfile(bucket, ownerId) {
+  const key = profileStorageKey(ownerId);
+  const obj = await bucket.get(key);
+  if (!obj) return defaultProfile(ownerId);
+  try {
+    const parsed = JSON.parse(await obj.text());
+    return normalizeProfilePayload(ownerId, parsed);
+  } catch {
+    return defaultProfile(ownerId);
+  }
+}
+
+async function saveProfile(bucket, ownerId, profile) {
+  const key = profileStorageKey(ownerId);
+  await bucket.put(key, JSON.stringify(profile), {
+    httpMetadata: { contentType: 'application/json' },
+    customMetadata: { ownerId },
+  });
 }
 
 function sanitizeSessionId(value) {
@@ -1171,6 +1406,13 @@ function legacyDestinationKey(ownerId, sourceKey) {
   const normalized = normalizeR2Key(sourceKey);
   if (!isLegacyMigratableKey(normalized)) return null;
   return ownerPrefix(ownerId) + normalized;
+}
+
+function cloneJsonResponse(origin, payload, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', ...extraHeaders },
+  });
 }
 
 // ── Main fetch handler ─────────────────────────────────────────────────────
@@ -2043,6 +2285,129 @@ export default {
         status: 200,
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // OWNER PROFILE (R2-backed, no Firebase/Supabase dependency)
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/profile-get' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+      const profile = await loadProfile(env.ROM_BUCKET, ownerId);
+      return new Response(JSON.stringify({ ok: true, ownerId, profile }), {
+        status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
+    }
+
+    if (path === '/profile-save' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json();
+        const profile = normalizeProfilePayload(ownerId, body || {});
+        await saveProfile(env.ROM_BUCKET, ownerId, profile);
+        return new Response(JSON.stringify({ ok: true, ownerId, profile }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profile-save failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profile-avatar-save' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json();
+        const avatar = normalizeAvatarPayload(body || {});
+        const current = await loadProfile(env.ROM_BUCKET, ownerId);
+        const profile = normalizeProfilePayload(ownerId, { ...current, avatar });
+        await saveProfile(env.ROM_BUCKET, ownerId, profile);
+        return new Response(JSON.stringify({ ok: true, ownerId, avatar, profile }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profile-avatar-save failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profile-list' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+      const profile = await loadProfile(env.ROM_BUCKET, ownerId);
+      return new Response(JSON.stringify({
+        ok: true,
+        ownerId,
+        profiles: [{
+          ownerId: profile.ownerId,
+          displayName: profile.displayName,
+          avatar: profile.avatar,
+          updatedAt: profile.updatedAt || Date.now(),
+        }]
+      }), {
+        status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
+    }
+
+    if (path === '/profiles-backup' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+      const profile = await loadProfile(env.ROM_BUCKET, ownerId);
+      return new Response(JSON.stringify({
+        ok: true,
+        ownerId,
+        schemaVersion: 1,
+        exportedAt: Date.now(),
+        profile,
+      }, null, 2), {
+        status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
+    }
+
+    if (path === '/profiles-restore' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json();
+        const source = body && typeof body === 'object' && body.profile ? body.profile : body;
+        const profile = normalizeProfilePayload(ownerId, source || {});
+        await saveProfile(env.ROM_BUCKET, ownerId, profile);
+        return new Response(JSON.stringify({ ok: true, ownerId, profile }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-restore failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // ════════════════════════════════════════════════════════════════════
