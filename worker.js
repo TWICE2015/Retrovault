@@ -111,7 +111,7 @@ function getHTML() {
     )
     .replace(
       "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[r.cloudStoragePath,r]));\n",
-      "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[normalizeR2Key(r.cloudStoragePath),r]));\n"
+      "    const normalizeCloudKey = k => String(k||'').replace(/%2F/gi,'/').replace(/^\\/+/, '');\n    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[normalizeCloudKey(r.cloudStoragePath),r]));\n"
     )
     .replace(
       "      if(existingKeys.has(obj.key)) continue;\n",
@@ -119,7 +119,7 @@ function getHTML() {
     )
     .replace(
       "      const existingRom = existingByKey.get(obj.key);\n",
-      "      const normalizedKey = normalizeR2Key(obj.key);\n      const existingRom = existingByKey.get(normalizedKey);\n"
+      "      const normalizedKey = normalizeCloudKey(obj.key);\n      const existingRom = existingByKey.get(normalizedKey);\n"
     )
     .replace(
       "      await dbAdd('roms',{\n        name: cleanName(filename),\n        filename,\n        console: consoleId,\n        consoleName: s.name,\n        size: obj.size||0,\n        coverUrl: null, description: null, year: null, rating: null,\n        added: Date.now(),\n        ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n        romUrl: publicUrl,\n        cloudStoragePath: obj.key,\n        data: null,\n      });\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n",
@@ -135,7 +135,7 @@ function getHTML() {
     )
     .replace(
       "          saved.romUrl = publicUrl;\n          saved.cloudStoragePath = fullPath;\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);",
-      "          const safeFilename = String(file.name||'').replace(/[^a-zA-Z0-9._-]/g,'_');\n          const owner = (typeof _rvOwnerId==='function' ? _rvOwnerId() : '');\n          const fallbackCloudPath = owner ? ('users/'+owner+'/'+rom.console+'/'+safeFilename) : (rom.console+'/'+safeFilename);\n          saved.cloudStoragePath = fullPath || fallbackCloudPath;\n          saved.romUrl = publicUrl || (window.location.origin + '/r2-rom?key=' + encodeURIComponent(saved.cloudStoragePath) + (owner ? ('&owner=' + encodeURIComponent(owner)) : ''));\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);"
+      "          const safeFilename = String(file.name||'').replace(/[^a-zA-Z0-9._-]/g,'_');\n          const owner = (typeof _rvOwnerId==='function' ? _rvOwnerId() : '');\n          const fallbackCloudPath = owner ? ('users/'+owner+'/'+saved.console+'/'+safeFilename) : (saved.console+'/'+safeFilename);\n          saved.cloudStoragePath = fullPath || fallbackCloudPath;\n          saved.romUrl = publicUrl || (window.location.origin + '/r2-rom?key=' + encodeURIComponent(saved.cloudStoragePath) + (owner ? ('&owner=' + encodeURIComponent(owner)) : ''));\n          saved.data = null; // Remove local binary — cloud URL will be used\n          await dbPut('roms', saved);"
     )
     .replace(
       "      const proxyUrl = window.location.origin + '/rom-proxy?url=' + encodeURIComponent(rom.romUrl);\n      const resp = await fetch(proxyUrl);",
