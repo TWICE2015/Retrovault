@@ -744,6 +744,10 @@ if(document.readyState === 'loading'){
       "Optional fallback (requires login) — use when no-login sources miss a game"
     )
     .replace(
+      "name.replace(/_/g,' ').replace(/s*[([][^)]]*[)]]/g,'')\n        .replace(/s*-s*(Rev|Version|v)s*[d.]+s*$/i,'')\n        .replace(/s+(USA|Europe|Japan|World|En|Fr|De|Es|It)s*$/i,'')\n        .replace(/s+/g,' ').trim();",
+      "name.replace(/_/g,' ').replace(/\\s*[\\(\\[][^\u005c)\\]]*[\\)\\]]/g,'')\n        .replace(/\\s*-\\s*(Rev|Version|v)\\s*[\\d.]+\\s*$/i,'')\n        .replace(/\\s+(USA|Europe|Japan|World|En|Fr|De|Es|It)\\s*$/i,'')\n        .replace(/\\s+/g,' ').trim();"
+    )
+    .replace(
       "async function scrapeThisGame(){\n  if(!detRomId){ toast('No game selected','err'); return; }\n  const creds=getSsCreds();\n  if(!creds){ toast('Login to ScreenScraper.fr first','warn'); sv('scraper',null); closeDet(); return; }\n  toast('Scraping artwork…');\n  await scrapeRomById(detRomId,creds);\n  await showDet(detRomId);\n}",
       "async function scrapeThisGame(){\n  if(!detRomId){ toast('No game selected','err'); return; }\n  const creds=getSsCreds();\n  toast('Scraping artwork…');\n  await autoScrapeWithFallback(detRomId, creds);\n  await showDet(detRomId);\n}"
     )
@@ -1742,8 +1746,10 @@ export default {
       try {
         const obj = await env.ROM_BUCKET.get('meta/lb_index.json.gz');
         if (!obj) {
-          return new Response(JSON.stringify({ ok: false, error: 'Index not found — upload meta/lb_index.json.gz to R2' }), {
-            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          // Return a successful empty result so the frontend can silently fall
+          // back to live providers without flooding console/network logs.
+          return new Response(JSON.stringify({ ok: true, game: null, score: -1, reason: 'index_missing' }), {
+            status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
         const compressed = await obj.arrayBuffer();
