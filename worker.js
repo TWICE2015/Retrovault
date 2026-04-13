@@ -2075,6 +2075,11 @@ function base64ToUint8(value) {
   return out;
 }
 
+function parseTruthyQueryValue(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
 async function ownerStorageSummary(bucket, ownerId) {
   const prefix = ownerPrefix(ownerId);
   const objects = await listAllObjects(bucket, { prefix });
@@ -3271,7 +3276,18 @@ export default {
       try {
         const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
         const body = await request.json();
-        const profile = normalizeProfilePayload(ownerId, body || {});
+        const current = await loadProfile(env.ROM_BUCKET, ownerId);
+        const patch = body && typeof body === 'object' ? body : {};
+        const merged = {
+          ...current,
+          ...patch,
+          avatar: (patch && patch.avatar) ? patch.avatar : current.avatar,
+          preferences: {
+            ...(current.preferences || {}),
+            ...((patch && patch.preferences && typeof patch.preferences === 'object') ? patch.preferences : {}),
+          },
+        };
+        const profile = normalizeProfilePayload(ownerId, merged);
         await saveProfile(env.ROM_BUCKET, ownerId, profile);
         return new Response(JSON.stringify({ ok: true, ownerId, profile: profilePublic(ownerId, profile) }), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
@@ -3343,7 +3359,12 @@ export default {
       }
       try {
         const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
-        const snapshot = await buildOwnerBackupSnapshot(env.ROM_BUCKET, ownerId);
+        const includeData = parseTruthyQueryValue(url.searchParams.get('includeData'));
+        const maxInlineExportBytes = Number(url.searchParams.get('maxInlineExportBytes') || 0) || undefined;
+        const snapshot = await buildOwnerSnapshot(env.ROM_BUCKET, ownerId, {
+          includeData,
+          maxInlineExportBytes,
+        });
         return new Response(JSON.stringify(snapshot, null, 2), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
@@ -3363,11 +3384,21 @@ export default {
       try {
         const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
         const body = await request.json();
-        const validation = validateOwnerBackupSnapshotShape(body);
+        const source = body && body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : body;
+        const validation = validateOwnerBackupSnapshotShape(source);
         return new Response(JSON.stringify({
           ok: true,
           ownerId,
           validation,
+          summary: {
+            manifestCount: Array.isArray(source && source.manifest) ? source.manifest.length : 0,
+            metaDocumentCount: source && source.metaDocuments && typeof source.metaDocuments === 'object'
+              ? Object.keys(source.metaDocuments).length
+              : 0,
+            libraryObjectCount: source && source.library && Array.isArray(source.library.objects)
+              ? source.library.objects.length
+              : 0,
+          },
         }), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
@@ -3387,13 +3418,14 @@ export default {
       try {
         const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
         const body = await request.json();
-        const validation = validateOwnerBackupSnapshotShape(body);
+        const source = body && body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : body;
+        const validation = validateOwnerBackupSnapshotShape(source);
         if (!validation.ok) {
           return new Response(JSON.stringify({ ok: false, error: validation.error, validation }), {
             status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
-        const imported = await restoreOwnerBackupSnapshot(env.ROM_BUCKET, ownerId, body);
+        const imported = await restoreOwnerSnapshot(env.ROM_BUCKET, ownerId, source);
         return new Response(JSON.stringify(imported), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
