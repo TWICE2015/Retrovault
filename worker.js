@@ -82,7 +82,7 @@ function getHTML() {
 function _rvScrapeSourceDefaults(){
   return {
     providers: {
-      launchbox: true,
+      launchbox: false,
       wikipedia: true,
       libretro: true,
       openvgdb: false,
