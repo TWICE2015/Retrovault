@@ -1059,7 +1059,19 @@ if(document.readyState === 'loading'){
     }
   }
 
-  function upsertChip(label){
+  function _rvPresetEmoji(preset){
+    const p = String(preset || '').toLowerCase();
+    if(p === 'pixel') return '🟩';
+    if(p === 'retro') return '🕹️';
+    if(p === 'neon') return '🟣';
+    return '🙂';
+  }
+
+  function upsertChip(profileLike){
+    const profile = (profileLike && typeof profileLike === 'object') ? profileLike : {};
+    const display = String(profile.displayName || ownerId());
+    const avatar = profile.avatar && typeof profile.avatar === 'object' ? profile.avatar : { type:'preset', preset:'neon' };
+    const avatarUrl = String(profile.avatarUrl || '').trim();
     const host = document.querySelector('.nr') || document.querySelector('.nav') || document.body;
     if(!host) return null;
     let chip = document.getElementById('rvOwnerChip');
@@ -1075,6 +1087,7 @@ if(document.readyState === 'loading'){
       chip.style.overflow = 'hidden';
       chip.style.textOverflow = 'ellipsis';
       chip.style.whiteSpace = 'nowrap';
+      chip.style.padding = '4px 10px';
       chip.onclick = async function(){
         const current = (window.__rvProfile && window.__rvProfile.displayName) || ownerId();
         const next = String(prompt('Profile display name', current) || '').trim();
@@ -1089,16 +1102,51 @@ if(document.readyState === 'loading'){
           const data = await resp.json().catch(()=>({}));
           if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
           window.__rvProfile = data.profile || null;
-          const nm = (data.profile && data.profile.displayName) || oid;
-          upsertChip('🙂 '+nm);
+          upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'preset', preset:'neon' } });
           if(typeof toast==='function') toast('Profile updated');
         }catch(e){
           if(typeof toast==='function') toast('Profile save failed: '+e.message, 'err');
         }
       };
+      const avatarNode = document.createElement('span');
+      avatarNode.id = 'rvOwnerChipAvatar';
+      avatarNode.style.width = '20px';
+      avatarNode.style.height = '20px';
+      avatarNode.style.borderRadius = '50%';
+      avatarNode.style.display = 'inline-flex';
+      avatarNode.style.alignItems = 'center';
+      avatarNode.style.justifyContent = 'center';
+      avatarNode.style.background = 'var(--s2)';
+      avatarNode.style.overflow = 'hidden';
+      avatarNode.style.fontSize = '12px';
+      avatarNode.style.flex = '0 0 20px';
+      const labelNode = document.createElement('span');
+      labelNode.id = 'rvOwnerChipText';
+      labelNode.style.maxWidth = '170px';
+      labelNode.style.overflow = 'hidden';
+      labelNode.style.textOverflow = 'ellipsis';
+      labelNode.style.whiteSpace = 'nowrap';
+      chip.appendChild(avatarNode);
+      chip.appendChild(labelNode);
       host.prepend(chip);
     }
-    chip.textContent = label;
+    const avatarNode = document.getElementById('rvOwnerChipAvatar');
+    const labelNode = document.getElementById('rvOwnerChipText');
+    if(avatarNode){
+      avatarNode.innerHTML = '';
+      if(avatar.type === 'upload' && avatarUrl){
+        const img = document.createElement('img');
+        img.src = avatarUrl + (avatarUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+        img.alt = 'avatar';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        avatarNode.appendChild(img);
+      } else {
+        avatarNode.textContent = _rvPresetEmoji(avatar.preset);
+      }
+    }
+    if(labelNode) labelNode.textContent = display;
     return chip;
   }
 
@@ -1111,13 +1159,56 @@ if(document.readyState === 'loading'){
       const data = await resp.json().catch(()=>({}));
       if(resp.ok && data && data.ok){
         window.__rvProfile = data.profile || null;
-        const nm = (data.profile && data.profile.displayName) || oid;
-        upsertChip('🙂 '+nm);
+        upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'preset', preset:'neon' } });
       } else {
-        upsertChip('🙂 '+oid);
+        upsertChip({ displayName: oid, avatar:{ type:'preset', preset:'neon' } });
       }
     }catch(e){
-      upsertChip('🙂 '+ownerId());
+      upsertChip({ displayName: ownerId(), avatar:{ type:'preset', preset:'neon' } });
+    }
+  }
+
+  async function _rvSetAvatarPreset(preset){
+    const oid = ownerId();
+    const out = document.getElementById('rvCloudBackupStatus');
+    try{
+      const resp = await fetch('/profile-avatar-save?owner='+encodeURIComponent(oid), {
+        method:'POST',
+        headers: ownerHeaders(oid),
+        body: JSON.stringify({ type:'preset', preset: String(preset || 'neon') })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      window.__rvProfile = data.profile || data || window.__rvProfile;
+      upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'preset', preset } });
+      if(out) out.textContent = 'Avatar preset applied.';
+    }catch(e){
+      if(out) out.textContent = 'Preset failed: ' + e.message;
+      if(typeof toast==='function') toast('Preset failed: ' + e.message, 'err');
+    }
+  }
+
+  async function _rvUploadAvatar(file){
+    if(!file) return;
+    const oid = ownerId();
+    const out = document.getElementById('rvCloudBackupStatus');
+    if(out) out.textContent = 'Uploading avatar…';
+    const fd = new FormData();
+    fd.append('file', file);
+    try{
+      const resp = await fetch('/profile-avatar-upload?owner='+encodeURIComponent(oid), {
+        method:'POST',
+        headers:{'X-Retrovault-Owner': oid},
+        body: fd
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      window.__rvProfile = data.profile || window.__rvProfile;
+      upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'upload', key:'' }, avatarUrl: data.avatarUrl || '' });
+      if(out) out.textContent = 'Avatar uploaded.';
+    }catch(e){
+      if(out) out.textContent = 'Avatar upload failed: ' + e.message;
+      if(typeof toast==='function') toast('Avatar upload failed: ' + e.message, 'err');
     }
   }
 
@@ -1290,9 +1381,47 @@ if(document.readyState === 'loading'){
     restoreBtn.className='bb p';
     restoreBtn.textContent='Restore Backup File';
     restoreBtn.onclick=()=>_rvCloudRestoreBackup();
+    const avatarRow = document.createElement('div');
+    avatarRow.style.display='flex';
+    avatarRow.style.gap='8px';
+    avatarRow.style.flexWrap='wrap';
+    avatarRow.style.marginTop='8px';
+    const presetSelect = document.createElement('select');
+    presetSelect.id = 'rvAvatarPresetSelect';
+    presetSelect.style.padding='8px';
+    presetSelect.style.borderRadius='8px';
+    presetSelect.style.border='1px solid var(--line)';
+    presetSelect.style.background='var(--s1)';
+    presetSelect.style.color='var(--text)';
+    ['neon','pixel','retro'].forEach(v=>{
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = 'Avatar preset: ' + v;
+      presetSelect.appendChild(opt);
+    });
+    const presetBtn = document.createElement('button');
+    presetBtn.type='button';
+    presetBtn.className='bb s';
+    presetBtn.textContent='Apply Preset';
+    presetBtn.onclick=()=>_rvSetAvatarPreset(presetSelect.value);
+    const avatarInput = document.createElement('input');
+    avatarInput.type='file';
+    avatarInput.id='rvAvatarUploadInput';
+    avatarInput.accept='image/png,image/jpeg,image/webp,image/gif';
+    avatarInput.style.display='none';
+    avatarInput.onchange=()=>{ const f = avatarInput.files && avatarInput.files[0]; if(f) _rvUploadAvatar(f); };
+    const uploadBtn = document.createElement('button');
+    uploadBtn.type='button';
+    uploadBtn.className='bb s';
+    uploadBtn.textContent='Upload Avatar';
+    uploadBtn.onclick=()=>avatarInput.click();
     fileRow.appendChild(fileInput);
     fileRow.appendChild(checkBtn);
     fileRow.appendChild(restoreBtn);
+    avatarRow.appendChild(presetSelect);
+    avatarRow.appendChild(presetBtn);
+    avatarRow.appendChild(uploadBtn);
+    avatarRow.appendChild(avatarInput);
     const health = document.createElement('div');
     health.id='rvCloudHealthStatus';
     health.style.fontSize='11px';
@@ -1308,6 +1437,7 @@ if(document.readyState === 'loading'){
     card.appendChild(title);
     card.appendChild(actions);
     card.appendChild(fileRow);
+    card.appendChild(avatarRow);
     card.appendChild(health);
     card.appendChild(status);
     host.appendChild(card);
@@ -1462,6 +1592,63 @@ async function saveProfile(bucket, ownerId, profile) {
     httpMetadata: { contentType: 'application/json' },
     customMetadata: { ownerId },
   });
+}
+
+const AVATAR_CONTENT_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]);
+
+function sanitizeAvatarFilename(value) {
+  const safe = String(value || 'avatar')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 80);
+  return safe || 'avatar';
+}
+
+function avatarExtensionFromType(contentType) {
+  if (contentType === 'image/jpeg') return '.jpg';
+  if (contentType === 'image/webp') return '.webp';
+  if (contentType === 'image/gif') return '.gif';
+  return '.png';
+}
+
+function normalizeAvatarContentType(contentType, filename = '') {
+  const type = String(contentType || '').trim().toLowerCase();
+  if (AVATAR_CONTENT_TYPES.has(type)) return type;
+  const lower = String(filename || '').toLowerCase();
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.png')) return 'image/png';
+  return null;
+}
+
+function profileAvatarOwnedKey(ownerId, profile) {
+  const avatar = profile && profile.avatar && typeof profile.avatar === 'object' ? profile.avatar : null;
+  if (!avatar || avatar.type !== 'upload') return null;
+  const key = toOwnedKey(avatar.key || avatar.path || '', ownerId);
+  if (!key) return null;
+  const requiredPrefix = ownerPrefix(ownerId) + 'meta/avatar/';
+  if (!key.startsWith(requiredPrefix)) return null;
+  return key;
+}
+
+function profileAvatarUrl(ownerId, profile) {
+  const key = profileAvatarOwnedKey(ownerId, profile);
+  if (!key) return null;
+  const version = Number(profile && profile.updatedAt) || Date.now();
+  return `/profile-avatar?owner=${encodeURIComponent(ownerId)}&v=${encodeURIComponent(version)}`;
+}
+
+function profilePublic(ownerId, profile) {
+  const clean = normalizeProfilePayload(ownerId, profile || {});
+  clean.avatarUrl = profileAvatarUrl(ownerId, clean);
+  return clean;
 }
 
 function ownerRelativeKey(ownerId, key) {
@@ -2846,6 +3033,131 @@ export default {
     // ════════════════════════════════════════════════════════════════════
     // OWNER PROFILE (R2-backed, no Firebase/Supabase dependency)
     // ════════════════════════════════════════════════════════════════════
+    if (path === '/profile-avatar' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const profile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const avatarKey = profileAvatarOwnedKey(ownerId, profile);
+        if (!avatarKey) {
+          return new Response(JSON.stringify({ ok: false, error: 'Avatar not configured' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const avatarObj = await env.ROM_BUCKET.get(avatarKey);
+        if (!avatarObj) {
+          return new Response(JSON.stringify({ ok: false, error: 'Avatar file missing' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(avatarObj.body, {
+          status: 200,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': avatarObj.httpMetadata?.contentType || 'image/png',
+            'Cache-Control': 'public, max-age=300',
+            'Cross-Origin-Resource-Policy': 'cross-origin',
+          },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profile-avatar failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profile-avatar-upload' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const contentType = request.headers.get('Content-Type') || '';
+        let filename = 'avatar.png';
+        let fileType = '';
+        let bytes = null;
+
+        if (contentType.includes('multipart/form-data')) {
+          const formData = await request.formData();
+          const file = formData.get('file');
+          if (!file) {
+            return new Response(JSON.stringify({ ok: false, error: 'Missing file in multipart payload' }), {
+              status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+            });
+          }
+          filename = String(file.name || filename);
+          fileType = normalizeAvatarContentType(file.type || '', filename) || '';
+          bytes = new Uint8Array(await file.arrayBuffer());
+        } else {
+          const body = await request.json();
+          filename = String((body && body.filename) || filename);
+          fileType = normalizeAvatarContentType((body && body.contentType) || '', filename) || '';
+          bytes = base64ToUint8(body && body.base64Data ? body.base64Data : '');
+        }
+
+        if (!bytes || !bytes.byteLength) {
+          return new Response(JSON.stringify({ ok: false, error: 'Empty avatar file' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        if (bytes.byteLength > 5 * 1024 * 1024) {
+          return new Response(JSON.stringify({ ok: false, error: 'Avatar too large (max 5 MB)' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        if (!fileType) {
+          return new Response(JSON.stringify({ ok: false, error: 'Unsupported avatar type. Use png/jpg/webp/gif' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const baseName = sanitizeAvatarFilename(filename).replace(/\.[a-z0-9]+$/i, '');
+        const ext = avatarExtensionFromType(fileType);
+        const relativeKey = `meta/avatar/${Date.now()}-${randomToken(6)}-${baseName}${ext}`;
+        const ownedKey = toOwnedKey(relativeKey, ownerId);
+        if (!ownedKey) {
+          return new Response(JSON.stringify({ ok: false, error: 'Failed to resolve avatar key' }), {
+            status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const current = await loadProfile(env.ROM_BUCKET, ownerId);
+        const previousAvatarKey = profileAvatarOwnedKey(ownerId, current);
+        await env.ROM_BUCKET.put(ownedKey, bytes, {
+          httpMetadata: { contentType: fileType },
+          customMetadata: { ownerId, avatar: 'true' },
+        });
+
+        const profile = normalizeProfilePayload(ownerId, { ...current, avatar: { type: 'upload', key: relativeKey } });
+        await saveProfile(env.ROM_BUCKET, ownerId, profile);
+
+        if (previousAvatarKey && previousAvatarKey !== ownedKey) {
+          await env.ROM_BUCKET.delete(previousAvatarKey).catch(() => {});
+        }
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          avatar: profile.avatar,
+          avatarUrl: profileAvatarUrl(ownerId, profile),
+          profile: profilePublic(ownerId, profile),
+          bytes: bytes.byteLength,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profile-avatar-upload failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     if (path === '/profile-get' && method === 'GET') {
       if (!env.ROM_BUCKET) {
         return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
@@ -2854,7 +3166,7 @@ export default {
       }
       const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
       const profile = await loadProfile(env.ROM_BUCKET, ownerId);
-      return new Response(JSON.stringify({ ok: true, ownerId, profile }), {
+      return new Response(JSON.stringify({ ok: true, ownerId, profile: profilePublic(ownerId, profile) }), {
         status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
       });
     }
@@ -2870,7 +3182,7 @@ export default {
         const body = await request.json();
         const profile = normalizeProfilePayload(ownerId, body || {});
         await saveProfile(env.ROM_BUCKET, ownerId, profile);
-        return new Response(JSON.stringify({ ok: true, ownerId, profile }), {
+        return new Response(JSON.stringify({ ok: true, ownerId, profile: profilePublic(ownerId, profile) }), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
       } catch (err) {
@@ -2893,7 +3205,13 @@ export default {
         const current = await loadProfile(env.ROM_BUCKET, ownerId);
         const profile = normalizeProfilePayload(ownerId, { ...current, avatar });
         await saveProfile(env.ROM_BUCKET, ownerId, profile);
-        return new Response(JSON.stringify({ ok: true, ownerId, avatar, profile }), {
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          avatar: profile.avatar,
+          avatarUrl: profileAvatarUrl(ownerId, profile),
+          profile: profilePublic(ownerId, profile),
+        }), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
       } catch (err) {
@@ -2918,6 +3236,7 @@ export default {
           ownerId: profile.ownerId,
           displayName: profile.displayName,
           avatar: profile.avatar,
+          avatarUrl: profileAvatarUrl(ownerId, profile),
           updatedAt: profile.updatedAt || Date.now(),
         }]
       }), {
