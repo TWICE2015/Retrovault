@@ -142,6 +142,39 @@ function _rvToPlainText(v){
   return text.replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim();
 }
 
+function _rvNormCoverUrl(v){
+  const raw = String(v || '').trim();
+  if(!raw) return '';
+  if(raw.startsWith('//')) return 'https:' + raw;
+  return raw;
+}
+
+function _rvGetBadCoverList(){
+  try{
+    const arr = JSON.parse(localStorage.getItem('rv-bad-cover-urls') || '[]');
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function _rvRememberBadCoverUrl(url){
+  const norm = _rvNormCoverUrl(url);
+  if(!norm) return;
+  const list = _rvGetBadCoverList();
+  if(list.includes(norm)) return;
+  list.push(norm);
+  while(list.length > 400) list.shift();
+  localStorage.setItem('rv-bad-cover-urls', JSON.stringify(list));
+}
+
+function _rvIsBadCoverUrl(url){
+  const norm = _rvNormCoverUrl(url);
+  if(!norm) return false;
+  const list = _rvGetBadCoverList();
+  return list.includes(norm);
+}
+
 async function _rvFetchJsonViaProxy(url, init){
   const resp = await fetch(_rvProxyUrl(url), init || {});
   if(!resp.ok) throw new Error('HTTP '+resp.status);
@@ -157,6 +190,17 @@ async function _rvApplyMetaPatch(romId, patch, source){
   const rom = await dbGet('roms', romId);
   if(!rom || !patch) return false;
   let changed = false;
+  const incomingCover = _rvNormCoverUrl(patch.coverUrl);
+  const existingCover = _rvNormCoverUrl(rom.coverUrl);
+
+  // Replace missing or previously-broken covers with a new candidate.
+  if(incomingCover && !_rvIsBadCoverUrl(incomingCover)){
+    if(!existingCover || _rvIsBadCoverUrl(existingCover)){
+      rom.coverUrl = incomingCover;
+      changed = true;
+    }
+  }
+
   const setIfEmpty = (field, value) => {
     if(value == null || value === '') return;
     if(!rom[field]){
@@ -164,7 +208,6 @@ async function _rvApplyMetaPatch(romId, patch, source){
       changed = true;
     }
   };
-  setIfEmpty('coverUrl', patch.coverUrl);
   setIfEmpty('description', patch.description);
   setIfEmpty('year', patch.year);
   setIfEmpty('rating', patch.rating);
@@ -176,6 +219,28 @@ async function _rvApplyMetaPatch(romId, patch, source){
     logScrape('[sources] ✓ ' + source + ' updated metadata for ' + rom.name);
   }
   return changed;
+}
+
+async function _rvMarkCoverBroken(romId, badUrl){
+  const normBad = _rvNormCoverUrl(badUrl);
+  if(normBad) _rvRememberBadCoverUrl(normBad);
+  try{
+    const rom = await dbGet('roms', romId);
+    if(!rom) return;
+    const current = _rvNormCoverUrl(rom.coverUrl);
+    if(current && normBad && current === normBad){
+      rom.coverUrl = null;
+      await dbPut('roms', rom);
+      await r2SaveMeta(rom);
+      // Re-try metadata using remaining enabled providers.
+      const running = window.__rvCoverRescrapeInFlight || (window.__rvCoverRescrapeInFlight = new Set());
+      if(!running.has(romId) && typeof autoScrapeWithFallback === 'function'){
+        running.add(romId);
+        const creds = (typeof getSsCreds === 'function') ? getSsCreds() : null;
+        autoScrapeWithFallback(romId, creds).catch(()=>{}).finally(()=>running.delete(romId));
+      }
+    }
+  }catch(e){}
 }
 
 async function _rvScrapeWikipediaWikidata(romId){
@@ -697,6 +762,10 @@ if(document.readyState === 'loading'){
     .replace(
       "onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\"",
       "onerror=\"this.style.display='none';var p=this.parentElement&&this.parentElement.querySelector('.gp');if(p)p.style.display='flex'\""
+    )
+    .replace(
+      "onerror=\"this.style.display='none';var p=this.parentElement&&this.parentElement.querySelector('.gp');if(p)p.style.display='flex'\"",
+      "onerror=\"this.style.display='none';var p=this.parentElement&&this.parentElement.querySelector('.gp');if(p)p.style.display='flex';if(window._rvMarkCoverBroken)window._rvMarkCoverBroken(${rom.id},this.src)\""
     );
 
   _cachedHtml = html;
