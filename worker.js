@@ -1061,7 +1061,7 @@ if(document.readyState === 'loading'){
     )
     .replace(
       "<button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>",
-      "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
+      "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" id=\"rvUsersNavBtn\" onclick=\"window._rvOpenProfilePicker&&window._rvOpenProfilePicker()\">👥 Users</button>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
     )
     .replace(
       "function cloudAppReady(){ return _rvFbInited && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0; }\nfunction cloudSignedIn(){ return cloudAppReady() && firebase.auth().currentUser; }",
@@ -1160,6 +1160,287 @@ if(document.readyState === 'loading'){
     if(p === 'neon') return '🟣';
     return '🙂';
   }
+
+  function _rvEscapeHtml(value){
+    return String(value == null ? '' : value)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+
+  function _rvProfileAvatarHtml(profile){
+    const p = profile && typeof profile === 'object' ? profile : {};
+    const avatar = p.avatar && typeof p.avatar === 'object' ? p.avatar : { type:'preset', preset:'neon' };
+    const avatarUrl = String(p.avatarUrl || '').trim();
+    if(avatar.type === 'upload' && avatarUrl){
+      return '<img src="'+_rvEscapeHtml(avatarUrl)+'" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" />';
+    }
+    return '<span style="font-size:44px;line-height:1;">'+_rvEscapeHtml(_rvPresetEmoji(avatar.preset))+'</span>';
+  }
+
+  function _rvEnsureUsersNavButton(){
+    const nav = document.querySelector('.nav');
+    if(!nav || document.getElementById('rvUsersNavBtn')) return;
+    const whatsNew = Array.from(nav.querySelectorAll('.nb')).find(function(el){
+      return /what\\s*'?s\\s*new/i.test((el.textContent || '').trim());
+    });
+    const btn = document.createElement('button');
+    btn.id = 'rvUsersNavBtn';
+    btn.className = 'nb';
+    btn.type = 'button';
+    btn.textContent = '👥 Users';
+    btn.onclick = function(){ _rvOpenProfilePicker(); };
+    if(whatsNew && whatsNew.parentElement){
+      whatsNew.insertAdjacentElement('afterend', btn);
+    } else {
+      nav.appendChild(btn);
+    }
+  }
+
+  function _rvProfilePickerStyles(){
+    if(document.getElementById('rvProfilePickerStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'rvProfilePickerStyle';
+    style.textContent = [
+      '#rvProfilePicker{position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at 35% 0%, rgba(34,34,34,.8), rgba(4,4,4,.96));display:none;align-items:center;justify-content:center;padding:20px;}',
+      '#rvProfilePicker.show{display:flex;}',
+      '#rvProfilePicker .rv-wrap{width:min(980px,96vw);max-height:92vh;overflow:auto;}',
+      '#rvProfilePicker .rv-title{font-size:52px;font-weight:900;text-align:center;line-height:1.05;margin:0 0 10px;}',
+      '#rvProfilePicker .rv-sub{font-size:14px;color:var(--muted);text-align:center;margin-bottom:22px;}',
+      '#rvProfilePicker .rv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:18px;justify-items:center;}',
+      '#rvProfilePicker .rv-tile{width:140px;background:transparent;border:1px solid transparent;border-radius:12px;color:var(--text);padding:0;cursor:pointer;}',
+      '#rvProfilePicker .rv-tile:hover{border-color:var(--line);background:rgba(255,255,255,.03);}',
+      '#rvProfilePicker .rv-avatar{width:120px;height:120px;margin:10px auto 8px;border-radius:10px;background:var(--s2);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 0 0 1px var(--line) inset;}',
+      '#rvProfilePicker .rv-name{padding:0 8px 12px;font-size:15px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '#rvProfilePicker .rv-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:24px;}',
+      '#rvProfilePicker .rv-btn{border:1px solid var(--line);background:#171717;color:var(--text);padding:10px 14px;border-radius:8px;cursor:pointer;}',
+      '#rvProfilePicker .rv-btn.primary{background:var(--red);border-color:var(--red);font-weight:700;}',
+      '#rvProfilePicker .rv-btn.ghost{background:transparent;}',
+      '#rvProfilePicker .rv-badge{font-size:11px;color:var(--muted);text-align:center;margin-top:10px;}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function _rvGetActiveProfileId(){
+    return String(localStorage.getItem('rv-active-profile-id') || '').trim();
+  }
+
+  function _rvSetActiveProfileId(value){
+    const next = String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0,24);
+    if(!next) return '';
+    localStorage.setItem('rv-active-profile-id', next);
+    return next;
+  }
+
+  function _rvProfileOwnerId(baseOwner, profileId){
+    const bo = String(baseOwner || '').trim() || 'main';
+    const pid = String(profileId || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,24);
+    if(!pid || pid === 'main') return bo;
+    return bo + '--' + pid;
+  }
+
+  function _rvBaseOwnerIdFromCurrentOwner(){
+    const raw = ownerId();
+    const idx = raw.indexOf('--');
+    return idx > 0 ? raw.slice(0, idx) : raw;
+  }
+
+  async function _rvFetchProfileSlots(baseOwner){
+    const resp = await fetch('/profiles-list?owner='+encodeURIComponent(baseOwner), {
+      headers: {'X-Retrovault-Owner': baseOwner}
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+    return data;
+  }
+
+  async function _rvPersistProfileSelection(baseOwner, profileId){
+    const resp = await fetch('/profiles-select?owner='+encodeURIComponent(baseOwner), {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+      body: JSON.stringify({ profileId: profileId })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+    return data;
+  }
+
+  function _rvProfilePickerEl(){
+    let root = document.getElementById('rvProfilePicker');
+    if(root) return root;
+    root = document.createElement('div');
+    root.id = 'rvProfilePicker';
+    root.innerHTML = ''+
+      '<div class="rv-wrap">'+
+        '<h2 class="rv-title">Who\\'s watching?</h2>'+
+        '<div class="rv-sub">Choose a profile for this owner cloud library.</div>'+
+        '<div class="rv-grid" id="rvProfilePickerGrid"></div>'+
+        '<div class="rv-badge" id="rvProfilePickerStatus">Loading profiles…</div>'+
+        '<div class="rv-actions">'+
+          '<button type="button" class="rv-btn" id="rvProfileAddBtn">➕ Add Profile</button>'+
+          '<button type="button" class="rv-btn" id="rvProfileManageBtn">Manage Profiles</button>'+
+          '<button type="button" class="rv-btn ghost" id="rvProfileCloseBtn">Close</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(root);
+    const closeBtn = document.getElementById('rvProfileCloseBtn');
+    if(closeBtn) closeBtn.onclick = function(){ _rvCloseProfilePicker(); };
+    const addBtn = document.getElementById('rvProfileAddBtn');
+    if(addBtn) addBtn.onclick = function(){ _rvPromptAddProfile(); };
+    const manageBtn = document.getElementById('rvProfileManageBtn');
+    if(manageBtn) manageBtn.onclick = function(){ _rvManageProfilesPrompt(); };
+    root.addEventListener('click', function(ev){
+      if(ev.target === root) _rvCloseProfilePicker();
+    });
+    return root;
+  }
+
+  function _rvSetPickerStatus(text, isError){
+    const el = document.getElementById('rvProfilePickerStatus');
+    if(!el) return;
+    el.textContent = String(text || '');
+    el.style.color = isError ? '#ff6c6c' : 'var(--muted)';
+  }
+
+  function _rvRenderProfileGrid(slots, activeId){
+    const grid = document.getElementById('rvProfilePickerGrid');
+    if(!grid) return;
+    const safe = Array.isArray(slots) ? slots : [];
+    grid.innerHTML = '';
+    safe.forEach(function(slot){
+      const id = String(slot && (slot.id || slot.profileId) || '').trim();
+      if(!id) return;
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'rv-tile';
+      tile.dataset.profileId = id;
+      const avatar = '<div class="rv-avatar">'+_rvProfileAvatarHtml(slot)+'</div>';
+      const name = '<div class="rv-name">'+_rvEscapeHtml(slot.displayName || id)+'</div>';
+      tile.innerHTML = avatar + name;
+      if(id === activeId){
+        tile.style.borderColor = 'var(--red)';
+        tile.style.boxShadow = '0 0 0 1px var(--red) inset';
+      }
+      tile.onclick = function(){ _rvSelectProfile(id); };
+      grid.appendChild(tile);
+    });
+    const addTile = document.createElement('button');
+    addTile.type = 'button';
+    addTile.className = 'rv-tile';
+    addTile.innerHTML = '<div class="rv-avatar"><span style="font-size:54px;line-height:1;opacity:.72;">＋</span></div><div class="rv-name">Add Profile</div>';
+    addTile.onclick = function(){ _rvPromptAddProfile(); };
+    grid.appendChild(addTile);
+  }
+
+  async function _rvOpenProfilePicker(force){
+    _rvProfilePickerStyles();
+    const root = _rvProfilePickerEl();
+    root.classList.add('show');
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    try{
+      _rvSetPickerStatus('Loading profiles…', false);
+      const data = await _rvFetchProfileSlots(baseOwner);
+      window.__rvProfileSlots = data;
+      const active = _rvSetActiveProfileId(data.activeProfileId || _rvGetActiveProfileId() || 'main');
+      _rvRenderProfileGrid(data.profiles || [], active);
+      _rvSetPickerStatus('Owner '+baseOwner+' • '+((data.profiles||[]).length)+' profiles', false);
+      if(force !== true){
+        const skip = localStorage.getItem('rv-profile-picker-dismissed') === '1';
+        if(skip) root.classList.remove('show');
+      }
+    }catch(e){
+      _rvSetPickerStatus('Could not load profiles: '+e.message, true);
+    }
+  }
+
+  function _rvCloseProfilePicker(){
+    const root = document.getElementById('rvProfilePicker');
+    if(root) root.classList.remove('show');
+    localStorage.setItem('rv-profile-picker-dismissed','1');
+  }
+
+  async function _rvSelectProfile(profileId){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const pid = _rvSetActiveProfileId(profileId);
+    if(!pid) return;
+    try{
+      _rvSetPickerStatus('Switching profile…', false);
+      await _rvPersistProfileSelection(baseOwner, pid);
+    }catch(e){
+      _rvSetPickerStatus('Profile select warning: '+e.message, true);
+    }
+    const nextOwner = _rvProfileOwnerId(baseOwner, pid);
+    if(typeof window._rvSetOwnerId === 'function'){
+      window._rvSetOwnerId(nextOwner);
+    } else {
+      localStorage.setItem('rv-owner-id', nextOwner);
+    }
+    localStorage.removeItem('rv-profile-picker-dismissed');
+    if(typeof toast==='function') toast('Profile switched to '+pid);
+    _rvCloseProfilePicker();
+    setTimeout(function(){ window.location.reload(); }, 120);
+  }
+
+  async function _rvPromptAddProfile(){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const name = String(prompt('New profile name') || '').trim();
+    if(!name) return;
+    const preset = String(prompt('Avatar preset (neon / pixel / retro)', 'neon') || 'neon').trim().toLowerCase();
+    try{
+      const resp = await fetch('/profiles-add?owner='+encodeURIComponent(baseOwner), {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+        body: JSON.stringify({ displayName:name, avatar:{ type:'preset', preset:preset } })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      if(typeof toast==='function') toast('Profile added: '+(data.profile && data.profile.displayName ? data.profile.displayName : name));
+      await _rvOpenProfilePicker(true);
+    }catch(e){
+      if(typeof toast==='function') toast('Add profile failed: '+e.message, 'err');
+      _rvSetPickerStatus('Add profile failed: '+e.message, true);
+    }
+  }
+
+  async function _rvManageProfilesPrompt(){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const slots = (window.__rvProfileSlots && Array.isArray(window.__rvProfileSlots.profiles)) ? window.__rvProfileSlots.profiles : [];
+    if(!slots.length){
+      if(typeof toast==='function') toast('No profiles loaded', 'warn');
+      return;
+    }
+    const list = slots.map(function(p){ return (p.id + ': ' + (p.displayName || p.id)); }).join('\\n');
+    const target = String(prompt('Remove profile ID (cannot remove main):\\n\\n'+list) || '').trim().toLowerCase();
+    if(!target) return;
+    if(target === 'main'){
+      if(typeof toast==='function') toast('Main profile cannot be removed', 'warn');
+      return;
+    }
+    const yes = confirm('Remove profile "'+target+'"?');
+    if(!yes) return;
+    try{
+      const resp = await fetch('/profiles-remove?owner='+encodeURIComponent(baseOwner), {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+        body: JSON.stringify({ profileId: target })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      if(typeof toast==='function') toast('Profile removed: '+target);
+      await _rvOpenProfilePicker(true);
+    }catch(e){
+      if(typeof toast==='function') toast('Remove profile failed: '+e.message, 'err');
+      _rvSetPickerStatus('Remove profile failed: '+e.message, true);
+    }
+  }
+
+  window._rvOpenProfilePicker = _rvOpenProfilePicker;
+  window._rvCloseProfilePicker = _rvCloseProfilePicker;
+  window._rvPromptAddProfile = _rvPromptAddProfile;
+  window._rvManageProfilesPrompt = _rvManageProfilesPrompt;
+  window._rvSelectProfile = _rvSelectProfile;
 
   function upsertChip(profileLike){
     const profile = (profileLike && typeof profileLike === 'object') ? profileLike : {};
@@ -1545,8 +1826,20 @@ if(document.readyState === 'loading'){
   window._rvCloudRestoreBackup = _rvCloudRestoreBackup;
 
   const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); };
+  const boot2 = function(){
+    _rvEnsureUsersNavButton();
+    const forced = localStorage.getItem('rv-profile-picker-seen');
+    if(!forced){
+      localStorage.setItem('rv-profile-picker-seen','1');
+      _rvOpenProfilePicker(true).catch(()=>{});
+    } else {
+      _rvOpenProfilePicker(false).catch(()=>{});
+    }
+  };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else setTimeout(boot, 0);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot2);
+  else setTimeout(boot2, 0);
 })();
 </script>`;
     html = html.replace('</body>', `${noFirebasePatch}\n</body>`);
@@ -1617,6 +1910,202 @@ function isGlobalUnscopedKey(key) {
 
 function profileStorageKey(ownerId) {
   return `${ownerPrefix(ownerId)}meta/profile.json`;
+}
+
+function profileSetStorageKey(ownerId) {
+  return `${ownerPrefix(ownerId)}meta/profiles.set.json`;
+}
+
+function sanitizeProfileSlotId(value) {
+  const cleaned = String(value || '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  return cleaned.slice(0, 24);
+}
+
+function normalizeProfileSlotAvatar(payload) {
+  const avatar = normalizeAvatarPayload(payload || {});
+  if (avatar.type !== 'preset') return { type: 'preset', preset: 'neon' };
+  return avatar;
+}
+
+function normalizeProfileSlotPayload(payload, fallbackId = 'main', fallbackName = '') {
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const id = sanitizeProfileSlotId(src.id || src.profileId || src.ownerId || fallbackId);
+  if (!id) return null;
+  const displayName = String(src.displayName || fallbackName || id)
+    .trim()
+    .replace(/[<>]/g, '')
+    .slice(0, 40) || id;
+  return {
+    id,
+    displayName,
+    avatar: normalizeProfileSlotAvatar(src.avatar || {}),
+    updatedAt: Date.now(),
+  };
+}
+
+function defaultProfileSet(ownerId, profileLike = null) {
+  const seed = profileLike && typeof profileLike === 'object' ? profileLike : {};
+  const main = normalizeProfileSlotPayload({
+    id: 'main',
+    displayName: seed.displayName || ownerId,
+    avatar: seed.avatar || { type: 'preset', preset: 'neon' },
+  }, 'main', ownerId) || {
+    id: 'main',
+    displayName: ownerId,
+    avatar: { type: 'preset', preset: 'neon' },
+    updatedAt: Date.now(),
+  };
+  return {
+    ownerId,
+    schemaVersion: 1,
+    activeProfileId: main.id,
+    profiles: [main],
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeProfileSetPayload(ownerId, payload, fallbackProfile = null) {
+  const base = defaultProfileSet(ownerId, fallbackProfile);
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const list = Array.isArray(src.profiles) ? src.profiles : [];
+  const profiles = [];
+  const seen = new Set();
+
+  for (const item of list) {
+    const fallbackName = item && item.displayName ? String(item.displayName) : 'Player';
+    const fallbackId = sanitizeProfileSlotId(fallbackName) || `player${profiles.length + 1}`;
+    const slot = normalizeProfileSlotPayload(item, fallbackId, fallbackName);
+    if (!slot || seen.has(slot.id)) continue;
+    seen.add(slot.id);
+    profiles.push(slot);
+    if (profiles.length >= 12) break;
+  }
+
+  if (!profiles.length) {
+    profiles.push(base.profiles[0]);
+  }
+
+  let activeProfileId = sanitizeProfileSlotId(src.activeProfileId || src.activeProfile || '');
+  if (!activeProfileId || !profiles.some((p) => p.id === activeProfileId)) {
+    activeProfileId = profiles[0].id;
+  }
+
+  return {
+    ownerId,
+    schemaVersion: 1,
+    activeProfileId,
+    profiles,
+    updatedAt: Date.now(),
+  };
+}
+
+async function loadProfileSet(bucket, ownerId, fallbackProfile = null) {
+  const key = profileSetStorageKey(ownerId);
+  const obj = await bucket.get(key);
+  if (!obj) return defaultProfileSet(ownerId, fallbackProfile);
+  try {
+    const parsed = JSON.parse(await obj.text());
+    return normalizeProfileSetPayload(ownerId, parsed, fallbackProfile);
+  } catch {
+    return defaultProfileSet(ownerId, fallbackProfile);
+  }
+}
+
+async function saveProfileSet(bucket, ownerId, profileSet) {
+  const key = profileSetStorageKey(ownerId);
+  await bucket.put(key, JSON.stringify(profileSet), {
+    httpMetadata: { contentType: 'application/json' },
+    customMetadata: { ownerId, kind: 'profile-set' },
+  });
+}
+
+function profileSetPublic(ownerId, profileSet) {
+  const clean = normalizeProfileSetPayload(ownerId, profileSet);
+  return {
+    ownerId,
+    schemaVersion: clean.schemaVersion,
+    activeProfileId: clean.activeProfileId,
+    profiles: clean.profiles.map((p) => ({
+      id: p.id,
+      profileId: p.id,
+      displayName: p.displayName,
+      avatar: p.avatar,
+      updatedAt: p.updatedAt || Date.now(),
+    })),
+    updatedAt: clean.updatedAt || Date.now(),
+  };
+}
+
+function selectedProfileOwnerId(baseOwnerId, profileId) {
+  const base = sanitizeOwnerId(baseOwnerId) || 'main';
+  const pid = sanitizeProfileSlotId(profileId) || 'main';
+  return pid === 'main' ? base : `${base}--${pid}`;
+}
+
+async function profileSetPublicWithResolvedProfiles(bucket, ownerId, profileSet) {
+  const clean = normalizeProfileSetPayload(ownerId, profileSet);
+  const profiles = [];
+  for (const slot of clean.profiles) {
+    const selectedOwnerId = selectedProfileOwnerId(ownerId, slot.id);
+    let selectedProfile = null;
+    try {
+      selectedProfile = await loadProfile(bucket, selectedOwnerId);
+    } catch {
+      selectedProfile = null;
+    }
+    const chosenAvatar = selectedProfile && selectedProfile.avatar ? selectedProfile.avatar : slot.avatar;
+    const chosenName = selectedProfile && selectedProfile.displayName
+      ? selectedProfile.displayName
+      : slot.displayName;
+    profiles.push({
+      id: slot.id,
+      profileId: slot.id,
+      ownerId: selectedOwnerId,
+      displayName: chosenName,
+      avatar: chosenAvatar,
+      avatarUrl: selectedProfile ? profileAvatarUrl(selectedOwnerId, selectedProfile) : null,
+      updatedAt: (selectedProfile && selectedProfile.updatedAt) || slot.updatedAt || Date.now(),
+    });
+  }
+  return {
+    ownerId,
+    schemaVersion: clean.schemaVersion,
+    activeProfileId: clean.activeProfileId,
+    profiles,
+    updatedAt: clean.updatedAt || Date.now(),
+  };
+}
+
+function baseOwnerFromProfileOwner(ownerId) {
+  const clean = sanitizeOwnerId(ownerId) || 'main';
+  const idx = clean.indexOf('--');
+  return idx > 0 ? clean.slice(0, idx) : clean;
+}
+
+function profileOwnerId(baseOwner, profileId) {
+  const base = sanitizeOwnerId(baseOwner) || 'main';
+  const pid = sanitizeProfileSlotId(profileId) || 'main';
+  return `${base}--${pid}`;
+}
+
+function baseOwnerFromCompositeOwner(ownerId) {
+  const clean = sanitizeOwnerId(ownerId) || 'main';
+  const idx = clean.indexOf('--');
+  return idx > 0 ? clean.slice(0, idx) : clean;
+}
+
+function profileIdFromCompositeOwner(ownerId) {
+  const clean = sanitizeOwnerId(ownerId) || 'main';
+  const idx = clean.indexOf('--');
+  if (idx <= 0) return 'main';
+  return sanitizeProfileSlotId(clean.slice(idx + 2)) || 'main';
+}
+
+function compositeOwnerId(baseOwnerId, profileId) {
+  const base = baseOwnerFromCompositeOwner(baseOwnerId);
+  const slot = sanitizeProfileSlotId(profileId) || 'main';
+  if (slot === 'main') return base;
+  return `${base}--${slot}`;
 }
 
 function defaultProfile(ownerId) {
@@ -3365,6 +3854,222 @@ export default {
       }), {
         status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
       });
+    }
+
+    if (path === '/profiles-list' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const profileSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          ...profileSetPublic(ownerId, profileSet),
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-list failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-select' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json().catch(() => ({}));
+        const profileId = sanitizeProfileSlotId(body && (body.profileId || body.id));
+        if (!profileId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing profileId' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const profileSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        const selected = profileSet.profiles.find((p) => p.id === profileId);
+        if (!selected) {
+          return new Response(JSON.stringify({ ok: false, error: 'Profile not found' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const updatedSet = {
+          ...profileSet,
+          activeProfileId: profileId,
+          updatedAt: Date.now(),
+        };
+        await saveProfileSet(env.ROM_BUCKET, ownerId, updatedSet);
+
+        const selectedOwnerId = `${ownerId}--${profileId}`;
+        const currentSelectedProfile = await loadProfile(env.ROM_BUCKET, selectedOwnerId);
+        const mergedSelectedProfile = normalizeProfilePayload(selectedOwnerId, {
+          ...currentSelectedProfile,
+          displayName: selected.displayName || currentSelectedProfile.displayName,
+          avatar: selected.avatar || currentSelectedProfile.avatar,
+        });
+        await saveProfile(env.ROM_BUCKET, selectedOwnerId, mergedSelectedProfile);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          selectedOwnerId,
+          activeProfileId: profileId,
+          profile: profilePublic(selectedOwnerId, mergedSelectedProfile),
+          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-select failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-add' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json().catch(() => ({}));
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const currentSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        if (currentSet.profiles.length >= 12) {
+          return new Response(JSON.stringify({ ok: false, error: 'Profile limit reached (12)' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const displayName = String(body && body.displayName ? body.displayName : '').trim().slice(0, 40) || `Player ${currentSet.profiles.length + 1}`;
+        const requestedId = sanitizeProfileSlotId(body && (body.profileId || body.id || displayName));
+        let profileId = requestedId || `player${currentSet.profiles.length + 1}`;
+        let suffix = 2;
+        while (currentSet.profiles.some((p) => p.id === profileId) && suffix < 100) {
+          profileId = `${requestedId || 'player'}${suffix}`;
+          suffix++;
+        }
+        if (currentSet.profiles.some((p) => p.id === profileId)) {
+          return new Response(JSON.stringify({ ok: false, error: 'Unable to allocate unique profile id' }), {
+            status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const slot = normalizeProfileSlotPayload({
+          id: profileId,
+          displayName,
+          avatar: body && body.avatar ? body.avatar : { type: 'preset', preset: 'neon' },
+        }, profileId, displayName);
+        if (!slot) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid profile payload' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const updatedSet = {
+          ...currentSet,
+          profiles: [...currentSet.profiles, slot],
+          updatedAt: Date.now(),
+        };
+        await saveProfileSet(env.ROM_BUCKET, ownerId, updatedSet);
+
+        const selectedOwnerId = `${ownerId}--${slot.id}`;
+        const createdProfile = normalizeProfilePayload(selectedOwnerId, {
+          displayName: slot.displayName,
+          avatar: slot.avatar,
+        });
+        await saveProfile(env.ROM_BUCKET, selectedOwnerId, createdProfile);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          profile: {
+            id: slot.id,
+            profileId: slot.id,
+            displayName: slot.displayName,
+            avatar: slot.avatar,
+            updatedAt: slot.updatedAt || Date.now(),
+          },
+          activeProfileId: updatedSet.activeProfileId,
+          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-add failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-remove' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json().catch(() => ({}));
+        const profileId = sanitizeProfileSlotId(body && (body.profileId || body.id));
+        if (!profileId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing profileId' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        if (profileId === 'main') {
+          return new Response(JSON.stringify({ ok: false, error: 'Main profile cannot be removed' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const currentSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        const nextProfiles = currentSet.profiles.filter((p) => p.id !== profileId);
+        if (nextProfiles.length === currentSet.profiles.length) {
+          return new Response(JSON.stringify({ ok: false, error: 'Profile not found' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const safeProfiles = nextProfiles.length ? nextProfiles : [defaultProfileSet(ownerId, baseProfile).profiles[0]];
+        const nextActive = currentSet.activeProfileId === profileId
+          ? safeProfiles[0].id
+          : (safeProfiles.some((p) => p.id === currentSet.activeProfileId) ? currentSet.activeProfileId : safeProfiles[0].id);
+
+        const updatedSet = {
+          ...currentSet,
+          profiles: safeProfiles,
+          activeProfileId: nextActive,
+          updatedAt: Date.now(),
+        };
+        await saveProfileSet(env.ROM_BUCKET, ownerId, updatedSet);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          removedProfileId: profileId,
+          activeProfileId: updatedSet.activeProfileId,
+          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-remove failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     if (path === '/profiles-backup' && method === 'GET') {
