@@ -1022,6 +1022,10 @@ if(document.readyState === 'loading'){
       "Owner cloud mode is active"
     )
     .replace(
+      "const boot = function(){ patchText(); loadProfile().catch(()=>{}); };",
+      "const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); };"
+    )
+    .replace(
       "dot.classList.toggle('show', false);",
       "dot.classList.toggle('show', false);"
     );
@@ -1124,7 +1128,199 @@ if(document.readyState === 'loading'){
     }
   }
 
-  const boot = function(){ patchText(); loadProfile().catch(()=>{}); };
+  function ownerHeaders(oid){
+    return {'Content-Type':'application/json','X-Retrovault-Owner':oid};
+  }
+
+  async function _rvCloudRefreshHealth(){
+    const out = document.getElementById('rvCloudHealthStatus');
+    const oid = ownerId();
+    try{
+      const resp = await fetch('/cloud-health?owner='+encodeURIComponent(oid), {
+        headers: {'X-Retrovault-Owner': oid}
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      const s = data.summary || {};
+      const gb = (Number(s.totalBytes||0) / (1024*1024*1024)).toFixed(3);
+      if(out) out.textContent = 'ROMs: '+(s.romCount||0)+' • Meta: '+(s.metaCount||0)+' • BIOS: '+(s.biosCount||0)+' • Size: '+gb+' GB';
+      return data;
+    }catch(e){
+      if(out) out.textContent = 'Cloud health failed: '+e.message;
+      throw e;
+    }
+  }
+
+  async function _rvCloudDownloadBackup(){
+    const oid = ownerId();
+    const out = document.getElementById('rvCloudBackupStatus');
+    if(out) out.textContent = 'Building backup…';
+    try{
+      const resp = await fetch('/profiles-backup?owner='+encodeURIComponent(oid)+'&includeData=1', {
+        headers: {'X-Retrovault-Owner': oid}
+      });
+      const text = await resp.text();
+      let data = null;
+      try{ data = JSON.parse(text); }catch(e){}
+      if(!resp.ok || !(data && data.ok)) throw new Error((data && data.error) || ('HTTP '+resp.status));
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'retrovault-backup-'+oid+'-'+Date.now()+'.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=> URL.revokeObjectURL(a.href), 1000);
+      if(out) out.textContent = 'Backup downloaded.';
+    }catch(e){
+      if(out) out.textContent = 'Backup failed: '+e.message;
+      if(typeof toast==='function') toast('Backup failed: '+e.message, 'err');
+    }
+  }
+
+  async function _rvCloudCheckBackupFile(){
+    const picker = document.getElementById('rvBackupFileInput');
+    const out = document.getElementById('rvCloudBackupStatus');
+    if(!picker || !picker.files || !picker.files[0]){
+      if(out) out.textContent = 'Choose a backup file first.';
+      return;
+    }
+    const raw = await picker.files[0].text();
+    let payload;
+    try{ payload = JSON.parse(raw); }catch(e){
+      if(out) out.textContent = 'Invalid JSON backup file.';
+      return;
+    }
+    const oid = ownerId();
+    try{
+      const resp = await fetch('/profiles-restore-check?owner='+encodeURIComponent(oid), {
+        method:'POST',
+        headers: ownerHeaders(oid),
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      const v = data.validation || {};
+      if(out) out.textContent = v.ok ? 'Backup check passed.' : ('Backup check failed: ' + ((v.errors||[]).join(' ') || v.error || 'unknown'));
+    }catch(e){
+      if(out) out.textContent = 'Backup check failed: '+e.message;
+    }
+  }
+
+  async function _rvCloudRestoreBackup(){
+    const picker = document.getElementById('rvBackupFileInput');
+    const out = document.getElementById('rvCloudBackupStatus');
+    if(!picker || !picker.files || !picker.files[0]){
+      if(out) out.textContent = 'Choose a backup file first.';
+      return;
+    }
+    const yes = confirm('Restore this backup for the current owner? This can overwrite metadata/profile settings.');
+    if(!yes) return;
+    const raw = await picker.files[0].text();
+    let payload;
+    try{ payload = JSON.parse(raw); }catch(e){
+      if(out) out.textContent = 'Invalid JSON backup file.';
+      return;
+    }
+    const oid = ownerId();
+    try{
+      const resp = await fetch('/profiles-restore?owner='+encodeURIComponent(oid), {
+        method:'POST',
+        headers: ownerHeaders(oid),
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      if(out) out.textContent = 'Backup restored: '+(data.restoredObjects||0)+' objects, '+(data.restoredMeta||0)+' meta.';
+      loadProfile().catch(()=>{});
+      if(typeof refreshAll==='function') refreshAll().catch(()=>{});
+    }catch(e){
+      if(out) out.textContent = 'Restore failed: '+e.message;
+      if(typeof toast==='function') toast('Restore failed: '+e.message, 'err');
+    }
+  }
+
+  function _rvInitOwnerCloudTools(){
+    const ownerInput = document.getElementById('rvOwnerInput');
+    if(!ownerInput || document.getElementById('rvCloudHealthStatus')) return;
+    const host = (ownerInput.closest('div') && ownerInput.closest('div').parentElement) || ownerInput.parentElement || ownerInput;
+    const card = document.createElement('div');
+    card.style.background='var(--s2)';
+    card.style.border='1px solid var(--line)';
+    card.style.borderRadius='10px';
+    card.style.padding='12px';
+    card.style.marginTop='10px';
+    const title = document.createElement('div');
+    title.style.fontWeight='700';
+    title.style.marginBottom='8px';
+    title.textContent='Cloud Health + Full Owner Backup';
+    const actions = document.createElement('div');
+    actions.style.display='flex';
+    actions.style.gap='8px';
+    actions.style.flexWrap='wrap';
+    const refreshBtn = document.createElement('button');
+    refreshBtn.type='button';
+    refreshBtn.className='bb s';
+    refreshBtn.textContent='Refresh Cloud Health';
+    refreshBtn.onclick=()=>_rvCloudRefreshHealth();
+    const downloadBtn = document.createElement('button');
+    downloadBtn.type='button';
+    downloadBtn.className='bb s';
+    downloadBtn.textContent='Download Full Backup';
+    downloadBtn.onclick=()=>_rvCloudDownloadBackup();
+    actions.appendChild(refreshBtn);
+    actions.appendChild(downloadBtn);
+    const fileRow = document.createElement('div');
+    fileRow.style.display='flex';
+    fileRow.style.gap='8px';
+    fileRow.style.flexWrap='wrap';
+    fileRow.style.marginTop='8px';
+    const fileInput = document.createElement('input');
+    fileInput.type='file';
+    fileInput.id='rvBackupFileInput';
+    fileInput.accept='.json,application/json';
+    fileInput.style.maxWidth='320px';
+    const checkBtn = document.createElement('button');
+    checkBtn.type='button';
+    checkBtn.className='bb s';
+    checkBtn.textContent='Check Backup File';
+    checkBtn.onclick=()=>_rvCloudCheckBackupFile();
+    const restoreBtn = document.createElement('button');
+    restoreBtn.type='button';
+    restoreBtn.className='bb p';
+    restoreBtn.textContent='Restore Backup File';
+    restoreBtn.onclick=()=>_rvCloudRestoreBackup();
+    fileRow.appendChild(fileInput);
+    fileRow.appendChild(checkBtn);
+    fileRow.appendChild(restoreBtn);
+    const health = document.createElement('div');
+    health.id='rvCloudHealthStatus';
+    health.style.fontSize='11px';
+    health.style.color='var(--muted)';
+    health.style.marginTop='8px';
+    health.textContent='Cloud health not checked yet.';
+    const status = document.createElement('div');
+    status.id='rvCloudBackupStatus';
+    status.style.fontSize='11px';
+    status.style.color='var(--muted)';
+    status.style.marginTop='6px';
+    status.textContent='No backup action yet.';
+    card.appendChild(title);
+    card.appendChild(actions);
+    card.appendChild(fileRow);
+    card.appendChild(health);
+    card.appendChild(status);
+    host.appendChild(card);
+    _rvCloudRefreshHealth().catch(()=>{});
+  }
+
+  window._rvInitOwnerCloudTools = _rvInitOwnerCloudTools;
+  window._rvCloudRefreshHealth = _rvCloudRefreshHealth;
+  window._rvCloudDownloadBackup = _rvCloudDownloadBackup;
+  window._rvCloudCheckBackupFile = _rvCloudCheckBackupFile;
+  window._rvCloudRestoreBackup = _rvCloudRestoreBackup;
+
+  const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else setTimeout(boot, 0);
 })();
@@ -1266,6 +1462,152 @@ async function saveProfile(bucket, ownerId, profile) {
     httpMetadata: { contentType: 'application/json' },
     customMetadata: { ownerId },
   });
+}
+
+function ownerRelativeKey(ownerId, key) {
+  const normalized = normalizeR2Key(key);
+  const prefix = ownerPrefix(ownerId);
+  if (!normalized.startsWith(prefix)) return null;
+  return normalized.slice(prefix.length);
+}
+
+function classifyOwnerObject(relativeKey) {
+  const rel = normalizeR2Key(relativeKey);
+  if (rel.startsWith('meta/')) return 'meta';
+  if (rel.startsWith('bios/')) return 'bios';
+  return 'rom';
+}
+
+async function buildOwnerBackupSnapshot(bucket, ownerId) {
+  const prefix = ownerPrefix(ownerId);
+  const objects = await listAllObjects(bucket, { prefix });
+  const profile = await loadProfile(bucket, ownerId);
+  const manifest = [];
+  const metaDocuments = {};
+  let totalBytes = 0;
+  let romCount = 0;
+  let metaCount = 0;
+  let biosCount = 0;
+  let newestUploadedAt = 0;
+
+  for (const obj of objects) {
+    const relativeKey = ownerRelativeKey(ownerId, obj.key);
+    if (!relativeKey) continue;
+    const kind = classifyOwnerObject(relativeKey);
+    const size = Number(obj.size || 0);
+    totalBytes += size;
+    if (kind === 'rom') romCount++;
+    if (kind === 'meta') metaCount++;
+    if (kind === 'bios') biosCount++;
+    const uploadedAt = obj.uploaded ? new Date(obj.uploaded).getTime() : 0;
+    if (uploadedAt > newestUploadedAt) newestUploadedAt = uploadedAt;
+    manifest.push({
+      key: relativeKey,
+      size,
+      uploaded: obj.uploaded || null,
+      kind,
+    });
+
+    if (
+      kind === 'meta'
+      && relativeKey.endsWith('.json')
+      && relativeKey !== 'meta/profile.json'
+      && relativeKey !== 'meta/manifest.snapshot.json'
+    ) {
+      try {
+        const metaObj = await bucket.get(obj.key);
+        if (!metaObj) continue;
+        const parsed = JSON.parse(await metaObj.text());
+        metaDocuments[relativeKey] = parsed;
+      } catch {
+        // Skip malformed sidecars and continue exporting the rest.
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    ownerId,
+    schemaVersion: 2,
+    exportedAt: Date.now(),
+    profile,
+    settings: profile.preferences || {},
+    summary: {
+      objectCount: manifest.length,
+      romCount,
+      metaCount,
+      biosCount,
+      totalBytes,
+      newestUploadedAt: newestUploadedAt || null,
+    },
+    manifest,
+    metaDocuments,
+  };
+}
+
+async function restoreOwnerBackupSnapshot(bucket, ownerId, payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const existingProfile = await loadProfile(bucket, ownerId);
+  const incomingProfile = source.profile && typeof source.profile === 'object' ? source.profile : {};
+  const incomingSettings = source.settings && typeof source.settings === 'object' ? source.settings : {};
+  const mergedProfile = normalizeProfilePayload(ownerId, {
+    ...existingProfile,
+    ...incomingProfile,
+    preferences: {
+      ...(existingProfile.preferences || {}),
+      ...((incomingProfile && incomingProfile.preferences) || {}),
+      ...incomingSettings,
+    },
+  });
+  await saveProfile(bucket, ownerId, mergedProfile);
+
+  let restoredMeta = 0;
+  let failedMeta = 0;
+  if (source.metaDocuments && typeof source.metaDocuments === 'object') {
+    const entries = Object.entries(source.metaDocuments);
+    for (const [relativeKey, meta] of entries) {
+      try {
+        const normalizedRelative = normalizeR2Key(relativeKey);
+        if (!normalizedRelative.startsWith('meta/')) continue;
+        const destinationKey = toOwnedKey(normalizedRelative, ownerId);
+        if (!destinationKey) continue;
+        await bucket.put(destinationKey, JSON.stringify(meta || {}), {
+          httpMetadata: { contentType: 'application/json' },
+          customMetadata: { ownerId },
+        });
+        restoredMeta++;
+      } catch {
+        failedMeta++;
+      }
+    }
+  }
+
+  let manifestSaved = false;
+  if (Array.isArray(source.manifest)) {
+    const manifestKey = toOwnedKey('meta/manifest.snapshot.json', ownerId);
+    if (manifestKey) {
+      await bucket.put(manifestKey, JSON.stringify({
+        ownerId,
+        restoredAt: Date.now(),
+        sourceExportedAt: Number(source.exportedAt) || null,
+        sourceSchemaVersion: Number(source.schemaVersion) || null,
+        manifest: source.manifest,
+      }), {
+        httpMetadata: { contentType: 'application/json' },
+        customMetadata: { ownerId },
+      });
+      manifestSaved = true;
+    }
+  }
+
+  return {
+    ok: true,
+    ownerId,
+    profile: mergedProfile,
+    restoredMeta,
+    failedMeta,
+    manifestSaved,
+  };
 }
 
 function sanitizeSessionId(value) {
@@ -1413,6 +1755,192 @@ function cloneJsonResponse(origin, payload, status = 200, extraHeaders = {}) {
     status,
     headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', ...extraHeaders },
   });
+}
+
+function safeBase64Encode(bytes) {
+  let out = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const slice = bytes.subarray(i, i + chunkSize);
+    out += String.fromCharCode(...slice);
+  }
+  return btoa(out);
+}
+
+function safeBase64DecodeToBytes(base64Value) {
+  const normalized = String(base64Value || '').replace(/\s+/g, '');
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function parseBooleanFlag(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function uint8ToBase64(bytes) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || 0);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < u8.length; i += chunkSize) {
+    binary += String.fromCharCode(...u8.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8(value) {
+  const binary = atob(String(value || ''));
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+async function ownerStorageSummary(bucket, ownerId) {
+  const prefix = ownerPrefix(ownerId);
+  const objects = await listAllObjects(bucket, { prefix });
+  let romCount = 0;
+  let metaCount = 0;
+  let biosCount = 0;
+  let totalBytes = 0;
+  for (const obj of objects) {
+    const relativeKey = ownerRelativeKey(ownerId, obj.key);
+    if (!relativeKey) continue;
+    const kind = classifyOwnerObject(relativeKey);
+    if (kind === 'rom') romCount++;
+    if (kind === 'meta') metaCount++;
+    if (kind === 'bios') biosCount++;
+    totalBytes += Number(obj.size || 0);
+  }
+  const hasProfile = !!(await bucket.head(profileStorageKey(ownerId)));
+  return {
+    objectCount: objects.length,
+    romCount,
+    metaCount,
+    biosCount,
+    totalBytes,
+    hasProfile,
+  };
+}
+
+function validateOwnerSnapshotShape(payload) {
+  const src = payload && typeof payload === 'object' ? payload : null;
+  const errors = [];
+  if (!src) errors.push('Snapshot body must be a JSON object.');
+  if (src && src.schemaVersion != null && Number(src.schemaVersion) < 1) {
+    errors.push('schemaVersion must be >= 1.');
+  }
+  if (src && src.profile != null && typeof src.profile !== 'object') {
+    errors.push('profile must be an object when provided.');
+  }
+  if (src && src.metaDocuments != null && typeof src.metaDocuments !== 'object') {
+    errors.push('metaDocuments must be an object keyed by relative meta path.');
+  }
+  if (src && src.manifest != null && !Array.isArray(src.manifest)) {
+    errors.push('manifest must be an array when provided.');
+  }
+  if (src && src.library != null && typeof src.library !== 'object') {
+    errors.push('library must be an object when provided.');
+  }
+  if (src && src.library && src.library.objects != null && !Array.isArray(src.library.objects)) {
+    errors.push('library.objects must be an array when provided.');
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+function validateOwnerBackupSnapshotShape(payload) {
+  const validation = validateOwnerSnapshotShape(payload);
+  return {
+    ok: validation.ok,
+    error: validation.errors.join(' '),
+    errors: validation.errors,
+  };
+}
+
+async function buildOwnerSnapshot(bucket, ownerId, options = {}) {
+  const includeData = !!options.includeData;
+  const maxInlineExportBytes = Number(options.maxInlineExportBytes || (80 * 1024 * 1024));
+  const snapshot = await buildOwnerBackupSnapshot(bucket, ownerId);
+  snapshot.library = {
+    included: includeData,
+    totalBytes: 0,
+    objectCount: 0,
+    truncated: false,
+    objects: [],
+  };
+  if (!includeData) return snapshot;
+
+  const prefix = ownerPrefix(ownerId);
+  const objects = await listAllObjects(bucket, { prefix });
+  let runningBytes = 0;
+  for (const obj of objects) {
+    const relativeKey = ownerRelativeKey(ownerId, obj.key);
+    if (!relativeKey) continue;
+    const nextSize = Number(obj.size || 0);
+    if (runningBytes + nextSize > maxInlineExportBytes) {
+      snapshot.library.truncated = true;
+      continue;
+    }
+    const source = await bucket.get(obj.key);
+    if (!source) continue;
+    const data = new Uint8Array(await source.arrayBuffer());
+    runningBytes += data.byteLength;
+    snapshot.library.objects.push({
+      key: relativeKey,
+      kind: classifyOwnerObject(relativeKey),
+      contentType: source.httpMetadata?.contentType || obj.httpMetadata?.contentType || 'application/octet-stream',
+      base64Data: uint8ToBase64(data),
+      size: data.byteLength,
+    });
+  }
+  snapshot.library.objectCount = snapshot.library.objects.length;
+  snapshot.library.totalBytes = runningBytes;
+  return snapshot;
+}
+
+async function restoreOwnerSnapshot(bucket, ownerId, payload) {
+  const source = payload && payload.snapshot && typeof payload.snapshot === 'object'
+    ? payload.snapshot
+    : payload;
+  const validation = validateOwnerSnapshotShape(source);
+  if (!validation.ok) {
+    throw new Error('Invalid snapshot: ' + validation.errors.join(' '));
+  }
+
+  const restored = await restoreOwnerBackupSnapshot(bucket, ownerId, source);
+  let restoredObjects = 0;
+  let failedObjects = 0;
+  const objects = source && source.library && Array.isArray(source.library.objects)
+    ? source.library.objects
+    : [];
+  for (const item of objects) {
+    try {
+      const relativeKey = normalizeR2Key(item && item.key);
+      if (!relativeKey) throw new Error('missing key');
+      const destinationKey = toOwnedKey(relativeKey, ownerId);
+      if (!destinationKey) throw new Error('key outside owner scope');
+      const bytes = base64ToUint8(item.base64Data || '');
+      const contentType = String(item.contentType || '').trim() || 'application/octet-stream';
+      await bucket.put(destinationKey, bytes, {
+        httpMetadata: { contentType },
+        customMetadata: { ownerId },
+      });
+      restoredObjects++;
+    } catch {
+      failedObjects++;
+    }
+  }
+
+  return {
+    ...restored,
+    restoredObjects,
+    failedObjects,
+    validation,
+  };
 }
 
 // ── Main fetch handler ─────────────────────────────────────────────────────
@@ -1946,6 +2474,34 @@ export default {
     }
 
     // ════════════════════════════════════════════════════════════════════
+    // OWNER CLOUD HEALTH — GET /cloud-health
+    // Quick diagnostics for owner-scoped storage visibility.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/cloud-health' && method === 'GET') {
+      if (!env.ROM_BUCKET) {
+        return cloneJsonResponse(origin, { ok: false, error: 'ROM_BUCKET not configured' }, 503);
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const summary = await ownerStorageSummary(env.ROM_BUCKET, ownerId);
+        return cloneJsonResponse(origin, {
+          ok: true,
+          ownerId,
+          mode: 'owner-scoped-r2',
+          summary,
+          checks: {
+            romsVisible: summary.romCount > 0,
+            metaVisible: summary.metaCount >= 0,
+            profileFound: summary.hasProfile,
+          },
+          generatedAt: Date.now(),
+        }, 200, { 'Cache-Control': 'no-store' });
+      } catch (err) {
+        return cloneJsonResponse(origin, { ok: false, error: 'cloud-health failed: ' + err.message }, 500);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
     // R2 LEGACY MIGRATION — POST /r2-migrate-owner
     // Moves pre-owner-scoped root keys into users/{owner}/... so modern
     // owner-scoped sync can see old ROM uploads without re-uploading.
@@ -2375,17 +2931,41 @@ export default {
           status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
         });
       }
-      const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
-      const profile = await loadProfile(env.ROM_BUCKET, ownerId);
-      return new Response(JSON.stringify({
-        ok: true,
-        ownerId,
-        schemaVersion: 1,
-        exportedAt: Date.now(),
-        profile,
-      }, null, 2), {
-        status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
-      });
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const snapshot = await buildOwnerBackupSnapshot(env.ROM_BUCKET, ownerId);
+        return new Response(JSON.stringify(snapshot, null, 2), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-backup failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-restore-check' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json();
+        const validation = validateOwnerBackupSnapshotShape(body);
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          validation,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-restore-check failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     if (path === '/profiles-restore' && method === 'POST') {
@@ -2397,10 +2977,14 @@ export default {
       try {
         const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
         const body = await request.json();
-        const source = body && typeof body === 'object' && body.profile ? body.profile : body;
-        const profile = normalizeProfilePayload(ownerId, source || {});
-        await saveProfile(env.ROM_BUCKET, ownerId, profile);
-        return new Response(JSON.stringify({ ok: true, ownerId, profile }), {
+        const validation = validateOwnerBackupSnapshotShape(body);
+        if (!validation.ok) {
+          return new Response(JSON.stringify({ ok: false, error: validation.error, validation }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const imported = await restoreOwnerBackupSnapshot(env.ROM_BUCKET, ownerId, body);
+        return new Response(JSON.stringify(imported), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
       } catch (err) {
