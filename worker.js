@@ -291,7 +291,8 @@ function _rvScrapeSourceDefaults(){
     igdbClientId: '',
     igdbToken: '',
     giantbombKey: '',
-    openvgdbUrl: ''
+    openvgdbUrl: '',
+    quietExpectedMisses: true
   };
 }
 
@@ -311,6 +312,30 @@ function _rvGetScrapeSourceConfig(){
 
 function _rvSaveScrapeSourceConfig(cfg){
   localStorage.setItem('rv-scrape-sources', JSON.stringify(cfg || _rvScrapeSourceDefaults()));
+}
+
+function _rvQuietExpectedMissesEnabled(){
+  const cfg = _rvGetScrapeSourceConfig();
+  return cfg.quietExpectedMisses !== false;
+}
+
+function _rvShouldQuietExpectedMissMessage(message){
+  if(!_rvQuietExpectedMissesEnabled()) return false;
+  const msg = String(message || '').toLowerCase();
+  return msg.includes('http 404')
+    || msg.includes('index_missing')
+    || msg.includes('no enabled provider matched')
+    || msg.includes('credentials are missing');
+}
+
+function _rvLogScrapeInfo(message){
+  if(typeof logScrape === 'function') logScrape(String(message || ''));
+}
+
+function _rvLogScrapeWarn(message){
+  const text = String(message || '');
+  if(_rvShouldQuietExpectedMissMessage(text)) return;
+  if(typeof logScrape === 'function') logScrape(text);
 }
 
 function _rvCleanScrapeName(name){
@@ -334,6 +359,12 @@ function _rvProxyUrl(url){
 function _rvToPlainText(v){
   const text = String(v || '');
   return text.replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim();
+}
+
+function _rvShouldScrapeRomForRepair(rom){
+  if(!rom) return false;
+  const cover = _rvNormCoverUrl(rom.coverUrl);
+  return !cover || _rvIsBadCoverUrl(cover);
 }
 
 function _rvNormCoverUrl(v){
@@ -410,7 +441,7 @@ async function _rvApplyMetaPatch(romId, patch, source){
   if(changed){
     await dbPut('roms', rom);
     await r2SaveMeta(rom);
-    logScrape('[sources] ✓ ' + source + ' updated metadata for ' + rom.name);
+    _rvLogScrapeInfo('[sources] ✓ ' + source + ' updated metadata for ' + rom.name);
   }
   return changed;
 }
@@ -452,7 +483,7 @@ async function _rvScrapeWikipediaWikidata(romId){
       if(y) patch.year = y[0];
     }
   }catch(e){
-    logScrape('[wikipedia] ' + q + ' — ' + e.message);
+    _rvLogScrapeWarn('[wikipedia] ' + q + ' — ' + e.message);
   }
   try{
     const search = await _rvFetchJsonViaProxy('https://www.wikidata.org/w/api.php?action=wbsearchentities&language=en&format=json&type=item&search=' + encodeURIComponent(q));
@@ -465,7 +496,7 @@ async function _rvScrapeWikipediaWikidata(romId){
       if(ym && !patch.year) patch.year = ym[0];
     }
   }catch(e){
-    logScrape('[wikidata] ' + q + ' — ' + e.message);
+    _rvLogScrapeWarn('[wikidata] ' + q + ' — ' + e.message);
   }
   return _rvApplyMetaPatch(romId, patch, 'wikipedia/wikidata');
 }
@@ -538,7 +569,7 @@ async function _rvScrapeTheGamesDb(romId, cfg){
     }
     return _rvApplyMetaPatch(romId, patch, 'thegamesdb');
   }catch(e){
-    logScrape('[thegamesdb] ' + q + ' — ' + e.message);
+    _rvLogScrapeWarn('[thegamesdb] ' + q + ' — ' + e.message);
     return false;
   }
 }
@@ -563,7 +594,7 @@ async function _rvScrapeMobyGames(romId, cfg){
     if(game.sample_cover && game.sample_cover.image) patch.coverUrl = game.sample_cover.image;
     return _rvApplyMetaPatch(romId, patch, 'mobygames');
   }catch(e){
-    logScrape('[mobygames] ' + q + ' — ' + e.message);
+    _rvLogScrapeWarn('[mobygames] ' + q + ' — ' + e.message);
     return false;
   }
 }
@@ -599,7 +630,7 @@ async function _rvScrapeIgdb(romId, cfg){
     if(game.cover && game.cover.image_id) patch.coverUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/' + game.cover.image_id + '.jpg';
     return _rvApplyMetaPatch(romId, patch, 'igdb');
   }catch(e){
-    logScrape('[igdb] ' + q + ' — ' + e.message);
+    _rvLogScrapeWarn('[igdb] ' + q + ' — ' + e.message);
     return false;
   }
 }
@@ -624,7 +655,7 @@ async function _rvScrapeGiantBomb(romId, cfg){
     if(game.image) patch.coverUrl = game.image.medium_url || game.image.original_url || '';
     return _rvApplyMetaPatch(romId, patch, 'giantbomb');
   }catch(e){
-    logScrape('[giantbomb] ' + q + ' — ' + e.message);
+    _rvLogScrapeWarn('[giantbomb] ' + q + ' — ' + e.message);
     return false;
   }
 }
@@ -652,7 +683,7 @@ async function _rvScrapeOpenVgdb(romId, cfg){
     };
     return _rvApplyMetaPatch(romId, patch, 'openvgdb');
   }catch(e){
-    logScrape('[openvgdb] ' + q + ' — ' + e.message);
+    _rvLogScrapeWarn('[openvgdb] ' + q + ' — ' + e.message);
     return false;
   }
 }
@@ -670,7 +701,7 @@ async function _rvRunScrapeProvider(providerId, romId, ssCreds, cfg){
   }
   if(providerId === 'screenscraper'){
     if(!(ssCreds && ssCreds.user)){
-      logScrape('[sources] ScreenScraper enabled but credentials are missing — skipped');
+      _rvLogScrapeWarn('[sources] ScreenScraper enabled but credentials are missing — skipped');
       return false;
     }
     await scrapeRomById(romId, ssCreds);
@@ -694,28 +725,71 @@ async function _rvAutoScrapeAllSources(romId, ssCreds){
   const order = _rvScrapeProviderOrder();
   const active = order.filter(id => cfg.providers && cfg.providers[id]);
   if(!active.length){
-    logScrape('[sources] All providers disabled — skipping scrape for this game');
+    _rvLogScrapeWarn('[sources] All providers disabled — skipping scrape for this game');
     if(typeof toast === 'function') toast('All scraper providers are disabled in Sources settings','warn');
     return;
   }
-  logScrape('[sources] Active providers: ' + active.join(', '));
+  _rvLogScrapeInfo('[sources] Active providers: ' + active.join(', '));
   let done = false;
   for(const provider of active){
     try{
-      logScrape('[sources] Trying ' + provider + ' for ' + rom.name);
+      _rvLogScrapeInfo('[sources] Trying ' + provider + ' for ' + rom.name);
       const ok = await _rvRunScrapeProvider(provider, romId, ssCreds, cfg);
       if(ok){
         done = true;
-        logScrape('[sources] ✓ ' + provider + ' matched ' + rom.name);
+        _rvLogScrapeInfo('[sources] ✓ ' + provider + ' matched ' + rom.name);
         break;
       }
     }catch(e){
-      logScrape('[sources] ' + provider + ' failed: ' + e.message);
+      _rvLogScrapeWarn('[sources] ' + provider + ' failed: ' + e.message);
     }
   }
-  if(!done) logScrape('[sources] ⚠ No enabled provider matched ' + rom.name);
+  if(!done) _rvLogScrapeWarn('[sources] ⚠ No enabled provider matched ' + rom.name);
   if(cloudSignedIn()) sbPush().catch(()=>{});
   await refreshAll();
+}
+
+async function _rvScrapeBrokenOnly(){
+  const creds = (typeof getSsCreds === 'function') ? getSsCreds() : null;
+  const roms = await dbGetAll('roms');
+  const targets = (roms || []).filter(_rvShouldScrapeRomForRepair);
+  if(!targets.length){
+    if(typeof toast==='function') toast('No missing/broken covers found','warn');
+    const st = document.getElementById('rvSourceCfgStatus');
+    if(st) st.textContent = 'No missing/broken covers to repair.';
+    return { scanned: roms.length || 0, repaired: 0 };
+  }
+  const st = document.getElementById('rvSourceCfgStatus');
+  if(st) st.textContent = 'Repairing ' + targets.length + ' missing/broken cover(s)…';
+  const prog = document.getElementById('scrProg');
+  if(prog) prog.style.display = 'block';
+  let repaired = 0;
+  for(let i=0;i<targets.length;i++){
+    const rom = targets[i];
+    const pct = Math.round((i / Math.max(1, targets.length)) * 100);
+    const fill = document.getElementById('scrFill');
+    const pctEl = document.getElementById('scrPct');
+    const sub = document.getElementById('scrSub');
+    if(fill) fill.style.width = pct + '%';
+    if(pctEl) pctEl.textContent = pct + '%';
+    if(sub) sub.textContent = 'Repairing: ' + (rom && rom.name ? rom.name : ('#'+i));
+    try{
+      await _rvAutoScrapeAllSources(rom.id, creds);
+      repaired++;
+    }catch(e){
+      _rvLogScrapeWarn('[sources] repair failed for ' + (rom && rom.name ? rom.name : ('#'+i)) + ': ' + e.message);
+    }
+    await new Promise(r=>setTimeout(r,850));
+  }
+  const fill = document.getElementById('scrFill');
+  const pctEl = document.getElementById('scrPct');
+  const sub = document.getElementById('scrSub');
+  if(fill) fill.style.width = '100%';
+  if(pctEl) pctEl.textContent = '100%';
+  if(sub) sub.textContent = 'Repair finished';
+  if(st) st.textContent = 'Repair complete: ' + repaired + '/' + targets.length + ' processed.';
+  if(typeof toast==='function') toast('Repair complete: ' + repaired + '/' + targets.length);
+  return { scanned: roms.length || 0, repaired };
 }
 
 function _rvPatchScrapePipeline(){
@@ -725,6 +799,13 @@ function _rvPatchScrapePipeline(){
   autoScrapeWithFallback = async function(romId, ssCreds){
     return _rvAutoScrapeAllSources(romId, ssCreds);
   };
+  if(typeof scrapeMissing === 'function'){
+    window.__rvScrapeMissingOriginal = scrapeMissing;
+    scrapeMissing = async function(){
+      return _rvScrapeBrokenOnly();
+    };
+  }
+  window._rvScrapeBrokenOnly = _rvScrapeBrokenOnly;
   window.__rvAllSourcesPatched = true;
 }
 
@@ -760,7 +841,9 @@ function _rvInitScrapeSourceControls(){
     + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
     + '<button class="bb p" type="button" id="rvSaveSourceCfg">Save Source Settings</button>'
     + '<button class="bb s" type="button" id="rvResetSourceCfg">Reset Defaults</button>'
+    + '<button class="bb s" type="button" id="rvRepairBrokenBtn">Repair Missing/Broken Covers</button>'
     + '</div>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvQuietExpectedMisses"> Quiet mode (hide expected misses)</label>'
     + '<div id="rvSourceCfgStatus" style="font-size:11px;color:var(--muted);margin-top:6px;">Saved source profile is loaded automatically.</div>';
   host.appendChild(card);
 
@@ -783,6 +866,8 @@ function _rvInitScrapeSourceControls(){
     setVal('rvIgdbToken', c.igdbToken);
     setVal('rvGiantbombKey', c.giantbombKey);
     setVal('rvOpenvgdbUrl', c.openvgdbUrl);
+    const quiet = document.getElementById('rvQuietExpectedMisses');
+    if(quiet) quiet.checked = c.quietExpectedMisses !== false;
   };
   setChecks(cfg);
 
@@ -805,6 +890,7 @@ function _rvInitScrapeSourceControls(){
     out.igdbToken = getVal('rvIgdbToken');
     out.giantbombKey = getVal('rvGiantbombKey');
     out.openvgdbUrl = getVal('rvOpenvgdbUrl');
+    out.quietExpectedMisses = !!(document.getElementById('rvQuietExpectedMisses') && document.getElementById('rvQuietExpectedMisses').checked);
     _rvSaveScrapeSourceConfig(out);
     const st = document.getElementById('rvSourceCfgStatus');
     if(st){
@@ -825,6 +911,11 @@ function _rvInitScrapeSourceControls(){
     if(st) st.textContent = 'Defaults restored.';
     toast('Source settings reset');
   };
+
+  const repairBtn = document.getElementById('rvRepairBrokenBtn');
+  if(repairBtn){
+    repairBtn.onclick = () => _rvScrapeBrokenOnly();
+  }
 }
 
 if(document.readyState === 'loading'){
