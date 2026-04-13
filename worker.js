@@ -76,6 +76,511 @@ function getHTML() {
     }
   }
 
+  if (!html.includes('function _rvGetScrapeSourceConfig(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const scraperSourceHelper = `
+function _rvScrapeSourceDefaults(){
+  return {
+    providers: {
+      launchbox: true,
+      wikipedia: true,
+      libretro: true,
+      openvgdb: false,
+      thegamesdb: false,
+      mobygames: false,
+      igdb: false,
+      giantbomb: false,
+      screenscraper: true
+    },
+    tgdbKey: '',
+    mobyKey: '',
+    igdbClientId: '',
+    igdbToken: '',
+    giantbombKey: '',
+    openvgdbUrl: ''
+  };
+}
+
+function _rvGetScrapeSourceConfig(){
+  const defaults = _rvScrapeSourceDefaults();
+  try{
+    const raw = localStorage.getItem('rv-scrape-sources');
+    if(!raw) return defaults;
+    const parsed = JSON.parse(raw);
+    const cfg = Object.assign({}, defaults, parsed || {});
+    cfg.providers = Object.assign({}, defaults.providers, (parsed && parsed.providers) || {});
+    return cfg;
+  }catch(e){
+    return defaults;
+  }
+}
+
+function _rvSaveScrapeSourceConfig(cfg){
+  localStorage.setItem('rv-scrape-sources', JSON.stringify(cfg || _rvScrapeSourceDefaults()));
+}
+
+function _rvCleanScrapeName(name){
+  return String(name || '')
+    .replace(/_/g,' ')
+    .replace(/\\s*[\\(\\[][^\)\\]]*[\\)\\]]/g,'')
+    .replace(/\\s+-\\s*(Rev|Version|v)\\s*[\\d.]+\\s*$/i,'')
+    .replace(/\\s+(USA|Europe|Japan|World|En|Fr|De|Es|It)\\s*$/i,'')
+    .replace(/\\s+/g,' ')
+    .trim();
+}
+
+function _rvNormTitle(v){
+  return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+
+function _rvProxyUrl(url){
+  return window.location.origin + '/scraper-proxy?url=' + encodeURIComponent(url);
+}
+
+function _rvToPlainText(v){
+  const text = String(v || '');
+  return text.replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim();
+}
+
+async function _rvFetchJsonViaProxy(url, init){
+  const resp = await fetch(_rvProxyUrl(url), init || {});
+  if(!resp.ok) throw new Error('HTTP '+resp.status);
+  const text = await resp.text();
+  try{
+    return JSON.parse(text);
+  }catch(e){
+    throw new Error('Invalid JSON response');
+  }
+}
+
+async function _rvApplyMetaPatch(romId, patch, source){
+  const rom = await dbGet('roms', romId);
+  if(!rom || !patch) return false;
+  let changed = false;
+  const setIfEmpty = (field, value) => {
+    if(value == null || value === '') return;
+    if(!rom[field]){
+      rom[field] = value;
+      changed = true;
+    }
+  };
+  setIfEmpty('coverUrl', patch.coverUrl);
+  setIfEmpty('description', patch.description);
+  setIfEmpty('year', patch.year);
+  setIfEmpty('rating', patch.rating);
+  setIfEmpty('developer', patch.developer);
+  setIfEmpty('genres', patch.genres);
+  if(changed){
+    await dbPut('roms', rom);
+    await r2SaveMeta(rom);
+    logScrape('[sources] ✓ ' + source + ' updated metadata for ' + rom.name);
+  }
+  return changed;
+}
+
+async function _rvScrapeWikipediaWikidata(romId){
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename);
+  if(!q) return false;
+  const patch = {};
+  try{
+    const wiki = await _rvFetchJsonViaProxy('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(q));
+    if(wiki){
+      if(wiki.extract) patch.description = wiki.extract;
+      if(wiki.thumbnail && wiki.thumbnail.source) patch.coverUrl = wiki.thumbnail.source;
+      const y = String(wiki.description || '').match(/\\b(19|20)\\d{2}\\b/);
+      if(y) patch.year = y[0];
+    }
+  }catch(e){
+    logScrape('[wikipedia] ' + q + ' — ' + e.message);
+  }
+  try{
+    const search = await _rvFetchJsonViaProxy('https://www.wikidata.org/w/api.php?action=wbsearchentities&language=en&format=json&type=item&search=' + encodeURIComponent(q));
+    const qid = search && search.search && search.search[0] && search.search[0].id;
+    if(qid){
+      const entity = await _rvFetchJsonViaProxy('https://www.wikidata.org/wiki/Special:EntityData/' + qid + '.json');
+      const claims = entity && entity.entities && entity.entities[qid] && entity.entities[qid].claims;
+      const releaseTime = claims && claims.P577 && claims.P577[0] && claims.P577[0].mainsnak && claims.P577[0].mainsnak.datavalue && claims.P577[0].mainsnak.datavalue.value && claims.P577[0].mainsnak.datavalue.value.time;
+      const ym = String(releaseTime || '').match(/(19|20)\\d{2}/);
+      if(ym && !patch.year) patch.year = ym[0];
+    }
+  }catch(e){
+    logScrape('[wikidata] ' + q + ' — ' + e.message);
+  }
+  return _rvApplyMetaPatch(romId, patch, 'wikipedia/wikidata');
+}
+
+function _rvLibretroSystem(consoleId){
+  const map = {
+    nes: 'Nintendo - Nintendo Entertainment System',
+    snes: 'Nintendo - Super Nintendo Entertainment System',
+    n64: 'Nintendo - Nintendo 64',
+    gb: 'Nintendo - Game Boy',
+    gbc: 'Nintendo - Game Boy Color',
+    gba: 'Nintendo - Game Boy Advance',
+    nds: 'Nintendo - Nintendo DS',
+    genesis: 'Sega - Mega Drive - Genesis',
+    saturn: 'Sega - Saturn',
+    dreamcast: 'Sega - Dreamcast',
+    psx: 'Sony - PlayStation',
+    psp: 'Sony - PlayStation Portable',
+    atari2600: 'Atari - 2600',
+    atari7800: 'Atari - 7800'
+  };
+  return map[consoleId] || null;
+}
+
+async function _rvScrapeLibretro(romId){
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const sys = _rvLibretroSystem(rom.console);
+  if(!sys) return false;
+  const baseName = _rvCleanScrapeName(rom.name || rom.filename).replace(/:/g, ' - ');
+  if(!baseName) return false;
+  const candidates = [baseName, baseName.replace(/\\s+-\\s+.*$/,'').trim()].filter(Boolean);
+  for(const title of candidates){
+    const rel = encodeURIComponent(title) + '.png';
+    const sysSeg = encodeURIComponent(sys);
+    const boxUrl = 'https://thumbnails.libretro.com/' + sysSeg + '/Named_Boxarts/' + rel;
+    try{
+      const probe = await fetch(_rvProxyUrl(boxUrl));
+      if(probe.ok){
+        const changed = await _rvApplyMetaPatch(romId, { coverUrl: boxUrl }, 'libretro');
+        if(changed) return true;
+      }
+    }catch(e){}
+  }
+  return false;
+}
+
+async function _rvScrapeTheGamesDb(romId, cfg){
+  const key = String((cfg && cfg.tgdbKey) || '').trim();
+  if(!key) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename);
+  if(!q) return false;
+  try{
+    const url = 'https://api.thegamesdb.net/v1.1/Games/ByGameName?apikey=' + encodeURIComponent(key) + '&name=' + encodeURIComponent(q) + '&include=boxart';
+    const data = await _rvFetchJsonViaProxy(url);
+    const game = data && data.data && data.data.games && data.data.games[0];
+    if(!game) return false;
+    const patch = {
+      description: game.overview || '',
+      year: (game.release_date || '').slice(0,4),
+    };
+    const box = data && data.include && data.include.boxart;
+    const base = (box && box.base_url && (box.base_url.original || box.base_url.thumb)) || '';
+    const list = box && box.data && (box.data[game.id] || box.data[String(game.id)]);
+    if(base && Array.isArray(list) && list.length){
+      const front = list.find(x => /front/i.test(String(x.side||''))) || list[0];
+      if(front && front.filename) patch.coverUrl = base + front.filename;
+    }
+    return _rvApplyMetaPatch(romId, patch, 'thegamesdb');
+  }catch(e){
+    logScrape('[thegamesdb] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+async function _rvScrapeMobyGames(romId, cfg){
+  const key = String((cfg && cfg.mobyKey) || '').trim();
+  if(!key) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename);
+  if(!q) return false;
+  try{
+    const url = 'https://api.mobygames.com/v1/games?api_key=' + encodeURIComponent(key) + '&title=' + encodeURIComponent(q) + '&limit=1';
+    const data = await _rvFetchJsonViaProxy(url);
+    const game = data && data.games && data.games[0];
+    if(!game) return false;
+    const patch = {
+      description: _rvToPlainText(game.description || game.short_description || ''),
+      year: String(game.first_release_date || '').slice(0,4),
+      developer: (game.developers && game.developers[0] && game.developers[0].name) || '',
+    };
+    if(game.sample_cover && game.sample_cover.image) patch.coverUrl = game.sample_cover.image;
+    return _rvApplyMetaPatch(romId, patch, 'mobygames');
+  }catch(e){
+    logScrape('[mobygames] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+async function _rvScrapeIgdb(romId, cfg){
+  const clientId = String((cfg && cfg.igdbClientId) || '').trim();
+  const token = String((cfg && cfg.igdbToken) || '').trim();
+  if(!clientId || !token) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename).replace(/"/g,'');
+  if(!q) return false;
+  try{
+    const query = 'search "' + q + '"; fields name,summary,first_release_date,cover.image_id,rating; limit 1;';
+    const resp = await fetch(_rvProxyUrl('https://api.igdb.com/v4/games'), {
+      method:'POST',
+      headers:{
+        'Content-Type':'text/plain',
+        'Client-ID': clientId,
+        'Authorization': 'Bearer ' + token,
+      },
+      body: query,
+    });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const list = await resp.json();
+    const game = Array.isArray(list) ? list[0] : null;
+    if(!game) return false;
+    const patch = {
+      description: game.summary || '',
+      year: game.first_release_date ? String(new Date(game.first_release_date * 1000).getUTCFullYear()) : '',
+      rating: Number.isFinite(game.rating) ? (Math.max(0, Math.min(100, game.rating))/20).toFixed(1) + '/5' : '',
+    };
+    if(game.cover && game.cover.image_id) patch.coverUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/' + game.cover.image_id + '.jpg';
+    return _rvApplyMetaPatch(romId, patch, 'igdb');
+  }catch(e){
+    logScrape('[igdb] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+async function _rvScrapeGiantBomb(romId, cfg){
+  const key = String((cfg && cfg.giantbombKey) || '').trim();
+  if(!key) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvCleanScrapeName(rom.name || rom.filename);
+  if(!q) return false;
+  try{
+    const url = 'https://www.giantbomb.com/api/search/?api_key=' + encodeURIComponent(key) + '&format=json&resources=game&limit=1&query=' + encodeURIComponent(q);
+    const data = await _rvFetchJsonViaProxy(url);
+    const game = data && data.results && data.results[0];
+    if(!game) return false;
+    const patch = {
+      description: _rvToPlainText(game.deck || game.description || ''),
+    };
+    const ym = String(game.original_release_date || game.expected_release_year || '').match(/(19|20)\\d{2}/);
+    if(ym) patch.year = ym[0];
+    if(game.image) patch.coverUrl = game.image.medium_url || game.image.original_url || '';
+    return _rvApplyMetaPatch(romId, patch, 'giantbomb');
+  }catch(e){
+    logScrape('[giantbomb] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+async function _rvScrapeOpenVgdb(romId, cfg){
+  const url = String((cfg && cfg.openvgdbUrl) || '').trim();
+  if(!url) return false;
+  const rom = await dbGet('roms', romId);
+  if(!rom) return false;
+  const q = _rvNormTitle(_rvCleanScrapeName(rom.name || rom.filename));
+  if(!q) return false;
+  try{
+    const data = await _rvFetchJsonViaProxy(url);
+    const list = Array.isArray(data) ? data : (Array.isArray(data && data.games) ? data.games : []);
+    if(!list.length) return false;
+    let match = list.find(g => _rvNormTitle(g && (g.title || g.name)) === q);
+    if(!match) match = list.find(g => _rvNormTitle(g && (g.title || g.name)).includes(q));
+    if(!match) return false;
+    const patch = {
+      description: _rvToPlainText(match.overview || match.description || ''),
+      year: String(match.releaseYear || match.year || '').slice(0,4),
+      coverUrl: match.coverUrl || match.cover || '',
+      developer: match.developer || '',
+      genres: match.genres || '',
+    };
+    return _rvApplyMetaPatch(romId, patch, 'openvgdb');
+  }catch(e){
+    logScrape('[openvgdb] ' + q + ' — ' + e.message);
+    return false;
+  }
+}
+
+function _rvScrapeProviderOrder(){
+  return ['launchbox','wikipedia','libretro','thegamesdb','mobygames','igdb','giantbomb','openvgdb','screenscraper'];
+}
+
+async function _rvRunScrapeProvider(providerId, romId, ssCreds, cfg){
+  if(providerId === 'launchbox'){
+    await lbScrapeRom(romId);
+    const updated = await dbGet('roms', romId);
+    return !!(updated && (updated.coverUrl || updated.description));
+  }
+  if(providerId === 'screenscraper'){
+    if(!(ssCreds && ssCreds.user)){
+      logScrape('[sources] ScreenScraper enabled but credentials are missing — skipped');
+      return false;
+    }
+    await scrapeRomById(romId, ssCreds);
+    const updated = await dbGet('roms', romId);
+    return !!(updated && (updated.coverUrl || updated.description));
+  }
+  if(providerId === 'wikipedia') return _rvScrapeWikipediaWikidata(romId);
+  if(providerId === 'libretro') return _rvScrapeLibretro(romId);
+  if(providerId === 'thegamesdb') return _rvScrapeTheGamesDb(romId, cfg);
+  if(providerId === 'mobygames') return _rvScrapeMobyGames(romId, cfg);
+  if(providerId === 'igdb') return _rvScrapeIgdb(romId, cfg);
+  if(providerId === 'giantbomb') return _rvScrapeGiantBomb(romId, cfg);
+  if(providerId === 'openvgdb') return _rvScrapeOpenVgdb(romId, cfg);
+  return false;
+}
+
+async function _rvAutoScrapeAllSources(romId, ssCreds){
+  const rom = await dbGet('roms', romId);
+  if(!rom) return;
+  const cfg = _rvGetScrapeSourceConfig();
+  const order = _rvScrapeProviderOrder();
+  const active = order.filter(id => cfg.providers && cfg.providers[id]);
+  if(!active.length){
+    logScrape('[sources] No providers enabled; using existing fallback pipeline');
+    if(typeof window.__rvAutoScrapeWithFallbackOriginal === 'function'){
+      return window.__rvAutoScrapeWithFallbackOriginal(romId, ssCreds);
+    }
+    return;
+  }
+  logScrape('[sources] Active providers: ' + active.join(', '));
+  let done = false;
+  for(const provider of active){
+    try{
+      logScrape('[sources] Trying ' + provider + ' for ' + rom.name);
+      const ok = await _rvRunScrapeProvider(provider, romId, ssCreds, cfg);
+      if(ok){
+        done = true;
+        logScrape('[sources] ✓ ' + provider + ' matched ' + rom.name);
+        break;
+      }
+    }catch(e){
+      logScrape('[sources] ' + provider + ' failed: ' + e.message);
+    }
+  }
+  if(!done) logScrape('[sources] ⚠ No enabled provider matched ' + rom.name);
+  if(cloudSignedIn()) sbPush().catch(()=>{});
+  await refreshAll();
+}
+
+function _rvPatchScrapePipeline(){
+  if(window.__rvAllSourcesPatched) return;
+  if(typeof autoScrapeWithFallback !== 'function') return;
+  window.__rvAutoScrapeWithFallbackOriginal = autoScrapeWithFallback;
+  autoScrapeWithFallback = async function(romId, ssCreds){
+    return _rvAutoScrapeAllSources(romId, ssCreds);
+  };
+  window.__rvAllSourcesPatched = true;
+}
+
+function _rvInitScrapeSourceControls(){
+  const host = document.getElementById('sc-sources');
+  if(!host || document.getElementById('rvScrapeSourcesCard')) return;
+  const cfg = _rvGetScrapeSourceConfig();
+  const card = document.createElement('div');
+  card.id = 'rvScrapeSourcesCard';
+  card.className = 'sblk';
+  card.style.marginTop = '12px';
+  card.innerHTML = '<h3>All Providers</h3>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Enable any mix of no-login and API-key providers. The scraper checks enabled providers in priority order (top to bottom).</div>'
+    + '<div style="display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;">'
+    + '<label><input type="checkbox" id="rvp-launchbox"> LaunchBox (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
+    + '<label><input type="checkbox" id="rvp-wikipedia"> Wikidata + Wikipedia (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
+    + '<label><input type="checkbox" id="rvp-libretro"> Libretro Thumbnails (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
+    + '<label><input type="checkbox" id="rvp-thegamesdb"> TheGamesDB (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-mobygames"> MobyGames (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-igdb"> IGDB (Client ID + Bearer token)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-giantbomb"> GiantBomb (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-openvgdb"> OpenVGDB (JSON URL)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '<label><input type="checkbox" id="rvp-screenscraper"> ScreenScraper fallback (login)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+    + '</div>'
+    + '<div style="display:grid;gap:8px;margin-top:12px;">'
+    + '<input id="rvTgdbKey" placeholder="TheGamesDB API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvMobyKey" placeholder="MobyGames API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvIgdbClientId" placeholder="IGDB Client ID" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvIgdbToken" placeholder="IGDB Bearer token" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvGiantbombKey" placeholder="GiantBomb API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<input id="rvOpenvgdbUrl" placeholder="OpenVGDB JSON URL (optional)" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
+    + '<button class="bb p" type="button" id="rvSaveSourceCfg">Save Source Settings</button>'
+    + '<button class="bb s" type="button" id="rvResetSourceCfg">Reset Defaults</button>'
+    + '</div>'
+    + '<div id="rvSourceCfgStatus" style="font-size:11px;color:var(--muted);margin-top:6px;">Saved source profile is loaded automatically.</div>';
+  host.appendChild(card);
+
+  const setChecks = (c) => {
+    const p = c.providers || {};
+    const on = (id, key) => { const el = document.getElementById(id); if(el) el.checked = !!p[key]; };
+    on('rvp-launchbox','launchbox');
+    on('rvp-wikipedia','wikipedia');
+    on('rvp-libretro','libretro');
+    on('rvp-thegamesdb','thegamesdb');
+    on('rvp-mobygames','mobygames');
+    on('rvp-igdb','igdb');
+    on('rvp-giantbomb','giantbomb');
+    on('rvp-openvgdb','openvgdb');
+    on('rvp-screenscraper','screenscraper');
+    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+    setVal('rvTgdbKey', c.tgdbKey);
+    setVal('rvMobyKey', c.mobyKey);
+    setVal('rvIgdbClientId', c.igdbClientId);
+    setVal('rvIgdbToken', c.igdbToken);
+    setVal('rvGiantbombKey', c.giantbombKey);
+    setVal('rvOpenvgdbUrl', c.openvgdbUrl);
+  };
+  setChecks(cfg);
+
+  document.getElementById('rvSaveSourceCfg').onclick = () => {
+    const out = _rvGetScrapeSourceConfig();
+    const pick = (id) => !!(document.getElementById(id) && document.getElementById(id).checked);
+    out.providers.launchbox = pick('rvp-launchbox');
+    out.providers.wikipedia = pick('rvp-wikipedia');
+    out.providers.libretro = pick('rvp-libretro');
+    out.providers.thegamesdb = pick('rvp-thegamesdb');
+    out.providers.mobygames = pick('rvp-mobygames');
+    out.providers.igdb = pick('rvp-igdb');
+    out.providers.giantbomb = pick('rvp-giantbomb');
+    out.providers.openvgdb = pick('rvp-openvgdb');
+    out.providers.screenscraper = pick('rvp-screenscraper');
+    const getVal = (id) => String((document.getElementById(id) && document.getElementById(id).value) || '').trim();
+    out.tgdbKey = getVal('rvTgdbKey');
+    out.mobyKey = getVal('rvMobyKey');
+    out.igdbClientId = getVal('rvIgdbClientId');
+    out.igdbToken = getVal('rvIgdbToken');
+    out.giantbombKey = getVal('rvGiantbombKey');
+    out.openvgdbUrl = getVal('rvOpenvgdbUrl');
+    _rvSaveScrapeSourceConfig(out);
+    const st = document.getElementById('rvSourceCfgStatus');
+    if(st) st.textContent = 'Saved. Active providers: ' + _rvScrapeProviderOrder().filter(id => out.providers && out.providers[id]).join(', ');
+    toast('Source settings saved');
+    setTimeout(_rvPatchScrapePipeline, 0);
+  };
+
+  document.getElementById('rvResetSourceCfg').onclick = () => {
+    const reset = _rvScrapeSourceDefaults();
+    _rvSaveScrapeSourceConfig(reset);
+    setChecks(reset);
+    const st = document.getElementById('rvSourceCfgStatus');
+    if(st) st.textContent = 'Defaults restored.';
+    toast('Source settings reset');
+  };
+}
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', () => {
+    _rvInitScrapeSourceControls();
+    setTimeout(_rvPatchScrapePipeline, 0);
+    setTimeout(_rvPatchScrapePipeline, 1200);
+  });
+} else {
+  setTimeout(_rvInitScrapeSourceControls, 0);
+  setTimeout(_rvPatchScrapePipeline, 0);
+  setTimeout(_rvPatchScrapePipeline, 1200);
+}
+`;
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, scraperSourceHelper + helperAnchor);
+    }
+  }
+
   if (!html.includes('function _rvMigrateLegacyBucket(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
     const migrateHelper = "function _rvMigrationStatus(msg,state){ const el=document.getElementById('rvMigrationStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }\nasync function _rvMigrateLegacyBucket(dryRun){ const owner=(typeof _rvOwnerId==='function'?_rvOwnerId():''); if(!owner){ _rvMigrationStatus('Set Shared Sync Owner ID first.','err'); return; } if(!dryRun){ const yes=confirm('Migrate legacy bucket ROMs into users/'+owner+'/? This will move old root ROM keys so sync can see them again.'); if(!yes) return; } _rvMigrationStatus((dryRun?'Previewing':'Migrating')+' legacy bucket keys…',''); try{ const resp=await fetch(window.location.origin+'/r2-migrate-owner',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ owner, dryRun:!!dryRun, removeLegacy:true }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); const msg=(dryRun?'Preview':'Migration')+': '+(data.migratable||0)+' eligible, '+(data.migrated||0)+' copied, '+(data.deleted||0)+' moved, '+(data.failed||0)+' failed.'; _rvMigrationStatus(msg,'ok'); }catch(e){ _rvMigrationStatus('Legacy migration failed: '+e.message,'err'); } }\nfunction _rvInitMigrationControls(){ const ownerInput=document.getElementById('rvOwnerInput'); if(!ownerInput||document.getElementById('rvMigrateLegacyBtn')) return; const host=(ownerInput.closest('div') && ownerInput.closest('div').parentElement) || ownerInput.parentElement || ownerInput; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='10px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Legacy ROM Migration'; const wrap=document.createElement('div'); wrap.style.display='flex'; wrap.style.gap='8px'; wrap.style.flexWrap='wrap'; const previewBtn=document.createElement('button'); previewBtn.type='button'; previewBtn.className='bb s'; previewBtn.textContent='Preview Migration'; previewBtn.onclick=()=>_rvMigrateLegacyBucket(true); const migrateBtn=document.createElement('button'); migrateBtn.type='button'; migrateBtn.className='bb p'; migrateBtn.id='rvMigrateLegacyBtn'; migrateBtn.textContent='Migrate Existing ROMs'; migrateBtn.onclick=()=>_rvMigrateLegacyBucket(false); wrap.appendChild(previewBtn); wrap.appendChild(migrateBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Run once if your ROMs were uploaded before owner-scoped sync was enabled.'; const status=document.createElement('div'); status.id='rvMigrationStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Legacy migration not run yet.'; card.appendChild(title); card.appendChild(wrap); card.appendChild(note); card.appendChild(status); host.appendChild(card); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitMigrationControls); else setTimeout(_rvInitMigrationControls,0);\n";
