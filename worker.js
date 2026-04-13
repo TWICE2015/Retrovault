@@ -273,6 +273,13 @@ function getHTML() {
     }
   }
 
+  if (!html.includes('id="rvCardActionFix"')) {
+    const cardActionFix = '<style id="rvCardActionFix">.ga .gfav{left:6px!important;top:6px!important;}.ga .ginfo{left:auto!important;right:6px!important;top:6px!important;}</style>';
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', `${cardActionFix}\n</head>`);
+    }
+  }
+
   if (!html.includes('function _rvGetScrapeSourceConfig(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
     const scraperSourceHelper = `
