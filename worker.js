@@ -1736,7 +1736,9 @@ if(document.readyState === 'loading'){
     style.textContent = [
       '#rvProfilePicker{position:fixed;inset:0;z-index:99999;background:#141414;display:none;align-items:center;justify-content:center;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;}',
       '#rvProfilePicker.show{display:flex;}',
-      '#rvProfilePicker .rv-wrap{width:100%;max-width:880px;margin:0 auto;text-align:center;}',
+      '#rvProfilePicker .rv-wrap{position:relative;width:100%;max-width:880px;margin:0 auto;text-align:center;}',
+      '#rvProfilePicker .rv-close-x{position:absolute;top:8px;right:8px;z-index:2;width:40px;height:40px;border:1px solid #555;background:rgba(0,0,0,.45);color:#fff;border-radius:999px;font-size:22px;line-height:36px;cursor:pointer;padding:0;}',
+      '#rvProfilePicker .rv-close-x:hover{border-color:#fff;background:rgba(255,255,255,.12);}',
       '#rvProfilePicker .rv-title{font-size:clamp(32px,3.8vw,52px);font-weight:400;color:#fff;margin:24px 0 8px;letter-spacing:.02em;}',
       '#rvProfilePicker .rv-sub{font-size:15px;color:#808080;margin:0 0 36px;}',
       '#rvProfilePicker .rv-grid{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:28px 32px;margin:0 auto 40px;max-width:920px;}',
@@ -1865,7 +1867,7 @@ if(document.readyState === 'loading'){
 
   function _rvProfilePickerEl(){
     let root = document.getElementById('rvProfilePicker');
-    if(root && !document.getElementById('rvProfilePickerActions')){
+    if(root && (!document.getElementById('rvProfilePickerActions') || !document.getElementById('rvProfilePickerCloseBtn'))){
       root.remove();
       root = null;
     }
@@ -1874,6 +1876,7 @@ if(document.readyState === 'loading'){
     root.id = 'rvProfilePicker';
     root.innerHTML = ''+
       '<div class="rv-wrap">'+
+        '<button type="button" class="rv-close-x" id="rvProfilePickerCloseBtn" title="Close" aria-label="Close">×</button>'+
         '<h2 class="rv-title">Who\'s watching?</h2>'+
         '<div class="rv-grid" id="rvProfilePickerGrid"></div>'+
         '<div class="rv-badge" id="rvProfilePickerStatus"></div>'+
@@ -1881,6 +1884,10 @@ if(document.readyState === 'loading'){
       '</div>';
     document.body.appendChild(root);
     _rvSyncProfilePickerChrome();
+    const closeX = document.getElementById('rvProfilePickerCloseBtn');
+    if(closeX){
+      closeX.onclick = function(ev){ if(ev) ev.stopPropagation(); _rvCloseProfilePicker(); };
+    }
     root.addEventListener('click', function(ev){
       if(ev.target === root) _rvCloseProfilePicker();
     });
@@ -2573,6 +2580,15 @@ if(document.readyState === 'loading'){
   const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); };
   const boot2 = function(){
     _rvEnsureUsersNavButton();
+    let netflixUsers = false;
+    try{
+      const raw = localStorage.getItem('rv-hybrid-prefs');
+      if(raw){
+        const p = JSON.parse(raw);
+        if(p && p.usersFlow === 'netflix') netflixUsers = true;
+      }
+    }catch(e){}
+    if(!netflixUsers) return;
     const forced = localStorage.getItem('rv-profile-picker-seen');
     if(!forced){
       localStorage.setItem('rv-profile-picker-seen','1');
