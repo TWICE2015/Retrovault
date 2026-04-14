@@ -668,19 +668,41 @@ body{background:#141414!important;color:#fff!important;}
     }, 80);
   };
 
-  function _rvEnableCollectionsMode(){
+  function _rvApplyBrowseMode(){
     _rvPatchCollectionLabels();
-    window.buildHome = _rvBuildHomeCollections;
-    window.buildSysGrid = function(){ return _rvBuildCollectionGrid(); };
-    window.fSys = function(_f, btn){
-      if(btn){
-        document.querySelectorAll('.fb').forEach((b)=>b.classList.remove('on'));
-        btn.classList.add('on');
-      }
-      return _rvBuildCollectionGrid();
-    };
-    window.buildLib = _rvBuildLibCollections;
-    window.filterLib = _rvFilterLibCollections;
+    const collectionsActive = (function(){
+      try{
+        const raw = localStorage.getItem('rv-hybrid-prefs');
+        if(raw){
+          const p = JSON.parse(raw);
+          if(p && p.browseMode === 'consoles') return false;
+          if(p && p.browseMode === 'collections') return true;
+        }
+      }catch(e){}
+      const bm = localStorage.getItem('rv-browse-mode');
+      return bm !== 'consoles';
+    })();
+
+    // Home must remain console/system-based. Never override buildHome.
+    if(typeof window.__rvStockBuildHome === 'function') window.buildHome = window.__rvStockBuildHome;
+
+    if(collectionsActive){
+      window.buildSysGrid = function(){ return _rvBuildCollectionGrid(); };
+      window.fSys = function(_f, btn){
+        if(btn){
+          document.querySelectorAll('.fb').forEach((b)=>b.classList.remove('on'));
+          btn.classList.add('on');
+        }
+        return _rvBuildCollectionGrid();
+      };
+      window.buildLib = _rvBuildLibCollections;
+      window.filterLib = _rvFilterLibCollections;
+    } else {
+      if(typeof window.__rvStockBuildSysGrid === 'function') window.buildSysGrid = window.__rvStockBuildSysGrid;
+      if(typeof window.__rvStockFSys === 'function') window.fSys = window.__rvStockFSys;
+      if(typeof window.__rvStockBuildLib === 'function') window.buildLib = window.__rvStockBuildLib;
+      if(typeof window.__rvStockFilterLib === 'function') window.filterLib = window.__rvStockFilterLib;
+    }
   }
 
   window._rvBuildHomeCollections = _rvBuildHomeCollections;
@@ -688,14 +710,14 @@ body{background:#141414!important;color:#fff!important;}
   window._rvBuildLibCollections = _rvBuildLibCollections;
   window._rvFilterLibCollections = _rvFilterLibCollections;
 
-  window._rvRefreshBrowseLabels = _rvPatchCollectionLabels;
+  window._rvRefreshBrowseLabels = function(){ _rvApplyBrowseMode(); };
 
   const boot = function(){
-    _rvEnableCollectionsMode();
-    _rvPatchCollectionLabels();
+    _rvApplyBrowseMode();
     setTimeout(function(){
-      if(typeof buildHome === 'function'){
-        const p = buildHome();
+      try{ _rvApplyBrowseMode(); }catch(e){}
+      if(typeof window.__rvStockBuildHome === 'function'){
+        const p = window.__rvStockBuildHome();
         if(p && typeof p.catch === 'function') p.catch(()=>{});
       }
     }, 0);
