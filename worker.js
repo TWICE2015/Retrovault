@@ -80,18 +80,27 @@ const RELEASE_LOG = [
       'Metadata updates avoid known-bad cover URLs.',
     ],
   },
+  {
+    id: '2026-04-14-a',
+    title: 'Skraper import: blocked cloud scrape now opens Sources',
+    details: [
+      'When auto-scrape or “missing only” runs with cloud scrapers off, the app jumps to Scraper → Sources and focuses the gamelist.xml picker.',
+      'Sources tab detection prefers the tab whose onclick references sc-sources, with text and index fallbacks.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.13-cloud-plus';
+const APP_RELEASE_VERSION = '2026.04.14-skraper-ui';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
-  updatedAt: '2026-04-13',
+  updatedAt: '2026-04-14',
   highlights: [
     'Owner-scoped cloud ROM sync and migration tools',
     'Online session create/join flow in settings',
     'All-providers scraper settings with no-login defaults',
     'Broken-cover recovery and card fallback fixes',
     'Reduced noisy scraper failures when index is missing',
+    'Skraper: cloud-scrape shortcuts open the import UI (Sources tab + file picker)',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -413,6 +422,12 @@ body{background:#141414!important;color:#fff!important;}
   if(window.__rvCollectionsMode) return;
   window.__rvCollectionsMode = true;
 
+  if(typeof window.__rvStockBuildHome !== 'function' && typeof buildHome === 'function') window.__rvStockBuildHome = buildHome;
+  if(typeof window.__rvStockBuildSysGrid !== 'function' && typeof buildSysGrid === 'function') window.__rvStockBuildSysGrid = buildSysGrid;
+  if(typeof window.__rvStockBuildLib !== 'function' && typeof buildLib === 'function') window.__rvStockBuildLib = buildLib;
+  if(typeof window.__rvStockFilterLib !== 'function' && typeof filterLib === 'function') window.__rvStockFilterLib = filterLib;
+  if(typeof window.__rvStockFSys !== 'function' && typeof fSys === 'function') window.__rvStockFSys = fSys;
+
   const RV_COLLECTION_RULES = [
     { id:'mario', name:'Mario', icon:'🍄', color:'#ff3b30', tests:[/\\bmario\\b/i,/\\bwario\\b/i,/\\byoshi\\b/i,/\\btoad\\b/i] },
     { id:'zelda', name:'Zelda', icon:'🗡️', color:'#1abc9c', tests:[/\\bzelda\\b/i,/\\bhyrule\\b/i,/\\blink\\b/i] },
@@ -474,16 +489,28 @@ body{background:#141414!important;color:#fff!important;}
   }
 
   function _rvPatchCollectionLabels(){
+    const collectionsActive = (function(){
+      try{
+        const raw = localStorage.getItem('rv-hybrid-prefs');
+        if(raw){
+          const p = JSON.parse(raw);
+          if(p && p.browseMode === 'consoles') return false;
+          if(p && p.browseMode === 'collections') return true;
+        }
+      }catch(e){}
+      const bm = localStorage.getItem('rv-browse-mode');
+      return bm !== 'consoles';
+    })();
     const navLinks = document.querySelectorAll('.nl');
-    if(navLinks && navLinks[1]) navLinks[1].textContent = 'Collections';
+    if(navLinks && navLinks[1]) navLinks[1].textContent = collectionsActive ? 'Collections' : 'Systems';
     const title = document.querySelector('#view-systems .sys-hdr h1');
-    if(title) title.textContent = 'ALL COLLECTIONS';
+    if(title) title.textContent = collectionsActive ? 'ALL COLLECTIONS' : 'ALL SYSTEMS';
     const tools = document.querySelector('#view-systems .sys-hdr > div:last-child');
-    if(tools) tools.style.display = 'none';
+    if(tools) tools.style.display = collectionsActive ? 'none' : '';
     const libSel = document.getElementById('libSys');
     if(libSel){
       const first = libSel.querySelector('option[value="all"]');
-      if(first) first.textContent = 'All Collections';
+      if(first) first.textContent = collectionsActive ? 'All Collections' : 'All Systems';
     }
   }
 
@@ -647,6 +674,13 @@ body{background:#141414!important;color:#fff!important;}
     window.filterLib = _rvFilterLibCollections;
   }
 
+  window._rvBuildHomeCollections = _rvBuildHomeCollections;
+  window._rvBuildCollectionGrid = _rvBuildCollectionGrid;
+  window._rvBuildLibCollections = _rvBuildLibCollections;
+  window._rvFilterLibCollections = _rvFilterLibCollections;
+
+  window._rvRefreshBrowseLabels = _rvPatchCollectionLabels;
+
   const boot = function(){
     _rvEnableCollectionsMode();
     _rvPatchCollectionLabels();
@@ -729,15 +763,22 @@ body{background:#141414!important;color:#fff!important;}
     btn.id = 'rvBrowseToggleBtn';
     btn.className = 'nb';
     btn.type = 'button';
+    const currentBrowseMode = ()=>{
+      const prefs = _rvGetHybridPrefs();
+      return prefs.browseMode || _rvHybridModeStore();
+    };
     const applyLabel = ()=>{
-      const mode = _rvHybridModeStore();
-      btn.textContent = mode === 'collections' ? '🧩 Collections' : '🕹 Consoles';
-      btn.title = 'Switch browse mode';
+      const mode = currentBrowseMode();
+      btn.textContent = mode === 'collections' ? '\uD83E\uDDE9 Collections' : '\uD83D\uDD79 Consoles';
+      btn.title = mode === 'collections' ? 'Franchise collections on Home — tap for consoles grid' : 'Console systems grid — tap for collections on Home';
     };
     btn.onclick = ()=>{
-      const mode = _rvHybridModeStore();
-      _rvSetBrowseMode(mode === 'collections' ? 'consoles' : 'collections');
+      const mode = currentBrowseMode();
+      const next = mode === 'collections' ? 'consoles' : 'collections';
+      _rvSetBrowseMode(next);
+      _rvSaveHybridPrefs({ browseMode: next });
       applyLabel();
+      if(typeof window._rvRefreshBrowseLabels === 'function') window._rvRefreshBrowseLabels();
       if(typeof refreshAll === 'function'){
         const p = refreshAll();
         if(p && typeof p.catch === 'function') p.catch(()=>{});
@@ -749,6 +790,11 @@ body{background:#141414!important;color:#fff!important;}
       if(typeof buildLib === 'function'){
         const p3 = buildLib();
         if(p3 && typeof p3.catch === 'function') p3.catch(()=>{});
+      }
+      if(next === 'collections'){
+        if(typeof sv === 'function') sv('home', null);
+      } else if(typeof sv === 'function'){
+        sv('systems', null);
       }
     };
     applyLabel();
@@ -799,8 +845,8 @@ body{background:#141414!important;color:#fff!important;}
     box.innerHTML =
       '<div style=\"font-size:13px;font-weight:700;margin-bottom:8px;\">Metadata Utility Tools</div>'+
       '<div style=\"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;\">'+
-        '<button class=\"bb p\" id=\"rvMetaScrapeAll\">⬇ Scrape All ROMs</button>'+
-        '<button class=\"bb s\" id=\"rvMetaMissingOnly\">⬇ Missing Art Only</button>'+
+        '<button class=\"bb p\" id=\"rvMetaScrapeAll\">Skraper: import gamelist.xml</button>'+
+        '<button class=\"bb s\" id=\"rvMetaMissingOnly\">Skraper import (fill gaps)</button>'+
         '<button class=\"bb s\" id=\"rvMetaMissingTrailers\">🎬 Missing Trailers</button>'+
         '<button class=\"bb s\" id=\"rvMetaLocalArt\">🖼 Use Local Artwork</button>'+
         '<button class=\"bb s\" id=\"rvMetaUploadR2\">☁ Upload Local Artwork to R2</button>'+
@@ -809,7 +855,7 @@ body{background:#141414!important;color:#fff!important;}
         '<input id=\"rvMetaOverwriteToggle\" type=\"checkbox\" /> Overwrite existing cover URLs'+
       '</label>'+
       '<div id=\"rvMetaHowItWorks\" style=\"font-size:12px;color:var(--muted);line-height:1.65;\">'+
-        '<strong style=\"color:var(--text)\">How it works:</strong> Hash + filename matching runs first, then enabled providers are used as fallback. Local artwork can be applied before cloud provider lookups.'+
+        '<strong style=\"color:var(--text)\">How it works:</strong> Use <a href=\"https://www.skraper.net/\" target=\"_blank\" rel=\"noopener\">Skraper</a> on your PC to build <code>gamelist.xml</code> and artwork, then import under Scraper → Sources. Cloud API scrapers are disabled in this build.'+
       '</div>';
 
     const anchor = scMain.querySelector('.bb-row');
@@ -831,8 +877,16 @@ body{background:#141414!important;color:#fff!important;}
     const uploadBtn = document.getElementById('rvMetaUploadR2');
     const overwrite = document.getElementById('rvMetaOverwriteToggle');
 
-    if(allBtn) allBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.p');
-    if(missBtn) missBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.s');
+    const _rvGoSkraperImport = (missingOnly)=>{
+      if(typeof window._rvOpenSkraperImportUI === 'function'){
+        window._rvOpenSkraperImportUI({ missingOnly:!!missingOnly });
+      } else if(typeof sv === 'function') sv('scraper', null);
+      if(typeof toast === 'function'){
+        toast(missingOnly ? 'Skraper: leave Overwrite off to fill only empty fields' : 'Skraper: pick gamelist.xml, optional images, then Import');
+      }
+    };
+    if(allBtn) allBtn.onclick = ()=>_rvGoSkraperImport(false);
+    if(missBtn) missBtn.onclick = ()=>_rvGoSkraperImport(true);
     if(trailersBtn) trailersBtn.onclick = async ()=>{
       try{
         const roms = await dbGetAll('roms');
@@ -840,7 +894,7 @@ body{background:#141414!important;color:#fff!important;}
         const count = need.length;
         if(typeof toast==='function') toast(count ? ('Trailer queue: '+count+' game(s) missing videoUrl metadata') : 'All listed games already have trailer metadata');
         const st = document.getElementById('rvMetaHowItWorks');
-        if(st) st.innerHTML = '<strong style=\"color:var(--text)\">Trailer report:</strong> '+count+' game(s) currently missing trailer metadata. Add provider support or import trailer URLs in metadata.';
+        if(st) st.innerHTML = '<strong style=\"color:var(--text)\">Trailer report:</strong> '+count+' game(s) missing videoUrl. If Skraper wrote &lt;video&gt; paths in gamelist.xml, import that file (http URLs work; local paths need manual hosting).';
       }catch(e){
         if(typeof toast==='function') toast('Trailer scan failed: '+e.message,'err');
       }
@@ -851,7 +905,7 @@ body{background:#141414!important;color:#fff!important;}
         const targetBtn = tabs && tabs[3] ? tabs[3] : null;
         scTab('sc-sources', targetBtn || null);
       }
-      if(typeof toast==='function') toast('Open Sources + Media Directories section (ES-DE layout) for local artwork mapping.');
+      if(typeof toast==='function') toast('Skraper: import gamelist.xml under Sources. Media folders below are optional.');
       const dirs = document.getElementById('sc-dirs');
       if(dirs){
         dirs.style.display = 'block';
@@ -934,9 +988,15 @@ body{background:#141414!important;color:#fff!important;}
           _rvSetBrowseMode(mode);
           _rvSaveHybridPrefs({ browseMode: mode });
           draw();
+          if(typeof window._rvRefreshBrowseLabels === 'function') window._rvRefreshBrowseLabels();
           if(typeof refreshAll === 'function') Promise.resolve(refreshAll()).catch(()=>{});
           if(typeof buildSysGrid === 'function') Promise.resolve(buildSysGrid('all')).catch(()=>{});
           if(typeof buildLib === 'function') Promise.resolve(buildLib()).catch(()=>{});
+          if(mode === 'collections'){
+            if(typeof sv === 'function') sv('home', null);
+          } else if(typeof sv === 'function'){
+            sv('systems', null);
+          }
         }));
       });
 
@@ -963,10 +1023,10 @@ body{background:#141414!important;color:#fff!important;}
     if(window.__rvHybridBrowseWrapped) return;
     window.__rvHybridBrowseWrapped = true;
 
-    const origBuildHome = window.buildHome;
-    const origBuildSysGrid = window.buildSysGrid;
-    const origBuildLib = window.buildLib;
-    const origFilterLib = window.filterLib;
+    const origBuildHome = window.__rvStockBuildHome || window.buildHome;
+    const origBuildSysGrid = window.__rvStockBuildSysGrid || window.buildSysGrid;
+    const origBuildLib = window.__rvStockBuildLib || window.buildLib;
+    const origFilterLib = window.__rvStockFilterLib || window.filterLib;
 
     function isCollections(){
       const prefs = _rvGetHybridPrefs();
@@ -987,6 +1047,20 @@ body{background:#141414!important;color:#fff!important;}
           return window._rvBuildCollectionGrid();
         }
         return origBuildSysGrid(filter || 'all');
+      };
+    }
+    if(typeof window.__rvStockFSys === 'function'){
+      window.fSys = function(f, btn){
+        if(isCollections()){
+          document.querySelectorAll('.fb').forEach((b)=>b.classList.remove('on'));
+          if(btn) btn.classList.add('on');
+          if(typeof window._rvBuildCollectionGrid === 'function'){
+            const p = window._rvBuildCollectionGrid();
+            if(p && typeof p.catch === 'function') p.catch(()=>{});
+          }
+          return;
+        }
+        return window.__rvStockFSys(f, btn);
       };
     }
     if(typeof origBuildLib === 'function'){
@@ -1043,117 +1117,24 @@ body{background:#141414!important;color:#fff!important;}
     html = html.replace('</body>', `${hybridUxPatch}\n</body>`);
   }
 
-  if (!html.includes('function _rvGetScrapeSourceConfig(')) {
+  if (!html.includes('function _rvSkraperMetadataBoot(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
     const scraperSourceHelper = `
-function _rvScrapeSourceDefaults(){
-  return {
-    providers: {
-      launchbox: false,
-      wikipedia: true,
-      libretro: true,
-      openvgdb: false,
-      thegamesdb: false,
-      mobygames: false,
-      igdb: false,
-      giantbomb: false,
-      screenscraper: false
-    },
-    tgdbKey: '',
-    mobyKey: '',
-    igdbClientId: '',
-    igdbToken: '',
-    giantbombKey: '',
-    openvgdbUrl: '',
-    quietExpectedMisses: true
-  };
-}
-
-function _rvGetScrapeSourceConfig(){
-  const defaults = _rvScrapeSourceDefaults();
-  try{
-    const raw = localStorage.getItem('rv-scrape-sources');
-    if(!raw) return defaults;
-    const parsed = JSON.parse(raw);
-    const cfg = Object.assign({}, defaults, parsed || {});
-    cfg.providers = Object.assign({}, defaults.providers, (parsed && parsed.providers) || {});
-    return cfg;
-  }catch(e){
-    return defaults;
-  }
-}
-
-function _rvSaveScrapeSourceConfig(cfg){
-  localStorage.setItem('rv-scrape-sources', JSON.stringify(cfg || _rvScrapeSourceDefaults()));
-}
-
-function _rvQuietExpectedMissesEnabled(){
-  const cfg = _rvGetScrapeSourceConfig();
-  return cfg.quietExpectedMisses !== false;
-}
-
-function _rvShouldQuietExpectedMissMessage(message){
-  if(!_rvQuietExpectedMissesEnabled()) return false;
-  const msg = String(message || '').toLowerCase();
-  return msg.includes('http 404')
-    || msg.includes('index_missing')
-    || msg.includes('no enabled provider matched')
-    || msg.includes('credentials are missing');
-}
-
-function _rvLogScrapeInfo(message){
-  if(typeof logScrape === 'function') logScrape(String(message || ''));
-}
-
-function _rvLogScrapeWarn(message){
-  const text = String(message || '');
-  if(_rvShouldQuietExpectedMissMessage(text)) return;
-  if(typeof logScrape === 'function') logScrape(text);
-}
+function _rvSkraperMetadataBoot(){}
 
 function _rvCleanScrapeName(name){
   return String(name || '')
     .replace(/_/g,' ')
-    .replace(/\\s*[\\(\\[][^\)\\]]*[\\)\\]]/g,'')
-    .replace(/\\s+-\\s*(Rev|Version|v)\\s*[\\d.]+\\s*$/i,'')
-    .replace(/\\s+(USA|Europe|Japan|World|En|Fr|De|Es|It)\\s*$/i,'')
-    .replace(/\\s+/g,' ')
+    .replace(/\s*[\(\[][^\)\]]*[\)\]]/g,'')
+    .replace(/\s+-\s*(Rev|Version|v)\s*[\d.]+\s*$/i,'')
+    .replace(/\s+(USA|Europe|Japan|World|En|Fr|De|Es|It)\s*$/i,'')
+    .replace(/\s+/g,' ')
     .trim();
-}
-
-function _rvNormTitle(v){
-  return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-}
-
-function _rvProxyUrl(url){
-  return window.location.origin + '/scraper-proxy?url=' + encodeURIComponent(url) + '&soft404=1';
-}
-
-async function _rvProbeViaProxy(url){
-  try{
-    const resp = await fetch(_rvProxyUrl(url) + '&probe=1');
-    if(!resp.ok) return { ok:false, upstreamStatus: resp.status, missing:false };
-    const data = await resp.json().catch(()=>({}));
-    if(data && typeof data === 'object'){
-      const missing = !!(data.miss || (data.proxy && data.proxy.missing));
-      if(missing) return { ok:false, upstreamStatus: 404, missing:true };
-      return data;
-    }
-    return { ok:false, upstreamStatus: 0, missing:false };
-  }catch(e){
-    return { ok:false, upstreamStatus: 0, missing:false };
-  }
 }
 
 function _rvToPlainText(v){
   const text = String(v || '');
-  return text.replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim();
-}
-
-function _rvShouldScrapeRomForRepair(rom){
-  if(!rom) return false;
-  const cover = _rvNormCoverUrl(rom.coverUrl);
-  return !cover || _rvIsBadCoverUrl(cover);
+  return text.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
 }
 
 function _rvNormCoverUrl(v){
@@ -1161,6 +1142,11 @@ function _rvNormCoverUrl(v){
   if(!raw) return '';
   if(raw.startsWith('//')) return 'https:' + raw;
   return raw;
+}
+
+function _rvIsHttpUrl(v){
+  const s = String(v || '').trim().toLowerCase();
+  return s.startsWith('http://') || s.startsWith('https://');
 }
 
 function _rvGetBadCoverList(){
@@ -1185,58 +1171,7 @@ function _rvRememberBadCoverUrl(url){
 function _rvIsBadCoverUrl(url){
   const norm = _rvNormCoverUrl(url);
   if(!norm) return false;
-  const list = _rvGetBadCoverList();
-  return list.includes(norm);
-}
-
-async function _rvFetchJsonViaProxy(url, init){
-  const resp = await fetch(_rvProxyUrl(url), init || {});
-  if(!resp.ok) throw new Error('HTTP '+resp.status);
-  const text = await resp.text();
-  try{
-    const payload = JSON.parse(text);
-    if(payload && (payload.miss || (payload.proxy && payload.proxy.missing))){
-      return null;
-    }
-    return payload;
-  }catch(e){
-    throw new Error('Invalid JSON response');
-  }
-}
-
-async function _rvApplyMetaPatch(romId, patch, source){
-  const rom = await dbGet('roms', romId);
-  if(!rom || !patch) return false;
-  let changed = false;
-  const incomingCover = _rvNormCoverUrl(patch.coverUrl);
-  const existingCover = _rvNormCoverUrl(rom.coverUrl);
-
-  // Replace missing or previously-broken covers with a new candidate.
-  if(incomingCover && !_rvIsBadCoverUrl(incomingCover)){
-    if(!existingCover || _rvIsBadCoverUrl(existingCover)){
-      rom.coverUrl = incomingCover;
-      changed = true;
-    }
-  }
-
-  const setIfEmpty = (field, value) => {
-    if(value == null || value === '') return;
-    if(!rom[field]){
-      rom[field] = value;
-      changed = true;
-    }
-  };
-  setIfEmpty('description', patch.description);
-  setIfEmpty('year', patch.year);
-  setIfEmpty('rating', patch.rating);
-  setIfEmpty('developer', patch.developer);
-  setIfEmpty('genres', patch.genres);
-  if(changed){
-    await dbPut('roms', rom);
-    await r2SaveMeta(rom);
-    _rvLogScrapeInfo('[sources] ✓ ' + source + ' updated metadata for ' + rom.name);
-  }
-  return changed;
+  return _rvGetBadCoverList().includes(norm);
 }
 
 async function _rvMarkCoverBroken(romId, badUrl){
@@ -1249,470 +1184,328 @@ async function _rvMarkCoverBroken(romId, badUrl){
     if(current && normBad && current === normBad){
       rom.coverUrl = null;
       await dbPut('roms', rom);
-      await r2SaveMeta(rom);
-      // Re-try metadata using remaining enabled providers.
-      const running = window.__rvCoverRescrapeInFlight || (window.__rvCoverRescrapeInFlight = new Set());
-      if(!running.has(romId) && typeof autoScrapeWithFallback === 'function'){
-        running.add(romId);
-        const creds = (typeof getSsCreds === 'function') ? getSsCreds() : null;
-        autoScrapeWithFallback(romId, creds).catch(()=>{}).finally(()=>running.delete(romId));
-      }
+      if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
     }
   }catch(e){}
 }
 
-async function _rvScrapeWikipediaWikidata(romId){
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename);
-  if(!q) return false;
-  const patch = {};
-  try{
-    const wiki = await _rvFetchJsonViaProxy('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(q));
-    if(wiki){
-      if(wiki.extract) patch.description = wiki.extract;
-      if(wiki.thumbnail && wiki.thumbnail.source) patch.coverUrl = wiki.thumbnail.source;
-      const y = String(wiki.description || '').match(/\\b(19|20)\\d{2}\\b/);
-      if(y) patch.year = y[0];
-    }
-  }catch(e){
-    _rvLogScrapeWarn('[wikipedia] ' + q + ' — ' + e.message);
-  }
-  try{
-    const search = await _rvFetchJsonViaProxy('https://www.wikidata.org/w/api.php?action=wbsearchentities&language=en&format=json&type=item&search=' + encodeURIComponent(q));
-    const qid = search && search.search && search.search[0] && search.search[0].id;
-    if(qid){
-      const entity = await _rvFetchJsonViaProxy('https://www.wikidata.org/wiki/Special:EntityData/' + qid + '.json');
-      const claims = entity && entity.entities && entity.entities[qid] && entity.entities[qid].claims;
-      const releaseTime = claims && claims.P577 && claims.P577[0] && claims.P577[0].mainsnak && claims.P577[0].mainsnak.datavalue && claims.P577[0].mainsnak.datavalue.value && claims.P577[0].mainsnak.datavalue.value.time;
-      const ym = String(releaseTime || '').match(/(19|20)\\d{2}/);
-      if(ym && !patch.year) patch.year = ym[0];
-    }
-  }catch(e){
-    _rvLogScrapeWarn('[wikidata] ' + q + ' — ' + e.message);
-  }
-  return _rvApplyMetaPatch(romId, patch, 'wikipedia/wikidata');
+window._rvMarkCoverBroken = _rvMarkCoverBroken;
+
+function _rvSkraperBasename(p){
+  const bs = String.fromCharCode(92);
+  const s = String(p || '').split(bs).join('/').trim();
+  const parts = s.split('/');
+  let base = parts[parts.length - 1] || '';
+  if(base.indexOf('./') === 0) base = base.slice(2);
+  return base.trim();
 }
 
-function _rvLibretroSystem(consoleId){
-  const map = {
-    nes: 'Nintendo - Nintendo Entertainment System',
-    snes: 'Nintendo - Super Nintendo Entertainment System',
-    n64: 'Nintendo - Nintendo 64',
-    gb: 'Nintendo - Game Boy',
-    gbc: 'Nintendo - Game Boy Color',
-    gba: 'Nintendo - Game Boy Advance',
-    nds: 'Nintendo - Nintendo DS',
-    genesis: 'Sega - Mega Drive - Genesis',
-    saturn: 'Sega - Saturn',
-    dreamcast: 'Sega - Dreamcast',
-    psx: 'Sony - PlayStation',
-    psp: 'Sony - PlayStation Portable',
-    atari2600: 'Atari - 2600',
-    atari7800: 'Atari - 7800'
-  };
-  return map[consoleId] || null;
+function _rvSkraperXmlText(gameEl, tag){
+  const nodes = gameEl.getElementsByTagName(tag);
+  const n = nodes && nodes[0];
+  return n ? String(n.textContent || '').trim() : '';
 }
 
-async function _rvScrapeLibretro(romId){
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const sys = _rvLibretroSystem(rom.console);
-  if(!sys) return false;
-  const baseName = _rvCleanScrapeName(rom.name || rom.filename).replace(/:/g, ' - ');
-  if(!baseName) return false;
-  const candidates = [baseName, baseName.replace(/\\s+-\\s+.*$/,'').trim()].filter(Boolean);
-  for(const title of candidates){
-    const rel = encodeURIComponent(title) + '.png';
-    const sysSeg = encodeURIComponent(sys);
-    const boxUrl = 'https://thumbnails.libretro.com/' + sysSeg + '/Named_Boxarts/' + rel;
-    try{
-      const probe = await _rvProbeViaProxy(boxUrl);
-      if(probe && probe.ok){
-        const changed = await _rvApplyMetaPatch(romId, { coverUrl: boxUrl }, 'libretro');
-        if(changed) return true;
-      }
-    }catch(e){}
+function _rvSkraperParseReleasedate(raw){
+  const s = String(raw || '').trim();
+  const m = s.match(/(\d{4})(\d{2})(\d{2})/);
+  if(m) return m[1];
+  const y = s.match(/\b(19|20)\d{2}\b/);
+  return y ? y[0] : '';
+}
+
+function _rvSkraperParseGamelist(xmlText){
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if(doc.getElementsByTagName('parsererror').length){
+    throw new Error('Invalid XML (parse error)');
   }
-  return false;
-}
-
-async function _rvScrapeTheGamesDb(romId, cfg){
-  const key = String((cfg && cfg.tgdbKey) || '').trim();
-  if(!key) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename);
-  if(!q) return false;
-  try{
-    const url = 'https://api.thegamesdb.net/v1.1/Games/ByGameName?apikey=' + encodeURIComponent(key) + '&name=' + encodeURIComponent(q) + '&include=boxart';
-    const data = await _rvFetchJsonViaProxy(url);
-    const game = data && data.data && data.data.games && data.data.games[0];
-    if(!game) return false;
-    const patch = {
-      description: game.overview || '',
-      year: (game.release_date || '').slice(0,4),
-    };
-    const box = data && data.include && data.include.boxart;
-    const base = (box && box.base_url && (box.base_url.original || box.base_url.thumb)) || '';
-    const list = box && box.data && (box.data[game.id] || box.data[String(game.id)]);
-    if(base && Array.isArray(list) && list.length){
-      const front = list.find(x => /front/i.test(String(x.side||''))) || list[0];
-      if(front && front.filename) patch.coverUrl = base + front.filename;
-    }
-    return _rvApplyMetaPatch(romId, patch, 'thegamesdb');
-  }catch(e){
-    _rvLogScrapeWarn('[thegamesdb] ' + q + ' — ' + e.message);
-    return false;
-  }
-}
-
-async function _rvScrapeMobyGames(romId, cfg){
-  const key = String((cfg && cfg.mobyKey) || '').trim();
-  if(!key) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename);
-  if(!q) return false;
-  try{
-    const url = 'https://api.mobygames.com/v1/games?api_key=' + encodeURIComponent(key) + '&title=' + encodeURIComponent(q) + '&limit=1';
-    const data = await _rvFetchJsonViaProxy(url);
-    const game = data && data.games && data.games[0];
-    if(!game) return false;
-    const patch = {
-      description: _rvToPlainText(game.description || game.short_description || ''),
-      year: String(game.first_release_date || '').slice(0,4),
-      developer: (game.developers && game.developers[0] && game.developers[0].name) || '',
-    };
-    if(game.sample_cover && game.sample_cover.image) patch.coverUrl = game.sample_cover.image;
-    return _rvApplyMetaPatch(romId, patch, 'mobygames');
-  }catch(e){
-    _rvLogScrapeWarn('[mobygames] ' + q + ' — ' + e.message);
-    return false;
-  }
-}
-
-async function _rvScrapeIgdb(romId, cfg){
-  const clientId = String((cfg && cfg.igdbClientId) || '').trim();
-  const token = String((cfg && cfg.igdbToken) || '').trim();
-  if(!clientId || !token) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename).replace(/"/g,'');
-  if(!q) return false;
-  try{
-    const query = 'search "' + q + '"; fields name,summary,first_release_date,cover.image_id,rating; limit 1;';
-    const resp = await fetch(_rvProxyUrl('https://api.igdb.com/v4/games'), {
-      method:'POST',
-      headers:{
-        'Content-Type':'text/plain',
-        'Client-ID': clientId,
-        'Authorization': 'Bearer ' + token,
-      },
-      body: query,
+  const games = doc.getElementsByTagName('game');
+  const out = [];
+  for(let i = 0; i < games.length; i++){
+    const g = games[i];
+    const path = _rvSkraperXmlText(g, 'path');
+    if(!path) continue;
+    const image = _rvSkraperXmlText(g, 'image') || _rvSkraperXmlText(g, 'thumbnail');
+    const video = _rvSkraperXmlText(g, 'video');
+    out.push({
+      path: path,
+      name: _rvSkraperXmlText(g, 'name'),
+      desc: _rvSkraperXmlText(g, 'desc'),
+      image: image,
+      rating: _rvSkraperXmlText(g, 'rating'),
+      releasedate: _rvSkraperXmlText(g, 'releasedate'),
+      developer: _rvSkraperXmlText(g, 'developer'),
+      genre: _rvSkraperXmlText(g, 'genre'),
+      video: video
     });
-    if(!resp.ok) throw new Error('HTTP ' + resp.status);
-    const list = await resp.json();
-    const game = Array.isArray(list) ? list[0] : null;
-    if(!game) return false;
-    const patch = {
-      description: game.summary || '',
-      year: game.first_release_date ? String(new Date(game.first_release_date * 1000).getUTCFullYear()) : '',
-      rating: Number.isFinite(game.rating) ? (Math.max(0, Math.min(100, game.rating))/20).toFixed(1) + '/5' : '',
-    };
-    if(game.cover && game.cover.image_id) patch.coverUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/' + game.cover.image_id + '.jpg';
-    return _rvApplyMetaPatch(romId, patch, 'igdb');
-  }catch(e){
-    _rvLogScrapeWarn('[igdb] ' + q + ' — ' + e.message);
-    return false;
   }
+  return out;
 }
 
-async function _rvScrapeGiantBomb(romId, cfg){
-  const key = String((cfg && cfg.giantbombKey) || '').trim();
-  if(!key) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename);
-  if(!q) return false;
-  try{
-    const url = 'https://www.giantbomb.com/api/search/?api_key=' + encodeURIComponent(key) + '&format=json&resources=game&limit=1&query=' + encodeURIComponent(q);
-    const data = await _rvFetchJsonViaProxy(url);
-    const game = data && data.results && data.results[0];
-    if(!game) return false;
-    const patch = {
-      description: _rvToPlainText(game.deck || game.description || ''),
-    };
-    const ym = String(game.original_release_date || game.expected_release_year || '').match(/(19|20)\\d{2}/);
-    if(ym) patch.year = ym[0];
-    if(game.image) patch.coverUrl = game.image.medium_url || game.image.original_url || '';
-    return _rvApplyMetaPatch(romId, patch, 'giantbomb');
-  }catch(e){
-    _rvLogScrapeWarn('[giantbomb] ' + q + ' — ' + e.message);
-    return false;
+function _rvSkraperFindRom(roms, entry){
+  const fn = _rvSkraperBasename(entry.path).toLowerCase();
+  if(!fn) return null;
+  const baseNoExt = fn.replace(/\.[^.]+$/, '');
+  for(let i = 0; i < roms.length; i++){
+    const r = roms[i];
+    const rf = String(r.filename || '').toLowerCase().trim();
+    const rn = String(r.name || '').toLowerCase().trim();
+    if(rf && rf === fn) return r;
+    if(rf && rf.replace(/\.[^.]+$/, '') === baseNoExt) return r;
+    if(rn && rn === baseNoExt) return r;
+    if(rn && _rvCleanScrapeName(rn).toLowerCase() === baseNoExt) return r;
   }
+  return null;
 }
 
-async function _rvScrapeOpenVgdb(romId, cfg){
-  const url = String((cfg && cfg.openvgdbUrl) || '').trim();
-  if(!url) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvNormTitle(_rvCleanScrapeName(rom.name || rom.filename));
-  if(!q) return false;
-  try{
-    const data = await _rvFetchJsonViaProxy(url);
-    const list = Array.isArray(data) ? data : (Array.isArray(data && data.games) ? data.games : []);
-    if(!list.length) return false;
-    let match = list.find(g => _rvNormTitle(g && (g.title || g.name)) === q);
-    if(!match) match = list.find(g => _rvNormTitle(g && (g.title || g.name)).includes(q));
-    if(!match) return false;
-    const patch = {
-      description: _rvToPlainText(match.overview || match.description || ''),
-      year: String(match.releaseYear || match.year || '').slice(0,4),
-      coverUrl: match.coverUrl || match.cover || '',
-      developer: match.developer || '',
-      genres: match.genres || '',
-    };
-    return _rvApplyMetaPatch(romId, patch, 'openvgdb');
-  }catch(e){
-    _rvLogScrapeWarn('[openvgdb] ' + q + ' — ' + e.message);
-    return false;
-  }
+async function _rvSkraperUploadImageFile(file, romId){
+  const owner = (typeof _rvOwnerId === 'function') ? _rvOwnerId() : (localStorage.getItem('rv-owner-id') || 'main');
+  const ext = (file.name && file.name.match(/\.([a-z0-9]+)$/i)) ? RegExp.$1.toLowerCase() : 'png';
+  const safeExt = ['png','jpg','jpeg','webp','gif'].includes(ext) ? ext : 'png';
+  const key = 'meta/skraper-media/' + String(romId) + '-' + Date.now() + '.' + safeExt;
+  const buf = await file.arrayBuffer();
+  const ct = file.type || (safeExt === 'jpg' ? 'image/jpeg' : 'image/' + safeExt);
+  const url = window.location.origin + '/r2-upload?owner=' + encodeURIComponent(owner) + '&key=' + encodeURIComponent(key);
+  const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': ct, 'X-Retrovault-Owner': owner }, body: buf });
+  const data = await resp.json().catch(() => ({}));
+  if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+  const fullKey = data.key || key;
+  return window.location.origin + '/r2-rom?key=' + encodeURIComponent(fullKey) + '&owner=' + encodeURIComponent(owner);
 }
 
-function _rvScrapeProviderOrder(){
-  // Default priority: no-login first, optional API/login sources after.
-  return ['libretro','wikipedia','launchbox','thegamesdb','mobygames','igdb','giantbomb','openvgdb','screenscraper'];
+async function _rvSkraperBuildImageMap(fileList){
+  const map = Object.create(null);
+  if(!fileList || !fileList.length) return map;
+  for(let i = 0; i < fileList.length; i++){
+    const f = fileList[i];
+    const base = _rvSkraperBasename(f.name).toLowerCase();
+    if(base) map[base] = f;
+  }
+  return map;
 }
 
-async function _rvRunScrapeProvider(providerId, romId, ssCreds, cfg){
-  if(providerId === 'launchbox'){
-    await lbScrapeRom(romId);
-    const updated = await dbGet('roms', romId);
-    return !!(updated && (updated.coverUrl || updated.description));
-  }
-  if(providerId === 'screenscraper'){
-    if(!(ssCreds && ssCreds.user)){
-      _rvLogScrapeWarn('[sources] ScreenScraper enabled but credentials are missing — skipped');
-      return false;
+async function _rvSkraperResolveCoverUrl(entry, rom, imageMap, uploadToR2){
+  const imgPath = String(entry.image || '').trim();
+  if(!imgPath) return '';
+  const base = _rvSkraperBasename(imgPath).toLowerCase();
+  const file = imageMap[base];
+  if(file && uploadToR2){
+    try{
+      return await _rvSkraperUploadImageFile(file, rom.id);
+    }catch(e){
+      if(typeof logScrape === 'function') logScrape('[skraper] cover upload failed: ' + e.message);
+      return '';
     }
-    await scrapeRomById(romId, ssCreds);
-    const updated = await dbGet('roms', romId);
-    return !!(updated && (updated.coverUrl || updated.description));
   }
-  if(providerId === 'wikipedia') return _rvScrapeWikipediaWikidata(romId);
-  if(providerId === 'libretro') return _rvScrapeLibretro(romId);
-  if(providerId === 'thegamesdb') return _rvScrapeTheGamesDb(romId, cfg);
-  if(providerId === 'mobygames') return _rvScrapeMobyGames(romId, cfg);
-  if(providerId === 'igdb') return _rvScrapeIgdb(romId, cfg);
-  if(providerId === 'giantbomb') return _rvScrapeGiantBomb(romId, cfg);
-  if(providerId === 'openvgdb') return _rvScrapeOpenVgdb(romId, cfg);
-  return false;
+  if(_rvIsHttpUrl(imgPath)) return imgPath;
+  return '';
 }
 
-async function _rvAutoScrapeAllSources(romId, ssCreds){
+async function _rvApplySkraperPatch(romId, patch, overwrite){
   const rom = await dbGet('roms', romId);
-  if(!rom) return;
-  const cfg = _rvGetScrapeSourceConfig();
-  const order = _rvScrapeProviderOrder();
-  const active = order.filter(id => cfg.providers && cfg.providers[id]);
-  if(!active.length){
-    _rvLogScrapeWarn('[sources] All providers disabled — skipping scrape for this game');
-    if(typeof toast === 'function') toast('All scraper providers are disabled in Sources settings','warn');
+  if(!rom || !patch) return false;
+  let changed = false;
+  const apply = (field, val) => {
+    if(val == null || val === '') return;
+    const v = field === 'description' ? _rvToPlainText(val) : val;
+    if(overwrite || !rom[field]){
+      if(rom[field] !== v){ rom[field] = v; changed = true; }
+    }
+  };
+  if(patch.name){
+    const nm = String(patch.name).trim().slice(0, 120);
+    if(nm && (overwrite || !rom.name)){
+      if(rom.name !== nm){ rom.name = nm; changed = true; }
+    }
+  }
+  const cov = _rvNormCoverUrl(patch.coverUrl);
+  if(cov && !_rvIsBadCoverUrl(cov)){
+    if(overwrite || !rom.coverUrl || _rvIsBadCoverUrl(_rvNormCoverUrl(rom.coverUrl))){
+      if(rom.coverUrl !== cov){ rom.coverUrl = cov; changed = true; }
+    }
+  }
+  apply('description', patch.description);
+  apply('year', patch.year);
+  apply('rating', patch.rating);
+  apply('developer', patch.developer);
+  apply('genres', patch.genres);
+  if(patch.videoUrl){
+    apply('videoUrl', patch.videoUrl);
+  }
+  if(changed){
+    await dbPut('roms', rom);
+    if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
+  }
+  return changed;
+}
+
+async function _rvRunSkraperImport(){
+  const xmlInput = document.getElementById('rvSkraperGamelistFile');
+  const imgInput = document.getElementById('rvSkraperImageFiles');
+  const status = document.getElementById('rvSkraperImportStatus');
+  const overwrite = !!(document.getElementById('rvSkraperOverwrite') && document.getElementById('rvSkraperOverwrite').checked);
+  const uploadR2 = !(document.getElementById('rvSkraperNoUpload') && document.getElementById('rvSkraperNoUpload').checked);
+
+  if(!xmlInput || !xmlInput.files || !xmlInput.files[0]){
+    if(typeof toast === 'function') toast('Choose gamelist.xml first', 'warn');
     return;
   }
-  _rvLogScrapeInfo('[sources] Active providers: ' + active.join(', '));
-  let done = false;
-  for(const provider of active){
-    try{
-      _rvLogScrapeInfo('[sources] Trying ' + provider + ' for ' + rom.name);
-      const ok = await _rvRunScrapeProvider(provider, romId, ssCreds, cfg);
-      if(ok){
-        done = true;
-        _rvLogScrapeInfo('[sources] ✓ ' + provider + ' matched ' + rom.name);
-        break;
-      }
-    }catch(e){
-      _rvLogScrapeWarn('[sources] ' + provider + ' failed: ' + e.message);
-    }
+  const xmlFile = xmlInput.files[0];
+  const xmlText = await xmlFile.text();
+  let entries;
+  try{
+    entries = _rvSkraperParseGamelist(xmlText);
+  }catch(e){
+    if(status) status.textContent = 'Parse error: ' + e.message;
+    if(typeof toast === 'function') toast('gamelist.xml: ' + e.message, 'err');
+    return;
   }
-  if(!done) _rvLogScrapeWarn('[sources] ⚠ No enabled provider matched ' + rom.name);
-  if(cloudSignedIn()) sbPush().catch(()=>{});
-  await refreshAll();
+  const imageMap = await _rvSkraperBuildImageMap(imgInput && imgInput.files ? imgInput.files : null);
+  const roms = await dbGetAll('roms');
+  let matched = 0;
+  let updated = 0;
+  let skipped = 0;
+  for(let i = 0; i < entries.length; i++){
+    const entry = entries[i];
+    const rom = _rvSkraperFindRom(roms, entry);
+    if(!rom){ skipped++; continue; }
+    matched++;
+    const patch = {};
+    if(entry.name) patch.name = entry.name;
+    if(entry.desc) patch.description = entry.desc;
+    const y = _rvSkraperParseReleasedate(entry.releasedate);
+    if(y) patch.year = y;
+    if(entry.rating) patch.rating = String(entry.rating).trim();
+    if(entry.developer) patch.developer = entry.developer;
+    if(entry.genre) patch.genres = entry.genre;
+    let videoUrl = '';
+    if(entry.video){
+      if(_rvIsHttpUrl(entry.video)) videoUrl = entry.video;
+    }
+    if(videoUrl) patch.videoUrl = videoUrl;
+    const coverUrl = await _rvSkraperResolveCoverUrl(entry, rom, imageMap, uploadR2);
+    if(coverUrl) patch.coverUrl = coverUrl;
+    const did = await _rvApplySkraperPatch(rom.id, patch, overwrite);
+    if(did) updated++;
+  }
+  const msg = 'Skraper import: ' + entries.length + ' entries, ' + matched + ' matched, ' + updated + ' updated, ' + skipped + ' unmatched.';
+  if(status) status.textContent = msg;
+  if(typeof toast === 'function') toast(msg);
+  if(typeof refreshAll === 'function') await refreshAll();
 }
 
-async function _rvScrapeBrokenOnly(){
-  const creds = (typeof getSsCreds === 'function') ? getSsCreds() : null;
-  const roms = await dbGetAll('roms');
-  const targets = (roms || []).filter(_rvShouldScrapeRomForRepair);
-  if(!targets.length){
-    if(typeof toast==='function') toast('No missing/broken covers found','warn');
-    const st = document.getElementById('rvSourceCfgStatus');
-    if(st) st.textContent = 'No missing/broken covers to repair.';
-    return { scanned: roms.length || 0, repaired: 0 };
-  }
-  const st = document.getElementById('rvSourceCfgStatus');
-  if(st) st.textContent = 'Repairing ' + targets.length + ' missing/broken cover(s)…';
-  const prog = document.getElementById('scrProg');
-  if(prog) prog.style.display = 'block';
-  let repaired = 0;
-  for(let i=0;i<targets.length;i++){
-    const rom = targets[i];
-    const pct = Math.round((i / Math.max(1, targets.length)) * 100);
-    const fill = document.getElementById('scrFill');
-    const pctEl = document.getElementById('scrPct');
-    const sub = document.getElementById('scrSub');
-    if(fill) fill.style.width = pct + '%';
-    if(pctEl) pctEl.textContent = pct + '%';
-    if(sub) sub.textContent = 'Repairing: ' + (rom && rom.name ? rom.name : ('#'+i));
-    try{
-      await _rvAutoScrapeAllSources(rom.id, creds);
-      repaired++;
-    }catch(e){
-      _rvLogScrapeWarn('[sources] repair failed for ' + (rom && rom.name ? rom.name : ('#'+i)) + ': ' + e.message);
+function _rvOpenSkraperImportUI(opts){
+  opts = opts || {};
+  const missingOnly = !!opts.missingOnly;
+  const delayMs = typeof opts.delayMs === 'number' ? opts.delayMs : 160;
+  if(typeof sv === 'function') sv('scraper', null);
+  setTimeout(function(){
+    _rvInitScrapeSourceControls();
+    const panel = document.getElementById('sc-sources');
+    if(panel){
+      panel.style.display = 'block';
+      panel.style.visibility = 'visible';
+      panel.style.height = 'auto';
+      panel.style.overflow = 'visible';
     }
-    await new Promise(r=>setTimeout(r,850));
-  }
-  const fill = document.getElementById('scrFill');
-  const pctEl = document.getElementById('scrPct');
-  const sub = document.getElementById('scrSub');
-  if(fill) fill.style.width = '100%';
-  if(pctEl) pctEl.textContent = '100%';
-  if(sub) sub.textContent = 'Repair finished';
-  if(st) st.textContent = 'Repair complete: ' + repaired + '/' + targets.length + ' processed.';
-  if(typeof toast==='function') toast('Repair complete: ' + repaired + '/' + targets.length);
-  return { scanned: roms.length || 0, repaired };
+    if(typeof scTab === 'function'){
+      const tabs = document.querySelectorAll('#view-scraper .si');
+      let targetBtn = null;
+      for(let i = 0; i < tabs.length; i++){
+        const t = tabs[i];
+        if(!t) continue;
+        const oc = String(t.getAttribute('onclick') || '');
+        if(oc.indexOf('sc-sources') >= 0){
+          targetBtn = t;
+          break;
+        }
+      }
+      if(!targetBtn){
+        for(let j = 0; j < tabs.length; j++){
+          const u = tabs[j];
+          if(!u) continue;
+          if(String(u.textContent || '').toLowerCase().indexOf('source') >= 0){
+            targetBtn = u;
+            break;
+          }
+        }
+      }
+      if(!targetBtn && tabs[3]) targetBtn = tabs[3];
+      scTab('sc-sources', targetBtn || null);
+    }
+    const card = document.getElementById('rvSkraperImportCard');
+    if(card) card.scrollIntoView({ behavior:'smooth', block:'start' });
+    const ow = document.getElementById('rvSkraperOverwrite');
+    if(ow) ow.checked = !missingOnly;
+    const inp = document.getElementById('rvSkraperGamelistFile');
+    if(inp && typeof inp.focus === 'function') inp.focus();
+  }, delayMs);
 }
+window._rvOpenSkraperImportUI = _rvOpenSkraperImportUI;
 
 function _rvPatchScrapePipeline(){
-  if(window.__rvAllSourcesPatched) return;
-  if(typeof autoScrapeWithFallback !== 'function') return;
-  window.__rvAutoScrapeWithFallbackOriginal = autoScrapeWithFallback;
-  autoScrapeWithFallback = async function(romId, ssCreds){
-    return _rvAutoScrapeAllSources(romId, ssCreds);
-  };
+  if(window.__rvSkraperPipelinePatched) return;
+  if(typeof autoScrapeWithFallback === 'function'){
+    window.__rvAutoScrapeWithFallbackOriginal = autoScrapeWithFallback;
+    autoScrapeWithFallback = async function(){
+      if(typeof _rvOpenSkraperImportUI === 'function') _rvOpenSkraperImportUI({ missingOnly:false });
+      if(typeof toast === 'function') toast('Online scrapers are disabled. Opening Skraper import — use Skraper (skraper.net) on your PC, then pick gamelist.xml here.', 'warn');
+      if(typeof logScrape === 'function') logScrape('[skraper] Import gamelist.xml from Skraper instead of cloud scrape');
+    };
+  }
   if(typeof scrapeMissing === 'function'){
     window.__rvScrapeMissingOriginal = scrapeMissing;
     scrapeMissing = async function(){
-      return _rvScrapeBrokenOnly();
+      if(typeof _rvOpenSkraperImportUI === 'function') _rvOpenSkraperImportUI({ missingOnly:true });
+      if(typeof toast === 'function') toast('Opening Skraper import. Leave Overwrite off to fill only empty fields.', 'warn');
     };
   }
-  window._rvScrapeBrokenOnly = _rvScrapeBrokenOnly;
-  window.__rvAllSourcesPatched = true;
+  window.__rvSkraperPipelinePatched = true;
 }
 
 function _rvInitScrapeSourceControls(){
   const host = document.getElementById('sc-sources');
-  if(!host || document.getElementById('rvScrapeSourcesCard')) return;
-  const cfg = _rvGetScrapeSourceConfig();
+  if(!host) return;
+  const legacy = document.getElementById('rvScrapeSourcesCard');
+  if(legacy) legacy.remove();
+  if(document.getElementById('rvSkraperImportCard')) return;
+
   const card = document.createElement('div');
-  card.id = 'rvScrapeSourcesCard';
+  card.id = 'rvSkraperImportCard';
   card.className = 'sblk';
   card.style.marginTop = '12px';
-  card.innerHTML = '<h3>All Providers</h3>'
-    + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Enable any mix of sources, or disable any you do not want. Priority is fixed top-to-bottom (Libretro → Wikidata/Wikipedia → LaunchBox → API/login sources).</div>'
-    + '<div style="display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;">'
-    + '<label><input type="checkbox" id="rvp-launchbox"> LaunchBox (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
-    + '<label><input type="checkbox" id="rvp-wikipedia"> Wikidata + Wikipedia (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
-    + '<label><input type="checkbox" id="rvp-libretro"> Libretro Thumbnails (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
-    + '<label><input type="checkbox" id="rvp-thegamesdb"> TheGamesDB (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-mobygames"> MobyGames (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-igdb"> IGDB (Client ID + Bearer token)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-giantbomb"> GiantBomb (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-openvgdb"> OpenVGDB (JSON URL)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-screenscraper"> ScreenScraper fallback (login)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+  card.innerHTML = ''
+    + '<h3>Skraper metadata</h3>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.55;">'
+    + 'RetroVault does not call Skraper or ScreenScraper from the browser. '
+    + '<a href="https://www.skraper.net/" target="_blank" rel="noopener">Skraper</a> is a Windows app that downloads artwork and writes an EmulationStation <code style="font-size:11px;">gamelist.xml</code> next to your ROMs. '
+    + 'Export that file, then import it here. Optional: multi-select the image files Skraper saved (boxart paths in the XML) to upload covers to your R2 bucket.'
     + '</div>'
-    + '<div style="display:grid;gap:8px;margin-top:12px;">'
-    + '<input id="rvTgdbKey" placeholder="TheGamesDB API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvMobyKey" placeholder="MobyGames API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvIgdbClientId" placeholder="IGDB Client ID" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvIgdbToken" placeholder="IGDB Bearer token" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvGiantbombKey" placeholder="GiantBomb API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvOpenvgdbUrl" placeholder="OpenVGDB JSON URL (optional)" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<label style="display:block;font-size:12px;margin:8px 0 4px;">gamelist.xml</label>'
+    + '<input type="file" id="rvSkraperGamelistFile" accept=".xml,text/xml,application/xml" style="max-width:100%;" />'
+    + '<label style="display:block;font-size:12px;margin:12px 0 4px;">Skraper images (optional, multi-select)</label>'
+    + '<input type="file" id="rvSkraperImageFiles" multiple accept="image/png,image/jpeg,image/webp,image/gif" style="max-width:100%;" />'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);">'
+    + '<input type="checkbox" id="rvSkraperOverwrite" /> Overwrite existing description / year / etc.</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:var(--muted);">'
+    + '<input type="checkbox" id="rvSkraperNoUpload" /> Do not upload images to R2 (only use http(s) paths from XML)</label>'
+    + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'
+    + '<button class="bb p" type="button" id="rvSkraperImportBtn">Import gamelist.xml</button>'
     + '</div>'
-    + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
-    + '<button class="bb p" type="button" id="rvSaveSourceCfg">Save Source Settings</button>'
-    + '<button class="bb s" type="button" id="rvResetSourceCfg">Reset Defaults</button>'
-    + '<button class="bb s" type="button" id="rvRepairBrokenBtn">Repair Missing/Broken Covers</button>'
-    + '</div>'
-    + '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvQuietExpectedMisses"> Quiet mode (hide expected misses)</label>'
-    + '<div id="rvSourceCfgStatus" style="font-size:11px;color:var(--muted);margin-top:6px;">Saved source profile is loaded automatically.</div>';
+    + '<div id="rvSkraperImportStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>';
+
   host.appendChild(card);
-
-  const setChecks = (c) => {
-    const p = c.providers || {};
-    const on = (id, key) => { const el = document.getElementById(id); if(el) el.checked = !!p[key]; };
-    on('rvp-launchbox','launchbox');
-    on('rvp-wikipedia','wikipedia');
-    on('rvp-libretro','libretro');
-    on('rvp-thegamesdb','thegamesdb');
-    on('rvp-mobygames','mobygames');
-    on('rvp-igdb','igdb');
-    on('rvp-giantbomb','giantbomb');
-    on('rvp-openvgdb','openvgdb');
-    on('rvp-screenscraper','screenscraper');
-    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-    setVal('rvTgdbKey', c.tgdbKey);
-    setVal('rvMobyKey', c.mobyKey);
-    setVal('rvIgdbClientId', c.igdbClientId);
-    setVal('rvIgdbToken', c.igdbToken);
-    setVal('rvGiantbombKey', c.giantbombKey);
-    setVal('rvOpenvgdbUrl', c.openvgdbUrl);
-    const quiet = document.getElementById('rvQuietExpectedMisses');
-    if(quiet) quiet.checked = c.quietExpectedMisses !== false;
+  document.getElementById('rvSkraperImportBtn').onclick = function(){
+    _rvRunSkraperImport().catch(function(e){
+      const st = document.getElementById('rvSkraperImportStatus');
+      if(st) st.textContent = String(e && e.message ? e.message : e);
+      if(typeof toast === 'function') toast('Import failed: ' + (e && e.message ? e.message : e), 'err');
+    });
   };
-  setChecks(cfg);
-
-  document.getElementById('rvSaveSourceCfg').onclick = () => {
-    const out = _rvGetScrapeSourceConfig();
-    const pick = (id) => !!(document.getElementById(id) && document.getElementById(id).checked);
-    out.providers.launchbox = pick('rvp-launchbox');
-    out.providers.wikipedia = pick('rvp-wikipedia');
-    out.providers.libretro = pick('rvp-libretro');
-    out.providers.thegamesdb = pick('rvp-thegamesdb');
-    out.providers.mobygames = pick('rvp-mobygames');
-    out.providers.igdb = pick('rvp-igdb');
-    out.providers.giantbomb = pick('rvp-giantbomb');
-    out.providers.openvgdb = pick('rvp-openvgdb');
-    out.providers.screenscraper = pick('rvp-screenscraper');
-    const getVal = (id) => String((document.getElementById(id) && document.getElementById(id).value) || '').trim();
-    out.tgdbKey = getVal('rvTgdbKey');
-    out.mobyKey = getVal('rvMobyKey');
-    out.igdbClientId = getVal('rvIgdbClientId');
-    out.igdbToken = getVal('rvIgdbToken');
-    out.giantbombKey = getVal('rvGiantbombKey');
-    out.openvgdbUrl = getVal('rvOpenvgdbUrl');
-    out.quietExpectedMisses = !!(document.getElementById('rvQuietExpectedMisses') && document.getElementById('rvQuietExpectedMisses').checked);
-    _rvSaveScrapeSourceConfig(out);
-    const st = document.getElementById('rvSourceCfgStatus');
-    if(st){
-      const enabled = _rvScrapeProviderOrder().filter(id => out.providers && out.providers[id]);
-      st.textContent = enabled.length
-        ? ('Saved. Active providers: ' + enabled.join(', '))
-        : 'Saved. All providers are OFF.';
-    }
-    toast('Source settings saved');
-    setTimeout(_rvPatchScrapePipeline, 0);
-  };
-
-  document.getElementById('rvResetSourceCfg').onclick = () => {
-    const reset = _rvScrapeSourceDefaults();
-    _rvSaveScrapeSourceConfig(reset);
-    setChecks(reset);
-    const st = document.getElementById('rvSourceCfgStatus');
-    if(st) st.textContent = 'Defaults restored.';
-    toast('Source settings reset');
-  };
-
-  const repairBtn = document.getElementById('rvRepairBrokenBtn');
-  if(repairBtn){
-    repairBtn.onclick = () => _rvScrapeBrokenOnly();
-  }
 }
 
 if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', function(){
     _rvInitScrapeSourceControls();
     setTimeout(_rvPatchScrapePipeline, 0);
     setTimeout(_rvPatchScrapePipeline, 1200);
@@ -1722,7 +1515,7 @@ if(document.readyState === 'loading'){
   setTimeout(_rvPatchScrapePipeline, 0);
   setTimeout(_rvPatchScrapePipeline, 1200);
 }
-`;
+`
     if (html.includes(helperAnchor)) {
       html = html.replace(helperAnchor, scraperSourceHelper + helperAnchor);
     }
@@ -1948,6 +1741,7 @@ if(document.readyState === 'loading'){
     if(p === 'pixel') return '🟩';
     if(p === 'retro') return '🕹️';
     if(p === 'neon') return '🟣';
+    if(p === 'smile') return '\uD83D\uDE42';
     return '🙂';
   }
 
@@ -1964,8 +1758,11 @@ if(document.readyState === 'loading'){
     const p = profile && typeof profile === 'object' ? profile : {};
     const avatar = p.avatar && typeof p.avatar === 'object' ? p.avatar : { type:'preset', preset:'neon' };
     const avatarUrl = String(p.avatarUrl || '').trim();
-    if(avatar.type === 'upload' && avatarUrl){
-      return '<img src="'+_rvEscapeHtml(avatarUrl)+'" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" />';
+    if(avatarUrl){
+      return '<img src="'+_rvEscapeHtml(avatarUrl)+'" alt="" class="rv-av-img" />';
+    }
+    if(avatar.type === 'upload'){
+      return '<span class="rv-av-fallback" style="font-size:36px;line-height:1;opacity:.55;">?</span>';
     }
     return '<span style="font-size:44px;line-height:1;">'+_rvEscapeHtml(_rvPresetEmoji(avatar.preset))+'</span>';
   }
@@ -1990,25 +1787,51 @@ if(document.readyState === 'loading'){
   }
 
   function _rvProfilePickerStyles(){
-    if(document.getElementById('rvProfilePickerStyle')) return;
+    if(document.getElementById('rvProfilePickerStyleV2')) return;
     const style = document.createElement('style');
-    style.id = 'rvProfilePickerStyle';
+    style.id = 'rvProfilePickerStyleV2';
     style.textContent = [
-      '#rvProfilePicker{position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at 35% 0%, rgba(34,34,34,.8), rgba(4,4,4,.96));display:none;align-items:center;justify-content:center;padding:20px;}',
+      '#rvProfilePicker{position:fixed;inset:0;z-index:99999;background:#141414;display:none;align-items:center;justify-content:center;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;}',
       '#rvProfilePicker.show{display:flex;}',
-      '#rvProfilePicker .rv-wrap{width:min(980px,96vw);max-height:92vh;overflow:auto;}',
-      '#rvProfilePicker .rv-title{font-size:52px;font-weight:900;text-align:center;line-height:1.05;margin:0 0 10px;}',
-      '#rvProfilePicker .rv-sub{font-size:14px;color:var(--muted);text-align:center;margin-bottom:22px;}',
-      '#rvProfilePicker .rv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:18px;justify-items:center;}',
-      '#rvProfilePicker .rv-tile{width:140px;background:transparent;border:1px solid transparent;border-radius:12px;color:var(--text);padding:0;cursor:pointer;}',
-      '#rvProfilePicker .rv-tile:hover{border-color:var(--line);background:rgba(255,255,255,.03);}',
-      '#rvProfilePicker .rv-avatar{width:120px;height:120px;margin:10px auto 8px;border-radius:10px;background:var(--s2);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 0 0 1px var(--line) inset;}',
-      '#rvProfilePicker .rv-name{padding:0 8px 12px;font-size:15px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-      '#rvProfilePicker .rv-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:24px;}',
-      '#rvProfilePicker .rv-btn{border:1px solid var(--line);background:#171717;color:var(--text);padding:10px 14px;border-radius:8px;cursor:pointer;}',
-      '#rvProfilePicker .rv-btn.primary{background:var(--red);border-color:var(--red);font-weight:700;}',
-      '#rvProfilePicker .rv-btn.ghost{background:transparent;}',
-      '#rvProfilePicker .rv-badge{font-size:11px;color:var(--muted);text-align:center;margin-top:10px;}'
+      '#rvProfilePicker .rv-wrap{position:relative;width:100%;max-width:880px;margin:0 auto;text-align:center;}',
+      '#rvProfilePicker .rv-close-x{position:absolute;top:8px;right:8px;z-index:2;width:40px;height:40px;border:1px solid #555;background:rgba(0,0,0,.45);color:#fff;border-radius:999px;font-size:22px;line-height:36px;cursor:pointer;padding:0;}',
+      '#rvProfilePicker .rv-close-x:hover{border-color:#fff;background:rgba(255,255,255,.12);}',
+      '#rvProfilePicker .rv-title{font-size:clamp(32px,3.8vw,52px);font-weight:400;color:#fff;margin:24px 0 8px;letter-spacing:.02em;}',
+      '#rvProfilePicker .rv-sub{font-size:15px;color:#808080;margin:0 0 36px;}',
+      '#rvProfilePicker .rv-grid{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:28px 32px;margin:0 auto 40px;max-width:920px;}',
+      '#rvProfilePicker .rv-tile{width:132px;background:transparent;border:0;color:#fff;padding:0;cursor:pointer;position:relative;transition:transform .18s ease;}',
+      '#rvProfilePicker .rv-tile:hover{transform:scale(1.06);}',
+      '#rvProfilePicker .rv-tile:focus{outline:2px solid #fff;outline-offset:4px;}',
+      '#rvProfilePicker .rv-tile.rv-active .rv-avatar{box-shadow:0 0 0 3px #fff;}',
+      '#rvProfilePicker .rv-avatar{width:120px;height:120px;margin:0 auto 14px;border-radius:4px;background:#333;display:flex;align-items:center;justify-content:center;overflow:hidden;}',
+      '#rvProfilePicker .rv-av-img{width:100%;height:100%;object-fit:cover;border-radius:4px;}',
+      '#rvProfilePicker .rv-tile-add .rv-avatar-add{width:120px;height:120px;margin:0 auto 14px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;}',
+      '#rvProfilePicker .rv-tile-add .rv-plus{font-size:64px;font-weight:300;color:#8c8c8c;line-height:1;}',
+      '#rvProfilePicker .rv-name{font-size:13px;color:#808080;text-align:center;max-width:132px;margin:0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '#rvProfilePicker.rv-manage .rv-edit-badge{opacity:1;pointer-events:none;}',
+      '#rvProfilePicker .rv-edit-badge{position:absolute;left:50%;top:52px;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:18px;line-height:36px;opacity:0;transition:opacity .15s;}',
+      '#rvProfilePicker.rv-manage .rv-tile:hover .rv-edit-badge{opacity:1;}',
+      '#rvProfilePicker .rv-actions{margin-top:8px;}',
+      '#rvProfilePicker .rv-btn-manage{margin-top:28px;padding:10px 28px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#808080;background:transparent;border:1px solid #808080;cursor:pointer;border-radius:2px;}',
+      '#rvProfilePicker .rv-btn-manage:hover{color:#fff;border-color:#fff;}',
+      '#rvProfilePicker .rv-btn-done{margin-left:12px;padding:10px 20px;font-size:13px;color:#fff;background:transparent;border:1px solid #444;cursor:pointer;border-radius:2px;}',
+      '#rvProfilePicker .rv-btn-done:hover{border-color:#fff;}',
+      '#rvProfilePicker .rv-badge{font-size:11px;color:#555;text-align:center;margin-top:8px;min-height:14px;}',
+      '#rvProfileEditorOverlay{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;padding:16px;}',
+      '#rvProfileEditorOverlay.show{display:flex;}',
+      '#rvProfileEditorCard{width:min(400px,94vw);background:#181818;border-radius:8px;padding:24px 22px;text-align:left;color:#fff;box-shadow:0 8px 32px rgba(0,0,0,.6);}',
+      '#rvProfileEditorCard h3{margin:0 0 16px;font-size:22px;font-weight:600;}',
+      '#rvProfileEditorCard .rv-e-prev{width:100px;height:100px;border-radius:4px;background:#333;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;overflow:hidden;}',
+      '#rvProfileEditorCard .rv-e-prev img{width:100%;height:100%;object-fit:cover;}',
+      '#rvProfileEditorCard label{display:block;font-size:12px;color:#aaa;margin-bottom:6px;}',
+      '#rvProfileEditorCard input[type=text]{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:4px;border:1px solid #444;background:#0f0f0f;color:#fff;font-size:15px;margin-bottom:14px;}',
+      '#rvProfileEditorCard .rv-e-presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}',
+      '#rvProfileEditorCard .rv-e-pbtn{font-size:22px;width:40px;height:40px;border-radius:6px;border:1px solid #444;background:#222;cursor:pointer;line-height:1;}',
+      '#rvProfileEditorCard .rv-e-pbtn.on{border-color:#e50914;box-shadow:0 0 0 1px #e50914;}',
+      '#rvProfileEditorCard .rv-e-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;}',
+      '#rvProfileEditorCard .rv-e-actions button{padding:10px 16px;border-radius:4px;border:1px solid #444;background:#222;color:#fff;cursor:pointer;font-size:13px;}',
+      '#rvProfileEditorCard .rv-e-actions .rv-e-save{background:#e50914;border-color:#e50914;font-weight:600;}',
+      '#rvProfileEditorCard .rv-e-actions .rv-e-danger{border-color:#b71c1c;color:#ff8a80;}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -2057,30 +1880,71 @@ if(document.readyState === 'loading'){
     return data;
   }
 
+  window.__rvProfileManageMode = false;
+
+  function _rvSyncProfilePickerChrome(){
+    const actions = document.getElementById('rvProfilePickerActions');
+    if(!actions) return;
+    actions.innerHTML = '';
+    const manage = document.createElement('button');
+    manage.type = 'button';
+    manage.className = 'rv-btn-manage';
+    manage.id = 'rvProfileManageBtn';
+    if(window.__rvProfileManageMode){
+      manage.textContent = 'Done';
+      manage.onclick = function(){ _rvSetProfileManageMode(false); };
+      actions.appendChild(manage);
+      const hint = document.createElement('div');
+      hint.style.marginTop = '14px';
+      hint.style.fontSize = '13px';
+      hint.style.color = '#808080';
+      hint.textContent = 'Tap a profile to edit name and avatar.';
+      actions.appendChild(hint);
+    } else {
+      manage.textContent = 'Manage Profiles';
+      manage.onclick = function(){ _rvSetProfileManageMode(true); };
+      actions.appendChild(manage);
+    }
+  }
+
+  function _rvSetProfileManageMode(on){
+    window.__rvProfileManageMode = !!on;
+    const root = document.getElementById('rvProfilePicker');
+    if(root){
+      if(window.__rvProfileManageMode) root.classList.add('rv-manage');
+      else root.classList.remove('rv-manage');
+    }
+    _rvSyncProfilePickerChrome();
+    const data = window.__rvProfileSlots;
+    if(data && Array.isArray(data.profiles)){
+      const active = _rvGetActiveProfileId() || data.activeProfileId || 'main';
+      _rvRenderProfileGrid(data.profiles, active);
+    }
+  }
+
   function _rvProfilePickerEl(){
     let root = document.getElementById('rvProfilePicker');
+    if(root && (!document.getElementById('rvProfilePickerActions') || !document.getElementById('rvProfilePickerCloseBtn'))){
+      root.remove();
+      root = null;
+    }
     if(root) return root;
     root = document.createElement('div');
     root.id = 'rvProfilePicker';
     root.innerHTML = ''+
       '<div class="rv-wrap">'+
-        '<h2 class="rv-title">Who\\'s watching?</h2>'+
-        '<div class="rv-sub">Choose a profile for this owner cloud library.</div>'+
+        '<button type="button" class="rv-close-x" id="rvProfilePickerCloseBtn" title="Close" aria-label="Close">×</button>'+
+        '<h2 class="rv-title">Who\\u2019s watching?</h2>'+
         '<div class="rv-grid" id="rvProfilePickerGrid"></div>'+
-        '<div class="rv-badge" id="rvProfilePickerStatus">Loading profiles…</div>'+
-        '<div class="rv-actions">'+
-          '<button type="button" class="rv-btn" id="rvProfileAddBtn">➕ Add Profile</button>'+
-          '<button type="button" class="rv-btn" id="rvProfileManageBtn">Manage Profiles</button>'+
-          '<button type="button" class="rv-btn ghost" id="rvProfileCloseBtn">Close</button>'+
-        '</div>'+
+        '<div class="rv-badge" id="rvProfilePickerStatus"></div>'+
+        '<div class="rv-actions" id="rvProfilePickerActions"></div>'+
       '</div>';
     document.body.appendChild(root);
-    const closeBtn = document.getElementById('rvProfileCloseBtn');
-    if(closeBtn) closeBtn.onclick = function(){ _rvCloseProfilePicker(); };
-    const addBtn = document.getElementById('rvProfileAddBtn');
-    if(addBtn) addBtn.onclick = function(){ _rvPromptAddProfile(); };
-    const manageBtn = document.getElementById('rvProfileManageBtn');
-    if(manageBtn) manageBtn.onclick = function(){ _rvManageProfilesPrompt(); };
+    _rvSyncProfilePickerChrome();
+    const closeX = document.getElementById('rvProfilePickerCloseBtn');
+    if(closeX){
+      closeX.onclick = function(ev){ if(ev) ev.stopPropagation(); _rvCloseProfilePicker(); };
+    }
     root.addEventListener('click', function(ev){
       if(ev.target === root) _rvCloseProfilePicker();
     });
@@ -2091,51 +1955,256 @@ if(document.readyState === 'loading'){
     const el = document.getElementById('rvProfilePickerStatus');
     if(!el) return;
     el.textContent = String(text || '');
-    el.style.color = isError ? '#ff6c6c' : 'var(--muted)';
+    el.style.color = isError ? '#e87c7c' : '#555';
+  }
+
+  async function _rvReloadProfilePickerData(baseOwner){
+    const data = await _rvFetchProfileSlots(baseOwner);
+    window.__rvProfileSlots = data;
+    const active = _rvSetActiveProfileId(data.activeProfileId || _rvGetActiveProfileId() || 'main');
+    _rvRenderProfileGrid(data.profiles || [], active);
   }
 
   function _rvRenderProfileGrid(slots, activeId){
     const grid = document.getElementById('rvProfilePickerGrid');
     if(!grid) return;
     const safe = Array.isArray(slots) ? slots : [];
+    const manage = !!window.__rvProfileManageMode;
     grid.innerHTML = '';
     safe.forEach(function(slot){
       const id = String(slot && (slot.id || slot.profileId) || '').trim();
       if(!id) return;
       const tile = document.createElement('button');
       tile.type = 'button';
-      tile.className = 'rv-tile';
+      tile.className = 'rv-tile' + (id === activeId ? ' rv-active' : '');
       tile.dataset.profileId = id;
-      const avatar = '<div class="rv-avatar">'+_rvProfileAvatarHtml(slot)+'</div>';
+      const badge = manage ? '<span class="rv-edit-badge">\u270E</span>' : '';
+      const avatar = '<div class="rv-avatar">'+_rvProfileAvatarHtml(slot)+badge+'</div>';
       const name = '<div class="rv-name">'+_rvEscapeHtml(slot.displayName || id)+'</div>';
       tile.innerHTML = avatar + name;
-      if(id === activeId){
-        tile.style.borderColor = 'var(--red)';
-        tile.style.boxShadow = '0 0 0 1px var(--red) inset';
-      }
-      tile.onclick = function(){ _rvSelectProfile(id); };
+      tile.onclick = function(){
+        if(manage) _rvOpenProfileEditor(slot);
+        else _rvSelectProfile(id);
+      };
       grid.appendChild(tile);
     });
     const addTile = document.createElement('button');
     addTile.type = 'button';
-    addTile.className = 'rv-tile';
-    addTile.innerHTML = '<div class="rv-avatar"><span style="font-size:54px;line-height:1;opacity:.72;">＋</span></div><div class="rv-name">Add Profile</div>';
-    addTile.onclick = function(){ _rvPromptAddProfile(); };
+    addTile.className = 'rv-tile rv-tile-add';
+    addTile.innerHTML = '<div class="rv-avatar-add"><span class="rv-plus">+</span></div><div class="rv-name">Add Profile</div>';
+    addTile.onclick = function(){ _rvOpenProfileEditor(null); };
     grid.appendChild(addTile);
+  }
+
+  function _rvEnsureProfileEditor(){
+    let ov = document.getElementById('rvProfileEditorOverlay');
+    if(ov) return ov;
+    ov = document.createElement('div');
+    ov.id = 'rvProfileEditorOverlay';
+    const card = document.createElement('div');
+    card.id = 'rvProfileEditorCard';
+    card.innerHTML = ''+
+      '<h3 id="rvPeTitle">Edit Profile</h3>'+
+      '<div class="rv-e-prev" id="rvPePrev"></div>'+
+      '<label for="rvPeName">Profile name</label>'+
+      '<input type="text" id="rvPeName" maxlength="40" autocomplete="off" />'+
+      '<label>Icon</label>'+
+      '<div class="rv-e-presets" id="rvPePresets"></div>'+
+      '<input type="file" id="rvPeFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" />'+
+      '<div class="rv-e-actions">'+
+        '<button type="button" class="rv-e-save" id="rvPeSave">Save</button>'+
+        '<button type="button" id="rvPeUpload">Upload photo</button>'+
+        '<button type="button" id="rvPeCancel">Cancel</button>'+
+        '<button type="button" class="rv-e-danger" id="rvPeRemove" style="display:none">Delete profile</button>'+
+      '</div>';
+    ov.appendChild(card);
+    document.body.appendChild(ov);
+    card.addEventListener('click', function(ev){ ev.stopPropagation(); });
+    ov.addEventListener('click', function(){ _rvCloseProfileEditor(); });
+    document.getElementById('rvPeCancel').onclick = function(){ _rvCloseProfileEditor(); };
+    document.getElementById('rvPeSave').onclick = function(){ _rvSaveProfileEditor(); };
+    document.getElementById('rvPeUpload').onclick = function(){
+      const f = document.getElementById('rvPeFile');
+      if(f) f.click();
+    };
+    document.getElementById('rvPeFile').onchange = function(ev){
+      const file = ev.target && ev.target.files && ev.target.files[0];
+      if(file) _rvPeHandleAvatarFile(file);
+      ev.target.value = '';
+    };
+    document.getElementById('rvPeRemove').onclick = function(){ _rvEditorRemoveProfile(); };
+    return ov;
+  }
+
+  function _rvPeRefreshPreview(){
+    const prev = document.getElementById('rvPePrev');
+    if(!prev) return;
+    const url = window.__rvPePreviewUrl || '';
+    const preset = window.__rvPePresetPick || 'neon';
+    if(url){
+      prev.innerHTML = '<img src="'+_rvEscapeHtml(url)+'" alt="" />';
+      return;
+    }
+    prev.innerHTML = '<span style="font-size:52px;line-height:1;">'+_rvEscapeHtml(_rvPresetEmoji(preset))+'</span>';
+  }
+
+  function _rvPeBuildPresetButtons(){
+    const host = document.getElementById('rvPePresets');
+    if(!host) return;
+    host.innerHTML = '';
+    const presets = ['neon','pixel','retro','smile'];
+    const cur = window.__rvPePresetPick || 'neon';
+    presets.forEach(function(key){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rv-e-pbtn' + (cur === key ? ' on' : '');
+      b.textContent = _rvPresetEmoji(key);
+      b.title = key;
+      b.onclick = function(){
+        window.__rvPePresetPick = key;
+        window.__rvPeAvatarPatch = { type:'preset', preset:key };
+        window.__rvPePreviewUrl = '';
+        _rvPeBuildPresetButtons();
+        _rvPeRefreshPreview();
+      };
+      host.appendChild(b);
+    });
+  }
+
+  function _rvOpenProfileEditor(slot){
+    _rvEnsureProfileEditor();
+    const isAdd = !slot || !slot.id;
+    window.__rvPeMode = isAdd ? 'add' : 'edit';
+    window.__rvPeProfileId = isAdd ? '' : String(slot.id || '').trim();
+    window.__rvPePresetPick = (!isAdd && slot.avatar && slot.avatar.type === 'preset') ? String(slot.avatar.preset || 'neon') : 'neon';
+    window.__rvPeAvatarPatch = (!isAdd && slot.avatar) ? slot.avatar : { type:'preset', preset: window.__rvPePresetPick };
+    window.__rvPePreviewUrl = (!isAdd && String(slot.avatarUrl || '').trim()) ? String(slot.avatarUrl).trim() : '';
+    const title = document.getElementById('rvPeTitle');
+    if(title) title.textContent = isAdd ? 'Add Profile' : 'Manage Profile';
+    const nameEl = document.getElementById('rvPeName');
+    if(nameEl) nameEl.value = isAdd ? '' : String(slot.displayName || slot.id || '');
+    const rm = document.getElementById('rvPeRemove');
+    if(rm){
+      const pid = window.__rvPeProfileId;
+      rm.style.display = (!isAdd && pid && pid !== 'main') ? 'inline-block' : 'none';
+    }
+    _rvPeBuildPresetButtons();
+    _rvPeRefreshPreview();
+    const ov = document.getElementById('rvProfileEditorOverlay');
+    if(ov) ov.classList.add('show');
+  }
+
+  function _rvCloseProfileEditor(){
+    const ov = document.getElementById('rvProfileEditorOverlay');
+    if(ov) ov.classList.remove('show');
+    window.__rvPeAvatarPatch = null;
+    window.__rvPePreviewUrl = '';
+  }
+
+  async function _rvPeHandleAvatarFile(file){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const profileId = window.__rvPeProfileId;
+    const mode = window.__rvPeMode;
+    if(mode !== 'edit' || !profileId){
+      if(typeof toast==='function') toast('Create the profile first, then open Manage and edit it to upload a photo.', 'warn');
+      return;
+    }
+    const effectiveOwner = _rvProfileOwnerId(baseOwner, profileId);
+    try{
+      const fd = new FormData();
+      fd.append('file', file);
+      const resp = await fetch('/profile-avatar-upload?owner='+encodeURIComponent(effectiveOwner), {
+        method:'POST',
+        body: fd,
+        headers: {'X-Retrovault-Owner': effectiveOwner}
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      const avatar = data.avatar || { type:'upload', key: '' };
+      window.__rvPeAvatarPatch = avatar;
+      window.__rvPePreviewUrl = String(data.avatarUrl || '').trim();
+      _rvPeRefreshPreview();
+      if(typeof toast==='function') toast('Photo uploaded — tap Save to keep it on this profile');
+    }catch(e){
+      if(typeof toast==='function') toast('Upload failed: '+e.message, 'err');
+    }
+  }
+
+  async function _rvSaveProfileEditor(){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const mode = window.__rvPeMode;
+    const nameEl = document.getElementById('rvPeName');
+    const name = String(nameEl && nameEl.value || '').trim();
+    if(!name){
+      if(typeof toast==='function') toast('Enter a profile name', 'warn');
+      return;
+    }
+    let avatar = window.__rvPeAvatarPatch;
+    if(!avatar || typeof avatar !== 'object'){
+      avatar = { type:'preset', preset: window.__rvPePresetPick || 'neon' };
+    }
+    try{
+      if(mode === 'add'){
+        const resp = await fetch('/profiles-add?owner='+encodeURIComponent(baseOwner), {
+          method:'POST',
+          headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+          body: JSON.stringify({ displayName:name, avatar: avatar })
+        });
+        const data = await resp.json().catch(()=>({}));
+        if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+        if(typeof toast==='function') toast('Profile created');
+      } else {
+        const pid = window.__rvPeProfileId;
+        if(!pid) throw new Error('Missing profile');
+        const resp = await fetch('/profiles-update?owner='+encodeURIComponent(baseOwner), {
+          method:'POST',
+          headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+          body: JSON.stringify({ profileId: pid, displayName: name, avatar: avatar })
+        });
+        const data = await resp.json().catch(()=>({}));
+        if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+        if(typeof toast==='function') toast('Profile updated');
+      }
+      _rvCloseProfileEditor();
+      await _rvReloadProfilePickerData(baseOwner);
+    }catch(e){
+      if(typeof toast==='function') toast('Save failed: '+e.message, 'err');
+    }
+  }
+
+  async function _rvEditorRemoveProfile(){
+    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
+    const pid = window.__rvPeProfileId;
+    if(!pid || pid === 'main') return;
+    if(!confirm('Delete this profile?')) return;
+    try{
+      const resp = await fetch('/profiles-remove?owner='+encodeURIComponent(baseOwner), {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
+        body: JSON.stringify({ profileId: pid })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
+      _rvCloseProfileEditor();
+      await _rvReloadProfilePickerData(baseOwner);
+      if(typeof toast==='function') toast('Profile removed');
+    }catch(e){
+      if(typeof toast==='function') toast('Remove failed: '+e.message, 'err');
+    }
   }
 
   async function _rvOpenProfilePicker(force){
     _rvProfilePickerStyles();
+    window.__rvProfileManageMode = false;
     const root = _rvProfilePickerEl();
+    root.classList.remove('rv-manage');
     root.classList.add('show');
+    _rvSyncProfilePickerChrome();
     const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
     try{
-      _rvSetPickerStatus('Loading profiles…', false);
-      const data = await _rvFetchProfileSlots(baseOwner);
-      window.__rvProfileSlots = data;
-      const active = _rvSetActiveProfileId(data.activeProfileId || _rvGetActiveProfileId() || 'main');
-      _rvRenderProfileGrid(data.profiles || [], active);
-      _rvSetPickerStatus('Owner '+baseOwner+' • '+((data.profiles||[]).length)+' profiles', false);
+      _rvSetPickerStatus('Loading\u2026', false);
+      await _rvReloadProfilePickerData(baseOwner);
+      _rvSetPickerStatus('', false);
       if(force !== true){
         const skip = localStorage.getItem('rv-profile-picker-dismissed') === '1';
         if(skip) root.classList.remove('show');
@@ -2147,7 +2216,11 @@ if(document.readyState === 'loading'){
 
   function _rvCloseProfilePicker(){
     const root = document.getElementById('rvProfilePicker');
-    if(root) root.classList.remove('show');
+    if(root){
+      root.classList.remove('show');
+      root.classList.remove('rv-manage');
+    }
+    window.__rvProfileManageMode = false;
     localStorage.setItem('rv-profile-picker-dismissed','1');
   }
 
@@ -2174,56 +2247,11 @@ if(document.readyState === 'loading'){
   }
 
   async function _rvPromptAddProfile(){
-    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
-    const name = String(prompt('New profile name') || '').trim();
-    if(!name) return;
-    const preset = String(prompt('Avatar preset (neon / pixel / retro)', 'neon') || 'neon').trim().toLowerCase();
-    try{
-      const resp = await fetch('/profiles-add?owner='+encodeURIComponent(baseOwner), {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
-        body: JSON.stringify({ displayName:name, avatar:{ type:'preset', preset:preset } })
-      });
-      const data = await resp.json().catch(()=>({}));
-      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
-      if(typeof toast==='function') toast('Profile added: '+(data.profile && data.profile.displayName ? data.profile.displayName : name));
-      await _rvOpenProfilePicker(true);
-    }catch(e){
-      if(typeof toast==='function') toast('Add profile failed: '+e.message, 'err');
-      _rvSetPickerStatus('Add profile failed: '+e.message, true);
-    }
+    _rvOpenProfileEditor(null);
   }
 
   async function _rvManageProfilesPrompt(){
-    const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
-    const slots = (window.__rvProfileSlots && Array.isArray(window.__rvProfileSlots.profiles)) ? window.__rvProfileSlots.profiles : [];
-    if(!slots.length){
-      if(typeof toast==='function') toast('No profiles loaded', 'warn');
-      return;
-    }
-    const list = slots.map(function(p){ return (p.id + ': ' + (p.displayName || p.id)); }).join('\\n');
-    const target = String(prompt('Remove profile ID (cannot remove main):\\n\\n'+list) || '').trim().toLowerCase();
-    if(!target) return;
-    if(target === 'main'){
-      if(typeof toast==='function') toast('Main profile cannot be removed', 'warn');
-      return;
-    }
-    const yes = confirm('Remove profile "'+target+'"?');
-    if(!yes) return;
-    try{
-      const resp = await fetch('/profiles-remove?owner='+encodeURIComponent(baseOwner), {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-Retrovault-Owner':baseOwner},
-        body: JSON.stringify({ profileId: target })
-      });
-      const data = await resp.json().catch(()=>({}));
-      if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
-      if(typeof toast==='function') toast('Profile removed: '+target);
-      await _rvOpenProfilePicker(true);
-    }catch(e){
-      if(typeof toast==='function') toast('Remove profile failed: '+e.message, 'err');
-      _rvSetPickerStatus('Remove profile failed: '+e.message, true);
-    }
+    _rvSetProfileManageMode(true);
   }
 
   window._rvOpenProfilePicker = _rvOpenProfilePicker;
@@ -2609,6 +2637,15 @@ if(document.readyState === 'loading'){
   const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); };
   const boot2 = function(){
     _rvEnsureUsersNavButton();
+    let netflixUsers = false;
+    try{
+      const raw = localStorage.getItem('rv-hybrid-prefs');
+      if(raw){
+        const p = JSON.parse(raw);
+        if(p && p.usersFlow === 'netflix') netflixUsers = true;
+      }
+    }catch(e){}
+    if(!netflixUsers) return;
     const forced = localStorage.getItem('rv-profile-picker-seen');
     if(!forced){
       localStorage.setItem('rv-profile-picker-seen','1');
@@ -2703,9 +2740,7 @@ function sanitizeProfileSlotId(value) {
 }
 
 function normalizeProfileSlotAvatar(payload) {
-  const avatar = normalizeAvatarPayload(payload || {});
-  if (avatar.type !== 'preset') return { type: 'preset', preset: 'neon' };
-  return avatar;
+  return normalizeAvatarPayload(payload || {});
 }
 
 function normalizeProfileSlotPayload(payload, fallbackId = 'main', fallbackName = '') {
@@ -4683,10 +4718,11 @@ export default {
         const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
         const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
         const profileSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        const resolved = await profileSetPublicWithResolvedProfiles(env.ROM_BUCKET, ownerId, profileSet);
         return new Response(JSON.stringify({
           ok: true,
           ownerId,
-          ...profileSetPublic(ownerId, profileSet),
+          ...resolved,
         }), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
@@ -4736,13 +4772,14 @@ export default {
         });
         await saveProfile(env.ROM_BUCKET, selectedOwnerId, mergedSelectedProfile);
 
+        const resolvedSelect = await profileSetPublicWithResolvedProfiles(env.ROM_BUCKET, ownerId, updatedSet);
         return new Response(JSON.stringify({
           ok: true,
           ownerId,
           selectedOwnerId,
           activeProfileId: profileId,
           profile: profilePublic(selectedOwnerId, mergedSelectedProfile),
-          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+          profiles: resolvedSelect.profiles,
         }), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
@@ -4809,6 +4846,7 @@ export default {
         });
         await saveProfile(env.ROM_BUCKET, selectedOwnerId, createdProfile);
 
+        const resolved = await profileSetPublicWithResolvedProfiles(env.ROM_BUCKET, ownerId, updatedSet);
         return new Response(JSON.stringify({
           ok: true,
           ownerId,
@@ -4820,12 +4858,95 @@ export default {
             updatedAt: slot.updatedAt || Date.now(),
           },
           activeProfileId: updatedSet.activeProfileId,
-          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+          profiles: resolved.profiles,
         }), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: 'profiles-add failed: ' + err.message }), {
+          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (path === '/profiles-update' && method === 'POST') {
+      if (!env.ROM_BUCKET) {
+        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      try {
+        const ownerId = resolveOwnerId(request, url, ['main']) || 'main';
+        const body = await request.json().catch(() => ({}));
+        const profileId = sanitizeProfileSlotId(body && (body.profileId || body.id));
+        if (!profileId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing profileId' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const baseProfile = await loadProfile(env.ROM_BUCKET, ownerId);
+        const currentSet = await loadProfileSet(env.ROM_BUCKET, ownerId, baseProfile);
+        const idx = currentSet.profiles.findIndex((p) => p.id === profileId);
+        if (idx < 0) {
+          return new Response(JSON.stringify({ ok: false, error: 'Profile not found' }), {
+            status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const prev = currentSet.profiles[idx];
+        let displayName = prev.displayName;
+        if (body && body.displayName != null) {
+          const nextName = String(body.displayName).trim().replace(/[<>]/g, '').slice(0, 40);
+          if (nextName) displayName = nextName;
+        }
+        let avatar = prev.avatar;
+        if (body && body.avatar != null) {
+          avatar = normalizeProfileSlotAvatar(body.avatar);
+        }
+        const updatedSlot = normalizeProfileSlotPayload({
+          id: profileId,
+          displayName,
+          avatar,
+        }, profileId, displayName);
+        if (!updatedSlot) {
+          return new Response(JSON.stringify({ ok: false, error: 'Invalid profile slot' }), {
+            status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const nextProfiles = currentSet.profiles.slice();
+        nextProfiles[idx] = updatedSlot;
+        const updatedSet = {
+          ...currentSet,
+          profiles: nextProfiles,
+          updatedAt: Date.now(),
+        };
+        await saveProfileSet(env.ROM_BUCKET, ownerId, updatedSet);
+
+        const selectedOwnerId = selectedProfileOwnerId(ownerId, profileId);
+        const currentSel = await loadProfile(env.ROM_BUCKET, selectedOwnerId);
+        const merged = normalizeProfilePayload(selectedOwnerId, {
+          ...currentSel,
+          displayName: updatedSlot.displayName,
+          avatar: updatedSlot.avatar,
+        });
+        await saveProfile(env.ROM_BUCKET, selectedOwnerId, merged);
+
+        const resolved = await profileSetPublicWithResolvedProfiles(env.ROM_BUCKET, ownerId, updatedSet);
+        return new Response(JSON.stringify({
+          ok: true,
+          ownerId,
+          profileId,
+          profile: resolved.profiles.find((p) => p.id === profileId) || {
+            id: profileId,
+            displayName: updatedSlot.displayName,
+            avatar: updatedSlot.avatar,
+          },
+          profiles: resolved.profiles,
+          activeProfileId: updatedSet.activeProfileId,
+        }), {
+          status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'profiles-update failed: ' + err.message }), {
           status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
         });
       }
@@ -4873,12 +4994,13 @@ export default {
         };
         await saveProfileSet(env.ROM_BUCKET, ownerId, updatedSet);
 
+        const resolvedRm = await profileSetPublicWithResolvedProfiles(env.ROM_BUCKET, ownerId, updatedSet);
         return new Response(JSON.stringify({
           ok: true,
           ownerId,
           removedProfileId: profileId,
           activeProfileId: updatedSet.activeProfileId,
-          profiles: profileSetPublic(ownerId, updatedSet).profiles,
+          profiles: resolvedRm.profiles,
         }), {
           status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
         });
