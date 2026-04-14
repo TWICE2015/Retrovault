@@ -836,8 +836,8 @@ body{background:#141414!important;color:#fff!important;}
     box.innerHTML =
       '<div style=\"font-size:13px;font-weight:700;margin-bottom:8px;\">Metadata Utility Tools</div>'+
       '<div style=\"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;\">'+
-        '<button class=\"bb p\" id=\"rvMetaScrapeAll\">⬇ Scrape All ROMs</button>'+
-        '<button class=\"bb s\" id=\"rvMetaMissingOnly\">⬇ Missing Art Only</button>'+
+        '<button class=\"bb p\" id=\"rvMetaScrapeAll\">Skraper: import gamelist.xml</button>'+
+        '<button class=\"bb s\" id=\"rvMetaMissingOnly\">Skraper import (fill gaps)</button>'+
         '<button class=\"bb s\" id=\"rvMetaMissingTrailers\">🎬 Missing Trailers</button>'+
         '<button class=\"bb s\" id=\"rvMetaLocalArt\">🖼 Use Local Artwork</button>'+
         '<button class=\"bb s\" id=\"rvMetaUploadR2\">☁ Upload Local Artwork to R2</button>'+
@@ -846,7 +846,7 @@ body{background:#141414!important;color:#fff!important;}
         '<input id=\"rvMetaOverwriteToggle\" type=\"checkbox\" /> Overwrite existing cover URLs'+
       '</label>'+
       '<div id=\"rvMetaHowItWorks\" style=\"font-size:12px;color:var(--muted);line-height:1.65;\">'+
-        '<strong style=\"color:var(--text)\">How it works:</strong> Hash + filename matching runs first, then enabled providers are used as fallback. Local artwork can be applied before cloud provider lookups.'+
+        '<strong style=\"color:var(--text)\">How it works:</strong> Use <a href=\"https://www.skraper.net/\" target=\"_blank\" rel=\"noopener\">Skraper</a> on your PC to build <code>gamelist.xml</code> and artwork, then import under Scraper → Sources. Cloud API scrapers are disabled in this build.'+
       '</div>';
 
     const anchor = scMain.querySelector('.bb-row');
@@ -868,8 +868,27 @@ body{background:#141414!important;color:#fff!important;}
     const uploadBtn = document.getElementById('rvMetaUploadR2');
     const overwrite = document.getElementById('rvMetaOverwriteToggle');
 
-    if(allBtn) allBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.p');
-    if(missBtn) missBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.s');
+    const _rvGoSkraperImport = (missingOnly)=>{
+      if(typeof sv === 'function') sv('scraper', null);
+      setTimeout(function(){
+        if(typeof scTab === 'function'){
+          const tabs = document.querySelectorAll('#view-scraper .si');
+          const targetBtn = tabs && tabs[3] ? tabs[3] : null;
+          scTab('sc-sources', targetBtn || null);
+        }
+        const card = document.getElementById('rvSkraperImportCard');
+        if(card) card.scrollIntoView({ behavior:'smooth', block:'start' });
+        const ow = document.getElementById('rvSkraperOverwrite');
+        if(ow) ow.checked = !missingOnly;
+        const inp = document.getElementById('rvSkraperGamelistFile');
+        if(inp) inp.focus();
+        if(typeof toast === 'function'){
+          toast(missingOnly ? 'Skraper: leave Overwrite off to fill only empty fields' : 'Skraper: pick gamelist.xml, optional images, then Import');
+        }
+      }, 150);
+    };
+    if(allBtn) allBtn.onclick = ()=>_rvGoSkraperImport(false);
+    if(missBtn) missBtn.onclick = ()=>_rvGoSkraperImport(true);
     if(trailersBtn) trailersBtn.onclick = async ()=>{
       try{
         const roms = await dbGetAll('roms');
@@ -877,7 +896,7 @@ body{background:#141414!important;color:#fff!important;}
         const count = need.length;
         if(typeof toast==='function') toast(count ? ('Trailer queue: '+count+' game(s) missing videoUrl metadata') : 'All listed games already have trailer metadata');
         const st = document.getElementById('rvMetaHowItWorks');
-        if(st) st.innerHTML = '<strong style=\"color:var(--text)\">Trailer report:</strong> '+count+' game(s) currently missing trailer metadata. Add provider support or import trailer URLs in metadata.';
+        if(st) st.innerHTML = '<strong style=\"color:var(--text)\">Trailer report:</strong> '+count+' game(s) missing videoUrl. If Skraper wrote &lt;video&gt; paths in gamelist.xml, import that file (http URLs work; local paths need manual hosting).';
       }catch(e){
         if(typeof toast==='function') toast('Trailer scan failed: '+e.message,'err');
       }
@@ -888,7 +907,7 @@ body{background:#141414!important;color:#fff!important;}
         const targetBtn = tabs && tabs[3] ? tabs[3] : null;
         scTab('sc-sources', targetBtn || null);
       }
-      if(typeof toast==='function') toast('Open Sources + Media Directories section (ES-DE layout) for local artwork mapping.');
+      if(typeof toast==='function') toast('Skraper: import gamelist.xml under Sources. Media folders below are optional.');
       const dirs = document.getElementById('sc-dirs');
       if(dirs){
         dirs.style.display = 'block';
@@ -1100,117 +1119,24 @@ body{background:#141414!important;color:#fff!important;}
     html = html.replace('</body>', `${hybridUxPatch}\n</body>`);
   }
 
-  if (!html.includes('function _rvGetScrapeSourceConfig(')) {
+  if (!html.includes('function _rvSkraperMetadataBoot(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
     const scraperSourceHelper = `
-function _rvScrapeSourceDefaults(){
-  return {
-    providers: {
-      launchbox: false,
-      wikipedia: true,
-      libretro: true,
-      openvgdb: false,
-      thegamesdb: false,
-      mobygames: false,
-      igdb: false,
-      giantbomb: false,
-      screenscraper: false
-    },
-    tgdbKey: '',
-    mobyKey: '',
-    igdbClientId: '',
-    igdbToken: '',
-    giantbombKey: '',
-    openvgdbUrl: '',
-    quietExpectedMisses: true
-  };
-}
-
-function _rvGetScrapeSourceConfig(){
-  const defaults = _rvScrapeSourceDefaults();
-  try{
-    const raw = localStorage.getItem('rv-scrape-sources');
-    if(!raw) return defaults;
-    const parsed = JSON.parse(raw);
-    const cfg = Object.assign({}, defaults, parsed || {});
-    cfg.providers = Object.assign({}, defaults.providers, (parsed && parsed.providers) || {});
-    return cfg;
-  }catch(e){
-    return defaults;
-  }
-}
-
-function _rvSaveScrapeSourceConfig(cfg){
-  localStorage.setItem('rv-scrape-sources', JSON.stringify(cfg || _rvScrapeSourceDefaults()));
-}
-
-function _rvQuietExpectedMissesEnabled(){
-  const cfg = _rvGetScrapeSourceConfig();
-  return cfg.quietExpectedMisses !== false;
-}
-
-function _rvShouldQuietExpectedMissMessage(message){
-  if(!_rvQuietExpectedMissesEnabled()) return false;
-  const msg = String(message || '').toLowerCase();
-  return msg.includes('http 404')
-    || msg.includes('index_missing')
-    || msg.includes('no enabled provider matched')
-    || msg.includes('credentials are missing');
-}
-
-function _rvLogScrapeInfo(message){
-  if(typeof logScrape === 'function') logScrape(String(message || ''));
-}
-
-function _rvLogScrapeWarn(message){
-  const text = String(message || '');
-  if(_rvShouldQuietExpectedMissMessage(text)) return;
-  if(typeof logScrape === 'function') logScrape(text);
-}
+function _rvSkraperMetadataBoot(){}
 
 function _rvCleanScrapeName(name){
   return String(name || '')
     .replace(/_/g,' ')
-    .replace(/\\s*[\\(\\[][^\)\\]]*[\\)\\]]/g,'')
-    .replace(/\\s+-\\s*(Rev|Version|v)\\s*[\\d.]+\\s*$/i,'')
-    .replace(/\\s+(USA|Europe|Japan|World|En|Fr|De|Es|It)\\s*$/i,'')
-    .replace(/\\s+/g,' ')
+    .replace(/\s*[\(\[][^\)\]]*[\)\]]/g,'')
+    .replace(/\s+-\s*(Rev|Version|v)\s*[\d.]+\s*$/i,'')
+    .replace(/\s+(USA|Europe|Japan|World|En|Fr|De|Es|It)\s*$/i,'')
+    .replace(/\s+/g,' ')
     .trim();
-}
-
-function _rvNormTitle(v){
-  return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-}
-
-function _rvProxyUrl(url){
-  return window.location.origin + '/scraper-proxy?url=' + encodeURIComponent(url) + '&soft404=1';
-}
-
-async function _rvProbeViaProxy(url){
-  try{
-    const resp = await fetch(_rvProxyUrl(url) + '&probe=1');
-    if(!resp.ok) return { ok:false, upstreamStatus: resp.status, missing:false };
-    const data = await resp.json().catch(()=>({}));
-    if(data && typeof data === 'object'){
-      const missing = !!(data.miss || (data.proxy && data.proxy.missing));
-      if(missing) return { ok:false, upstreamStatus: 404, missing:true };
-      return data;
-    }
-    return { ok:false, upstreamStatus: 0, missing:false };
-  }catch(e){
-    return { ok:false, upstreamStatus: 0, missing:false };
-  }
 }
 
 function _rvToPlainText(v){
   const text = String(v || '');
-  return text.replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim();
-}
-
-function _rvShouldScrapeRomForRepair(rom){
-  if(!rom) return false;
-  const cover = _rvNormCoverUrl(rom.coverUrl);
-  return !cover || _rvIsBadCoverUrl(cover);
+  return text.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
 }
 
 function _rvNormCoverUrl(v){
@@ -1242,58 +1168,7 @@ function _rvRememberBadCoverUrl(url){
 function _rvIsBadCoverUrl(url){
   const norm = _rvNormCoverUrl(url);
   if(!norm) return false;
-  const list = _rvGetBadCoverList();
-  return list.includes(norm);
-}
-
-async function _rvFetchJsonViaProxy(url, init){
-  const resp = await fetch(_rvProxyUrl(url), init || {});
-  if(!resp.ok) throw new Error('HTTP '+resp.status);
-  const text = await resp.text();
-  try{
-    const payload = JSON.parse(text);
-    if(payload && (payload.miss || (payload.proxy && payload.proxy.missing))){
-      return null;
-    }
-    return payload;
-  }catch(e){
-    throw new Error('Invalid JSON response');
-  }
-}
-
-async function _rvApplyMetaPatch(romId, patch, source){
-  const rom = await dbGet('roms', romId);
-  if(!rom || !patch) return false;
-  let changed = false;
-  const incomingCover = _rvNormCoverUrl(patch.coverUrl);
-  const existingCover = _rvNormCoverUrl(rom.coverUrl);
-
-  // Replace missing or previously-broken covers with a new candidate.
-  if(incomingCover && !_rvIsBadCoverUrl(incomingCover)){
-    if(!existingCover || _rvIsBadCoverUrl(existingCover)){
-      rom.coverUrl = incomingCover;
-      changed = true;
-    }
-  }
-
-  const setIfEmpty = (field, value) => {
-    if(value == null || value === '') return;
-    if(!rom[field]){
-      rom[field] = value;
-      changed = true;
-    }
-  };
-  setIfEmpty('description', patch.description);
-  setIfEmpty('year', patch.year);
-  setIfEmpty('rating', patch.rating);
-  setIfEmpty('developer', patch.developer);
-  setIfEmpty('genres', patch.genres);
-  if(changed){
-    await dbPut('roms', rom);
-    await r2SaveMeta(rom);
-    _rvLogScrapeInfo('[sources] ✓ ' + source + ' updated metadata for ' + rom.name);
-  }
-  return changed;
+  return _rvGetBadCoverList().includes(norm);
 }
 
 async function _rvMarkCoverBroken(romId, badUrl){
@@ -1306,470 +1181,274 @@ async function _rvMarkCoverBroken(romId, badUrl){
     if(current && normBad && current === normBad){
       rom.coverUrl = null;
       await dbPut('roms', rom);
-      await r2SaveMeta(rom);
-      // Re-try metadata using remaining enabled providers.
-      const running = window.__rvCoverRescrapeInFlight || (window.__rvCoverRescrapeInFlight = new Set());
-      if(!running.has(romId) && typeof autoScrapeWithFallback === 'function'){
-        running.add(romId);
-        const creds = (typeof getSsCreds === 'function') ? getSsCreds() : null;
-        autoScrapeWithFallback(romId, creds).catch(()=>{}).finally(()=>running.delete(romId));
-      }
+      if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
     }
   }catch(e){}
 }
 
-async function _rvScrapeWikipediaWikidata(romId){
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename);
-  if(!q) return false;
-  const patch = {};
-  try{
-    const wiki = await _rvFetchJsonViaProxy('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(q));
-    if(wiki){
-      if(wiki.extract) patch.description = wiki.extract;
-      if(wiki.thumbnail && wiki.thumbnail.source) patch.coverUrl = wiki.thumbnail.source;
-      const y = String(wiki.description || '').match(/\\b(19|20)\\d{2}\\b/);
-      if(y) patch.year = y[0];
-    }
-  }catch(e){
-    _rvLogScrapeWarn('[wikipedia] ' + q + ' — ' + e.message);
-  }
-  try{
-    const search = await _rvFetchJsonViaProxy('https://www.wikidata.org/w/api.php?action=wbsearchentities&language=en&format=json&type=item&search=' + encodeURIComponent(q));
-    const qid = search && search.search && search.search[0] && search.search[0].id;
-    if(qid){
-      const entity = await _rvFetchJsonViaProxy('https://www.wikidata.org/wiki/Special:EntityData/' + qid + '.json');
-      const claims = entity && entity.entities && entity.entities[qid] && entity.entities[qid].claims;
-      const releaseTime = claims && claims.P577 && claims.P577[0] && claims.P577[0].mainsnak && claims.P577[0].mainsnak.datavalue && claims.P577[0].mainsnak.datavalue.value && claims.P577[0].mainsnak.datavalue.value.time;
-      const ym = String(releaseTime || '').match(/(19|20)\\d{2}/);
-      if(ym && !patch.year) patch.year = ym[0];
-    }
-  }catch(e){
-    _rvLogScrapeWarn('[wikidata] ' + q + ' — ' + e.message);
-  }
-  return _rvApplyMetaPatch(romId, patch, 'wikipedia/wikidata');
+window._rvMarkCoverBroken = _rvMarkCoverBroken;
+
+function _rvSkraperBasename(p){
+  const s = String(p || '').replace(/\\/g,'/').trim();
+  const parts = s.split('/');
+  return (parts[parts.length - 1] || '').replace(/^\.\//,'').trim();
 }
 
-function _rvLibretroSystem(consoleId){
-  const map = {
-    nes: 'Nintendo - Nintendo Entertainment System',
-    snes: 'Nintendo - Super Nintendo Entertainment System',
-    n64: 'Nintendo - Nintendo 64',
-    gb: 'Nintendo - Game Boy',
-    gbc: 'Nintendo - Game Boy Color',
-    gba: 'Nintendo - Game Boy Advance',
-    nds: 'Nintendo - Nintendo DS',
-    genesis: 'Sega - Mega Drive - Genesis',
-    saturn: 'Sega - Saturn',
-    dreamcast: 'Sega - Dreamcast',
-    psx: 'Sony - PlayStation',
-    psp: 'Sony - PlayStation Portable',
-    atari2600: 'Atari - 2600',
-    atari7800: 'Atari - 7800'
-  };
-  return map[consoleId] || null;
+function _rvSkraperXmlText(gameEl, tag){
+  const nodes = gameEl.getElementsByTagName(tag);
+  const n = nodes && nodes[0];
+  return n ? String(n.textContent || '').trim() : '';
 }
 
-async function _rvScrapeLibretro(romId){
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const sys = _rvLibretroSystem(rom.console);
-  if(!sys) return false;
-  const baseName = _rvCleanScrapeName(rom.name || rom.filename).replace(/:/g, ' - ');
-  if(!baseName) return false;
-  const candidates = [baseName, baseName.replace(/\\s+-\\s+.*$/,'').trim()].filter(Boolean);
-  for(const title of candidates){
-    const rel = encodeURIComponent(title) + '.png';
-    const sysSeg = encodeURIComponent(sys);
-    const boxUrl = 'https://thumbnails.libretro.com/' + sysSeg + '/Named_Boxarts/' + rel;
-    try{
-      const probe = await _rvProbeViaProxy(boxUrl);
-      if(probe && probe.ok){
-        const changed = await _rvApplyMetaPatch(romId, { coverUrl: boxUrl }, 'libretro');
-        if(changed) return true;
-      }
-    }catch(e){}
+function _rvSkraperParseReleasedate(raw){
+  const s = String(raw || '').trim();
+  const m = s.match(/(\d{4})(\d{2})(\d{2})/);
+  if(m) return m[1];
+  const y = s.match(/\b(19|20)\d{2}\b/);
+  return y ? y[0] : '';
+}
+
+function _rvSkraperParseGamelist(xmlText){
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if(doc.getElementsByTagName('parsererror').length){
+    throw new Error('Invalid XML (parse error)');
   }
-  return false;
-}
-
-async function _rvScrapeTheGamesDb(romId, cfg){
-  const key = String((cfg && cfg.tgdbKey) || '').trim();
-  if(!key) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename);
-  if(!q) return false;
-  try{
-    const url = 'https://api.thegamesdb.net/v1.1/Games/ByGameName?apikey=' + encodeURIComponent(key) + '&name=' + encodeURIComponent(q) + '&include=boxart';
-    const data = await _rvFetchJsonViaProxy(url);
-    const game = data && data.data && data.data.games && data.data.games[0];
-    if(!game) return false;
-    const patch = {
-      description: game.overview || '',
-      year: (game.release_date || '').slice(0,4),
-    };
-    const box = data && data.include && data.include.boxart;
-    const base = (box && box.base_url && (box.base_url.original || box.base_url.thumb)) || '';
-    const list = box && box.data && (box.data[game.id] || box.data[String(game.id)]);
-    if(base && Array.isArray(list) && list.length){
-      const front = list.find(x => /front/i.test(String(x.side||''))) || list[0];
-      if(front && front.filename) patch.coverUrl = base + front.filename;
-    }
-    return _rvApplyMetaPatch(romId, patch, 'thegamesdb');
-  }catch(e){
-    _rvLogScrapeWarn('[thegamesdb] ' + q + ' — ' + e.message);
-    return false;
-  }
-}
-
-async function _rvScrapeMobyGames(romId, cfg){
-  const key = String((cfg && cfg.mobyKey) || '').trim();
-  if(!key) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename);
-  if(!q) return false;
-  try{
-    const url = 'https://api.mobygames.com/v1/games?api_key=' + encodeURIComponent(key) + '&title=' + encodeURIComponent(q) + '&limit=1';
-    const data = await _rvFetchJsonViaProxy(url);
-    const game = data && data.games && data.games[0];
-    if(!game) return false;
-    const patch = {
-      description: _rvToPlainText(game.description || game.short_description || ''),
-      year: String(game.first_release_date || '').slice(0,4),
-      developer: (game.developers && game.developers[0] && game.developers[0].name) || '',
-    };
-    if(game.sample_cover && game.sample_cover.image) patch.coverUrl = game.sample_cover.image;
-    return _rvApplyMetaPatch(romId, patch, 'mobygames');
-  }catch(e){
-    _rvLogScrapeWarn('[mobygames] ' + q + ' — ' + e.message);
-    return false;
-  }
-}
-
-async function _rvScrapeIgdb(romId, cfg){
-  const clientId = String((cfg && cfg.igdbClientId) || '').trim();
-  const token = String((cfg && cfg.igdbToken) || '').trim();
-  if(!clientId || !token) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename).replace(/"/g,'');
-  if(!q) return false;
-  try{
-    const query = 'search "' + q + '"; fields name,summary,first_release_date,cover.image_id,rating; limit 1;';
-    const resp = await fetch(_rvProxyUrl('https://api.igdb.com/v4/games'), {
-      method:'POST',
-      headers:{
-        'Content-Type':'text/plain',
-        'Client-ID': clientId,
-        'Authorization': 'Bearer ' + token,
-      },
-      body: query,
+  const games = doc.getElementsByTagName('game');
+  const out = [];
+  for(let i = 0; i < games.length; i++){
+    const g = games[i];
+    const path = _rvSkraperXmlText(g, 'path');
+    if(!path) continue;
+    const image = _rvSkraperXmlText(g, 'image') || _rvSkraperXmlText(g, 'thumbnail');
+    const video = _rvSkraperXmlText(g, 'video');
+    out.push({
+      path: path,
+      name: _rvSkraperXmlText(g, 'name'),
+      desc: _rvSkraperXmlText(g, 'desc'),
+      image: image,
+      rating: _rvSkraperXmlText(g, 'rating'),
+      releasedate: _rvSkraperXmlText(g, 'releasedate'),
+      developer: _rvSkraperXmlText(g, 'developer'),
+      genre: _rvSkraperXmlText(g, 'genre'),
+      video: video
     });
-    if(!resp.ok) throw new Error('HTTP ' + resp.status);
-    const list = await resp.json();
-    const game = Array.isArray(list) ? list[0] : null;
-    if(!game) return false;
-    const patch = {
-      description: game.summary || '',
-      year: game.first_release_date ? String(new Date(game.first_release_date * 1000).getUTCFullYear()) : '',
-      rating: Number.isFinite(game.rating) ? (Math.max(0, Math.min(100, game.rating))/20).toFixed(1) + '/5' : '',
-    };
-    if(game.cover && game.cover.image_id) patch.coverUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big/' + game.cover.image_id + '.jpg';
-    return _rvApplyMetaPatch(romId, patch, 'igdb');
-  }catch(e){
-    _rvLogScrapeWarn('[igdb] ' + q + ' — ' + e.message);
-    return false;
   }
+  return out;
 }
 
-async function _rvScrapeGiantBomb(romId, cfg){
-  const key = String((cfg && cfg.giantbombKey) || '').trim();
-  if(!key) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvCleanScrapeName(rom.name || rom.filename);
-  if(!q) return false;
-  try{
-    const url = 'https://www.giantbomb.com/api/search/?api_key=' + encodeURIComponent(key) + '&format=json&resources=game&limit=1&query=' + encodeURIComponent(q);
-    const data = await _rvFetchJsonViaProxy(url);
-    const game = data && data.results && data.results[0];
-    if(!game) return false;
-    const patch = {
-      description: _rvToPlainText(game.deck || game.description || ''),
-    };
-    const ym = String(game.original_release_date || game.expected_release_year || '').match(/(19|20)\\d{2}/);
-    if(ym) patch.year = ym[0];
-    if(game.image) patch.coverUrl = game.image.medium_url || game.image.original_url || '';
-    return _rvApplyMetaPatch(romId, patch, 'giantbomb');
-  }catch(e){
-    _rvLogScrapeWarn('[giantbomb] ' + q + ' — ' + e.message);
-    return false;
+function _rvSkraperFindRom(roms, entry){
+  const fn = _rvSkraperBasename(entry.path).toLowerCase();
+  if(!fn) return null;
+  const baseNoExt = fn.replace(/\.[^.]+$/, '');
+  for(let i = 0; i < roms.length; i++){
+    const r = roms[i];
+    const rf = String(r.filename || '').toLowerCase().trim();
+    const rn = String(r.name || '').toLowerCase().trim();
+    if(rf && rf === fn) return r;
+    if(rf && rf.replace(/\.[^.]+$/, '') === baseNoExt) return r;
+    if(rn && rn === baseNoExt) return r;
+    if(rn && _rvCleanScrapeName(rn).toLowerCase() === baseNoExt) return r;
   }
+  return null;
 }
 
-async function _rvScrapeOpenVgdb(romId, cfg){
-  const url = String((cfg && cfg.openvgdbUrl) || '').trim();
-  if(!url) return false;
-  const rom = await dbGet('roms', romId);
-  if(!rom) return false;
-  const q = _rvNormTitle(_rvCleanScrapeName(rom.name || rom.filename));
-  if(!q) return false;
-  try{
-    const data = await _rvFetchJsonViaProxy(url);
-    const list = Array.isArray(data) ? data : (Array.isArray(data && data.games) ? data.games : []);
-    if(!list.length) return false;
-    let match = list.find(g => _rvNormTitle(g && (g.title || g.name)) === q);
-    if(!match) match = list.find(g => _rvNormTitle(g && (g.title || g.name)).includes(q));
-    if(!match) return false;
-    const patch = {
-      description: _rvToPlainText(match.overview || match.description || ''),
-      year: String(match.releaseYear || match.year || '').slice(0,4),
-      coverUrl: match.coverUrl || match.cover || '',
-      developer: match.developer || '',
-      genres: match.genres || '',
-    };
-    return _rvApplyMetaPatch(romId, patch, 'openvgdb');
-  }catch(e){
-    _rvLogScrapeWarn('[openvgdb] ' + q + ' — ' + e.message);
-    return false;
-  }
+async function _rvSkraperUploadImageFile(file, romId){
+  const owner = (typeof _rvOwnerId === 'function') ? _rvOwnerId() : (localStorage.getItem('rv-owner-id') || 'main');
+  const ext = (file.name && file.name.match(/\.([a-z0-9]+)$/i)) ? RegExp.$1.toLowerCase() : 'png';
+  const safeExt = ['png','jpg','jpeg','webp','gif'].includes(ext) ? ext : 'png';
+  const key = 'meta/skraper-media/' + String(romId) + '-' + Date.now() + '.' + safeExt;
+  const buf = await file.arrayBuffer();
+  const ct = file.type || (safeExt === 'jpg' ? 'image/jpeg' : 'image/' + safeExt);
+  const url = window.location.origin + '/r2-upload?owner=' + encodeURIComponent(owner) + '&key=' + encodeURIComponent(key);
+  const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': ct, 'X-Retrovault-Owner': owner }, body: buf });
+  const data = await resp.json().catch(() => ({}));
+  if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+  const fullKey = data.key || key;
+  return window.location.origin + '/r2-rom?key=' + encodeURIComponent(fullKey) + '&owner=' + encodeURIComponent(owner);
 }
 
-function _rvScrapeProviderOrder(){
-  // Default priority: no-login first, optional API/login sources after.
-  return ['libretro','wikipedia','launchbox','thegamesdb','mobygames','igdb','giantbomb','openvgdb','screenscraper'];
+async function _rvSkraperBuildImageMap(fileList){
+  const map = Object.create(null);
+  if(!fileList || !fileList.length) return map;
+  for(let i = 0; i < fileList.length; i++){
+    const f = fileList[i];
+    const base = _rvSkraperBasename(f.name).toLowerCase();
+    if(base) map[base] = f;
+  }
+  return map;
 }
 
-async function _rvRunScrapeProvider(providerId, romId, ssCreds, cfg){
-  if(providerId === 'launchbox'){
-    await lbScrapeRom(romId);
-    const updated = await dbGet('roms', romId);
-    return !!(updated && (updated.coverUrl || updated.description));
-  }
-  if(providerId === 'screenscraper'){
-    if(!(ssCreds && ssCreds.user)){
-      _rvLogScrapeWarn('[sources] ScreenScraper enabled but credentials are missing — skipped');
-      return false;
+async function _rvSkraperResolveCoverUrl(entry, rom, imageMap, uploadToR2){
+  const imgPath = String(entry.image || '').trim();
+  if(!imgPath) return '';
+  const base = _rvSkraperBasename(imgPath).toLowerCase();
+  const file = imageMap[base];
+  if(file && uploadToR2){
+    try{
+      return await _rvSkraperUploadImageFile(file, rom.id);
+    }catch(e){
+      if(typeof logScrape === 'function') logScrape('[skraper] cover upload failed: ' + e.message);
+      return '';
     }
-    await scrapeRomById(romId, ssCreds);
-    const updated = await dbGet('roms', romId);
-    return !!(updated && (updated.coverUrl || updated.description));
   }
-  if(providerId === 'wikipedia') return _rvScrapeWikipediaWikidata(romId);
-  if(providerId === 'libretro') return _rvScrapeLibretro(romId);
-  if(providerId === 'thegamesdb') return _rvScrapeTheGamesDb(romId, cfg);
-  if(providerId === 'mobygames') return _rvScrapeMobyGames(romId, cfg);
-  if(providerId === 'igdb') return _rvScrapeIgdb(romId, cfg);
-  if(providerId === 'giantbomb') return _rvScrapeGiantBomb(romId, cfg);
-  if(providerId === 'openvgdb') return _rvScrapeOpenVgdb(romId, cfg);
-  return false;
+  if(/^https?:\/\//i.test(imgPath)) return imgPath;
+  return '';
 }
 
-async function _rvAutoScrapeAllSources(romId, ssCreds){
+async function _rvApplySkraperPatch(romId, patch, overwrite){
   const rom = await dbGet('roms', romId);
-  if(!rom) return;
-  const cfg = _rvGetScrapeSourceConfig();
-  const order = _rvScrapeProviderOrder();
-  const active = order.filter(id => cfg.providers && cfg.providers[id]);
-  if(!active.length){
-    _rvLogScrapeWarn('[sources] All providers disabled — skipping scrape for this game');
-    if(typeof toast === 'function') toast('All scraper providers are disabled in Sources settings','warn');
+  if(!rom || !patch) return false;
+  let changed = false;
+  const apply = (field, val) => {
+    if(val == null || val === '') return;
+    const v = field === 'description' ? _rvToPlainText(val) : val;
+    if(overwrite || !rom[field]){
+      if(rom[field] !== v){ rom[field] = v; changed = true; }
+    }
+  };
+  if(patch.name){
+    const nm = String(patch.name).trim().slice(0, 120);
+    if(nm && (overwrite || !rom.name)){
+      if(rom.name !== nm){ rom.name = nm; changed = true; }
+    }
+  }
+  const cov = _rvNormCoverUrl(patch.coverUrl);
+  if(cov && !_rvIsBadCoverUrl(cov)){
+    if(overwrite || !rom.coverUrl || _rvIsBadCoverUrl(_rvNormCoverUrl(rom.coverUrl))){
+      if(rom.coverUrl !== cov){ rom.coverUrl = cov; changed = true; }
+    }
+  }
+  apply('description', patch.description);
+  apply('year', patch.year);
+  apply('rating', patch.rating);
+  apply('developer', patch.developer);
+  apply('genres', patch.genres);
+  if(patch.videoUrl){
+    apply('videoUrl', patch.videoUrl);
+  }
+  if(changed){
+    await dbPut('roms', rom);
+    if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
+  }
+  return changed;
+}
+
+async function _rvRunSkraperImport(){
+  const xmlInput = document.getElementById('rvSkraperGamelistFile');
+  const imgInput = document.getElementById('rvSkraperImageFiles');
+  const status = document.getElementById('rvSkraperImportStatus');
+  const overwrite = !!(document.getElementById('rvSkraperOverwrite') && document.getElementById('rvSkraperOverwrite').checked);
+  const uploadR2 = !(document.getElementById('rvSkraperNoUpload') && document.getElementById('rvSkraperNoUpload').checked);
+
+  if(!xmlInput || !xmlInput.files || !xmlInput.files[0]){
+    if(typeof toast === 'function') toast('Choose gamelist.xml first', 'warn');
     return;
   }
-  _rvLogScrapeInfo('[sources] Active providers: ' + active.join(', '));
-  let done = false;
-  for(const provider of active){
-    try{
-      _rvLogScrapeInfo('[sources] Trying ' + provider + ' for ' + rom.name);
-      const ok = await _rvRunScrapeProvider(provider, romId, ssCreds, cfg);
-      if(ok){
-        done = true;
-        _rvLogScrapeInfo('[sources] ✓ ' + provider + ' matched ' + rom.name);
-        break;
-      }
-    }catch(e){
-      _rvLogScrapeWarn('[sources] ' + provider + ' failed: ' + e.message);
-    }
+  const xmlFile = xmlInput.files[0];
+  const xmlText = await xmlFile.text();
+  let entries;
+  try{
+    entries = _rvSkraperParseGamelist(xmlText);
+  }catch(e){
+    if(status) status.textContent = 'Parse error: ' + e.message;
+    if(typeof toast === 'function') toast('gamelist.xml: ' + e.message, 'err');
+    return;
   }
-  if(!done) _rvLogScrapeWarn('[sources] ⚠ No enabled provider matched ' + rom.name);
-  if(cloudSignedIn()) sbPush().catch(()=>{});
-  await refreshAll();
-}
-
-async function _rvScrapeBrokenOnly(){
-  const creds = (typeof getSsCreds === 'function') ? getSsCreds() : null;
+  const imageMap = await _rvSkraperBuildImageMap(imgInput && imgInput.files ? imgInput.files : null);
   const roms = await dbGetAll('roms');
-  const targets = (roms || []).filter(_rvShouldScrapeRomForRepair);
-  if(!targets.length){
-    if(typeof toast==='function') toast('No missing/broken covers found','warn');
-    const st = document.getElementById('rvSourceCfgStatus');
-    if(st) st.textContent = 'No missing/broken covers to repair.';
-    return { scanned: roms.length || 0, repaired: 0 };
-  }
-  const st = document.getElementById('rvSourceCfgStatus');
-  if(st) st.textContent = 'Repairing ' + targets.length + ' missing/broken cover(s)…';
-  const prog = document.getElementById('scrProg');
-  if(prog) prog.style.display = 'block';
-  let repaired = 0;
-  for(let i=0;i<targets.length;i++){
-    const rom = targets[i];
-    const pct = Math.round((i / Math.max(1, targets.length)) * 100);
-    const fill = document.getElementById('scrFill');
-    const pctEl = document.getElementById('scrPct');
-    const sub = document.getElementById('scrSub');
-    if(fill) fill.style.width = pct + '%';
-    if(pctEl) pctEl.textContent = pct + '%';
-    if(sub) sub.textContent = 'Repairing: ' + (rom && rom.name ? rom.name : ('#'+i));
-    try{
-      await _rvAutoScrapeAllSources(rom.id, creds);
-      repaired++;
-    }catch(e){
-      _rvLogScrapeWarn('[sources] repair failed for ' + (rom && rom.name ? rom.name : ('#'+i)) + ': ' + e.message);
+  let matched = 0;
+  let updated = 0;
+  let skipped = 0;
+  for(let i = 0; i < entries.length; i++){
+    const entry = entries[i];
+    const rom = _rvSkraperFindRom(roms, entry);
+    if(!rom){ skipped++; continue; }
+    matched++;
+    const patch = {};
+    if(entry.name) patch.name = entry.name;
+    if(entry.desc) patch.description = entry.desc;
+    const y = _rvSkraperParseReleasedate(entry.releasedate);
+    if(y) patch.year = y;
+    if(entry.rating) patch.rating = String(entry.rating).trim();
+    if(entry.developer) patch.developer = entry.developer;
+    if(entry.genre) patch.genres = entry.genre;
+    let videoUrl = '';
+    if(entry.video){
+      if(/^https?:\/\//i.test(entry.video)) videoUrl = entry.video;
     }
-    await new Promise(r=>setTimeout(r,850));
+    if(videoUrl) patch.videoUrl = videoUrl;
+    const coverUrl = await _rvSkraperResolveCoverUrl(entry, rom, imageMap, uploadR2);
+    if(coverUrl) patch.coverUrl = coverUrl;
+    const did = await _rvApplySkraperPatch(rom.id, patch, overwrite);
+    if(did) updated++;
   }
-  const fill = document.getElementById('scrFill');
-  const pctEl = document.getElementById('scrPct');
-  const sub = document.getElementById('scrSub');
-  if(fill) fill.style.width = '100%';
-  if(pctEl) pctEl.textContent = '100%';
-  if(sub) sub.textContent = 'Repair finished';
-  if(st) st.textContent = 'Repair complete: ' + repaired + '/' + targets.length + ' processed.';
-  if(typeof toast==='function') toast('Repair complete: ' + repaired + '/' + targets.length);
-  return { scanned: roms.length || 0, repaired };
+  const msg = 'Skraper import: ' + entries.length + ' entries, ' + matched + ' matched, ' + updated + ' updated, ' + skipped + ' unmatched.';
+  if(status) status.textContent = msg;
+  if(typeof toast === 'function') toast(msg);
+  if(typeof refreshAll === 'function') await refreshAll();
 }
 
 function _rvPatchScrapePipeline(){
-  if(window.__rvAllSourcesPatched) return;
-  if(typeof autoScrapeWithFallback !== 'function') return;
-  window.__rvAutoScrapeWithFallbackOriginal = autoScrapeWithFallback;
-  autoScrapeWithFallback = async function(romId, ssCreds){
-    return _rvAutoScrapeAllSources(romId, ssCreds);
-  };
+  if(window.__rvSkraperPipelinePatched) return;
+  if(typeof autoScrapeWithFallback === 'function'){
+    window.__rvAutoScrapeWithFallbackOriginal = autoScrapeWithFallback;
+    autoScrapeWithFallback = async function(){
+      if(typeof toast === 'function') toast('Online scrapers are disabled. Use Skraper (skraper.net) on your PC, then import gamelist.xml under Scraper → Sources.', 'warn');
+      if(typeof logScrape === 'function') logScrape('[skraper] Import gamelist.xml from Skraper instead of cloud scrape');
+    };
+  }
   if(typeof scrapeMissing === 'function'){
     window.__rvScrapeMissingOriginal = scrapeMissing;
     scrapeMissing = async function(){
-      return _rvScrapeBrokenOnly();
+      if(typeof toast === 'function') toast('Use Skraper locally, then Import gamelist.xml.', 'warn');
     };
   }
-  window._rvScrapeBrokenOnly = _rvScrapeBrokenOnly;
-  window.__rvAllSourcesPatched = true;
+  window.__rvSkraperPipelinePatched = true;
 }
 
 function _rvInitScrapeSourceControls(){
   const host = document.getElementById('sc-sources');
-  if(!host || document.getElementById('rvScrapeSourcesCard')) return;
-  const cfg = _rvGetScrapeSourceConfig();
+  if(!host) return;
+  const legacy = document.getElementById('rvScrapeSourcesCard');
+  if(legacy) legacy.remove();
+  if(document.getElementById('rvSkraperImportCard')) return;
+
   const card = document.createElement('div');
-  card.id = 'rvScrapeSourcesCard';
+  card.id = 'rvSkraperImportCard';
   card.className = 'sblk';
   card.style.marginTop = '12px';
-  card.innerHTML = '<h3>All Providers</h3>'
-    + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Enable any mix of sources, or disable any you do not want. Priority is fixed top-to-bottom (Libretro → Wikidata/Wikipedia → LaunchBox → API/login sources).</div>'
-    + '<div style="display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;">'
-    + '<label><input type="checkbox" id="rvp-launchbox"> LaunchBox (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
-    + '<label><input type="checkbox" id="rvp-wikipedia"> Wikidata + Wikipedia (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
-    + '<label><input type="checkbox" id="rvp-libretro"> Libretro Thumbnails (no login)</label><span style="font-size:11px;color:var(--muted);">default</span>'
-    + '<label><input type="checkbox" id="rvp-thegamesdb"> TheGamesDB (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-mobygames"> MobyGames (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-igdb"> IGDB (Client ID + Bearer token)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-giantbomb"> GiantBomb (API key)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-openvgdb"> OpenVGDB (JSON URL)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
-    + '<label><input type="checkbox" id="rvp-screenscraper"> ScreenScraper fallback (login)</label><span style="font-size:11px;color:var(--muted);">optional</span>'
+  card.innerHTML = ''
+    + '<h3>Skraper metadata</h3>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.55;">'
+    + 'RetroVault does not call Skraper or ScreenScraper from the browser. '
+    + '<a href="https://www.skraper.net/" target="_blank" rel="noopener">Skraper</a> is a Windows app that downloads artwork and writes an EmulationStation <code style="font-size:11px;">gamelist.xml</code> next to your ROMs. '
+    + 'Export that file, then import it here. Optional: multi-select the image files Skraper saved (boxart paths in the XML) to upload covers to your R2 bucket.'
     + '</div>'
-    + '<div style="display:grid;gap:8px;margin-top:12px;">'
-    + '<input id="rvTgdbKey" placeholder="TheGamesDB API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvMobyKey" placeholder="MobyGames API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvIgdbClientId" placeholder="IGDB Client ID" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvIgdbToken" placeholder="IGDB Bearer token" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvGiantbombKey" placeholder="GiantBomb API key" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
-    + '<input id="rvOpenvgdbUrl" placeholder="OpenVGDB JSON URL (optional)" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);">'
+    + '<label style="display:block;font-size:12px;margin:8px 0 4px;">gamelist.xml</label>'
+    + '<input type="file" id="rvSkraperGamelistFile" accept=".xml,text/xml,application/xml" style="max-width:100%;" />'
+    + '<label style="display:block;font-size:12px;margin:12px 0 4px;">Skraper images (optional, multi-select)</label>'
+    + '<input type="file" id="rvSkraperImageFiles" multiple accept="image/png,image/jpeg,image/webp,image/gif" style="max-width:100%;" />'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);">'
+    + '<input type="checkbox" id="rvSkraperOverwrite" /> Overwrite existing description / year / etc.</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:var(--muted);">'
+    + '<input type="checkbox" id="rvSkraperNoUpload" /> Do not upload images to R2 (only use http(s) paths from XML)</label>'
+    + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'
+    + '<button class="bb p" type="button" id="rvSkraperImportBtn">Import gamelist.xml</button>'
     + '</div>'
-    + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
-    + '<button class="bb p" type="button" id="rvSaveSourceCfg">Save Source Settings</button>'
-    + '<button class="bb s" type="button" id="rvResetSourceCfg">Reset Defaults</button>'
-    + '<button class="bb s" type="button" id="rvRepairBrokenBtn">Repair Missing/Broken Covers</button>'
-    + '</div>'
-    + '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvQuietExpectedMisses"> Quiet mode (hide expected misses)</label>'
-    + '<div id="rvSourceCfgStatus" style="font-size:11px;color:var(--muted);margin-top:6px;">Saved source profile is loaded automatically.</div>';
+    + '<div id="rvSkraperImportStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>';
+
   host.appendChild(card);
-
-  const setChecks = (c) => {
-    const p = c.providers || {};
-    const on = (id, key) => { const el = document.getElementById(id); if(el) el.checked = !!p[key]; };
-    on('rvp-launchbox','launchbox');
-    on('rvp-wikipedia','wikipedia');
-    on('rvp-libretro','libretro');
-    on('rvp-thegamesdb','thegamesdb');
-    on('rvp-mobygames','mobygames');
-    on('rvp-igdb','igdb');
-    on('rvp-giantbomb','giantbomb');
-    on('rvp-openvgdb','openvgdb');
-    on('rvp-screenscraper','screenscraper');
-    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-    setVal('rvTgdbKey', c.tgdbKey);
-    setVal('rvMobyKey', c.mobyKey);
-    setVal('rvIgdbClientId', c.igdbClientId);
-    setVal('rvIgdbToken', c.igdbToken);
-    setVal('rvGiantbombKey', c.giantbombKey);
-    setVal('rvOpenvgdbUrl', c.openvgdbUrl);
-    const quiet = document.getElementById('rvQuietExpectedMisses');
-    if(quiet) quiet.checked = c.quietExpectedMisses !== false;
+  document.getElementById('rvSkraperImportBtn').onclick = function(){
+    _rvRunSkraperImport().catch(function(e){
+      const st = document.getElementById('rvSkraperImportStatus');
+      if(st) st.textContent = String(e && e.message ? e.message : e);
+      if(typeof toast === 'function') toast('Import failed: ' + (e && e.message ? e.message : e), 'err');
+    });
   };
-  setChecks(cfg);
-
-  document.getElementById('rvSaveSourceCfg').onclick = () => {
-    const out = _rvGetScrapeSourceConfig();
-    const pick = (id) => !!(document.getElementById(id) && document.getElementById(id).checked);
-    out.providers.launchbox = pick('rvp-launchbox');
-    out.providers.wikipedia = pick('rvp-wikipedia');
-    out.providers.libretro = pick('rvp-libretro');
-    out.providers.thegamesdb = pick('rvp-thegamesdb');
-    out.providers.mobygames = pick('rvp-mobygames');
-    out.providers.igdb = pick('rvp-igdb');
-    out.providers.giantbomb = pick('rvp-giantbomb');
-    out.providers.openvgdb = pick('rvp-openvgdb');
-    out.providers.screenscraper = pick('rvp-screenscraper');
-    const getVal = (id) => String((document.getElementById(id) && document.getElementById(id).value) || '').trim();
-    out.tgdbKey = getVal('rvTgdbKey');
-    out.mobyKey = getVal('rvMobyKey');
-    out.igdbClientId = getVal('rvIgdbClientId');
-    out.igdbToken = getVal('rvIgdbToken');
-    out.giantbombKey = getVal('rvGiantbombKey');
-    out.openvgdbUrl = getVal('rvOpenvgdbUrl');
-    out.quietExpectedMisses = !!(document.getElementById('rvQuietExpectedMisses') && document.getElementById('rvQuietExpectedMisses').checked);
-    _rvSaveScrapeSourceConfig(out);
-    const st = document.getElementById('rvSourceCfgStatus');
-    if(st){
-      const enabled = _rvScrapeProviderOrder().filter(id => out.providers && out.providers[id]);
-      st.textContent = enabled.length
-        ? ('Saved. Active providers: ' + enabled.join(', '))
-        : 'Saved. All providers are OFF.';
-    }
-    toast('Source settings saved');
-    setTimeout(_rvPatchScrapePipeline, 0);
-  };
-
-  document.getElementById('rvResetSourceCfg').onclick = () => {
-    const reset = _rvScrapeSourceDefaults();
-    _rvSaveScrapeSourceConfig(reset);
-    setChecks(reset);
-    const st = document.getElementById('rvSourceCfgStatus');
-    if(st) st.textContent = 'Defaults restored.';
-    toast('Source settings reset');
-  };
-
-  const repairBtn = document.getElementById('rvRepairBrokenBtn');
-  if(repairBtn){
-    repairBtn.onclick = () => _rvScrapeBrokenOnly();
-  }
 }
 
 if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', function(){
     _rvInitScrapeSourceControls();
     setTimeout(_rvPatchScrapePipeline, 0);
     setTimeout(_rvPatchScrapePipeline, 1200);
@@ -1779,7 +1458,7 @@ if(document.readyState === 'loading'){
   setTimeout(_rvPatchScrapePipeline, 0);
   setTimeout(_rvPatchScrapePipeline, 1200);
 }
-`;
+`
     if (html.includes(helperAnchor)) {
       html = html.replace(helperAnchor, scraperSourceHelper + helperAnchor);
     }
