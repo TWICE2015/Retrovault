@@ -273,6 +273,776 @@ function getHTML() {
     }
   }
 
+  if (!html.includes('id="rvCardActionFix"')) {
+    const cardActionFix = '<style id="rvCardActionFix">.ga .gfav{left:6px!important;top:6px!important;}.ga .ginfo{left:auto!important;right:6px!important;top:6px!important;}</style>';
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', `${cardActionFix}\n</head>`);
+    }
+  }
+
+  if (!html.includes('id="rvNetflixVisualSkin"')) {
+    const netflixVisualSkin = `<style id="rvNetflixVisualSkin">
+body{background:#141414!important;color:#fff!important;}
+.main{background:#141414!important;}
+.nav{
+  height:68px!important;
+  padding:0 48px!important;
+  background:linear-gradient(to bottom,rgba(0,0,0,.9) 0%,rgba(0,0,0,.52) 58%,rgba(0,0,0,0) 100%)!important;
+}
+.nav.solid{
+  background:rgba(20,20,20,.96)!important;
+  border-bottom:0!important;
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset;
+}
+.logo{
+  font-size:34px!important;
+  letter-spacing:3px!important;
+  color:#e50914!important;
+  margin-right:30px!important;
+}
+.nav-links{gap:6px!important;}
+.nl{
+  font-size:14px!important;
+  color:rgba(255,255,255,.78)!important;
+  padding:8px 10px!important;
+  border-radius:0!important;
+  border-bottom:2px solid transparent!important;
+}
+.nl:hover{color:#fff!important;}
+.nl.on{color:#fff!important;border-bottom-color:#e50914!important;}
+.nb{
+  border-radius:999px!important;
+  border:1px solid rgba(255,255,255,.26)!important;
+  background:rgba(0,0,0,.35)!important;
+  color:#fff!important;
+}
+
+.hero{
+  min-height:520px!important;
+  height:64vh!important;
+  padding:0 48px 62px!important;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(229,9,20,.2), rgba(20,20,20,.92) 44%, #141414 100%)!important;
+}
+.hero::after{
+  content:'';
+  position:absolute;
+  left:0;right:0;bottom:0;height:150px;
+  background:linear-gradient(to top,#141414,transparent);
+  pointer-events:none;
+}
+.hc{max-width:740px!important;}
+.ht{font-size:54px!important;line-height:1.05!important;font-weight:800!important;}
+.hs{font-size:18px!important;color:#d0d0d0!important;line-height:1.42!important;}
+.hbtns{gap:12px!important;}
+.bplay{
+  border-radius:6px!important;
+  padding:12px 26px!important;
+  font-size:15px!important;
+  font-weight:700!important;
+}
+.bmore{
+  border-radius:6px!important;
+  background:rgba(109,109,110,.72)!important;
+  color:#fff!important;
+  font-weight:600!important;
+}
+
+.rows{padding:12px 0 110px!important;}
+.row{margin-bottom:36px!important;}
+.rh{padding:0 48px!important;margin-bottom:12px!important;}
+.rt{font-size:22px!important;font-weight:700!important;letter-spacing:.2px;}
+.rscroll{padding:6px 48px 16px!important;gap:10px!important;}
+
+.gc{width:176px!important;}
+.ga{
+  height:100px!important;
+  border-radius:4px!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.35);
+  background:#1c1c1c!important;
+}
+.gc:hover{
+  transform:scale(1.22) translateY(-8px)!important;
+  z-index:20!important;
+}
+.gco{
+  opacity:0;
+  position:absolute;
+  left:0;right:0;bottom:0;
+  padding:10px;
+  background:linear-gradient(to top, rgba(0,0,0,.88), rgba(0,0,0,.1));
+  transition:opacity .2s;
+}
+.gc:hover .gco{opacity:1;}
+.gl{
+  font-size:12px!important;
+  color:rgba(255,255,255,.88)!important;
+  margin-top:7px!important;
+  max-width:176px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.ga .gfav,.ga .ginfo{
+  width:24px!important;height:24px!important;
+  border-radius:999px!important;
+  font-size:12px!important;
+  background:rgba(0,0,0,.58)!important;
+}
+
+.row-arrow{
+  border:0!important;
+  background:rgba(20,20,20,.52)!important;
+  color:#fff!important;
+  width:40px!important;
+}
+.row-arrow:hover{background:rgba(20,20,20,.86)!important;}
+
+.sysp,.libp,.romsp,.scrp,.setp{padding-top:88px!important;}
+.sys-hdr h1{font-size:34px!important;letter-spacing:1px!important;}
+</style>`;
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', `${netflixVisualSkin}\n</head>`);
+    }
+  }
+
+  if (!html.includes('window.__rvCollectionsMode=true')) {
+    const collectionsModePatch = `<script>
+(function(){
+  if(window.__rvCollectionsMode) return;
+  window.__rvCollectionsMode = true;
+
+  const RV_COLLECTION_RULES = [
+    { id:'mario', name:'Mario', icon:'🍄', color:'#ff3b30', tests:[/\\bmario\\b/i,/\\bwario\\b/i,/\\byoshi\\b/i,/\\btoad\\b/i] },
+    { id:'zelda', name:'Zelda', icon:'🗡️', color:'#1abc9c', tests:[/\\bzelda\\b/i,/\\bhyrule\\b/i,/\\blink\\b/i] },
+    { id:'doom', name:'Doom', icon:'👹', color:'#f4511e', tests:[/\\bdoom\\b/i] },
+    { id:'pokemon', name:'Pokemon', icon:'⚡', color:'#ffcc00', tests:[/\\bpok[eé]mon\\b/i,/\\bpokemon\\b/i] },
+    { id:'sonic', name:'Sonic', icon:'💙', color:'#1e88e5', tests:[/\\bsonic\\b/i] },
+    { id:'final-fantasy', name:'Final Fantasy', icon:'✨', color:'#8e7dff', tests:[/\\bfinal\\s+fantasy\\b/i,/\\bff\\s*[ivx0-9]/i] },
+    { id:'castlevania', name:'Castlevania', icon:'🦇', color:'#ab47bc', tests:[/\\bcastlevania\\b/i] },
+    { id:'metroid', name:'Metroid', icon:'🚀', color:'#00acc1', tests:[/\\bmetroid\\b/i] },
+    { id:'mega-man', name:'Mega Man', icon:'🤖', color:'#42a5f5', tests:[/\\bmega\\s*man\\b/i,/\\bmegaman\\b/i,/\\brockman\\b/i] },
+    { id:'street-fighter', name:'Street Fighter', icon:'🥊', color:'#ef5350', tests:[/\\bstreet\\s+fighter\\b/i] },
+    { id:'resident-evil', name:'Resident Evil', icon:'🧟', color:'#d32f2f', tests:[/\\bresident\\s+evil\\b/i,/\\bbiohazard\\b/i] },
+    { id:'mortal-kombat', name:'Mortal Kombat', icon:'🐉', color:'#ff7043', tests:[/\\bmortal\\s+kombat\\b/i] },
+    { id:'donkey-kong', name:'Donkey Kong', icon:'🦍', color:'#8d6e63', tests:[/\\bdonkey\\s+kong\\b/i] },
+    { id:'kirby', name:'Kirby', icon:'🌸', color:'#ec407a', tests:[/\\bkirby\\b/i] },
+  ];
+  const RV_COLLECTION_DEFAULT = { id:'classics', name:'Classics', icon:'🎮', color:'#7e8a97' };
+
+  function _rvCollectionName(rom){
+    const raw = String((rom && (rom.name || rom.filename)) || '').trim();
+    return raw;
+  }
+
+  function _rvCollectionMetaForRom(rom){
+    const name = _rvCollectionName(rom);
+    for(const rule of RV_COLLECTION_RULES){
+      if(rule.tests.some((re)=>re.test(name))) return rule;
+    }
+    return RV_COLLECTION_DEFAULT;
+  }
+
+  function _rvCollectionMetaById(id){
+    const target = String(id || '').trim();
+    return RV_COLLECTION_RULES.find((r)=>r.id === target) || RV_COLLECTION_DEFAULT;
+  }
+
+  function _rvGroupByCollection(roms){
+    const map = {};
+    (roms || []).forEach((rom)=>{
+      const meta = _rvCollectionMetaForRom(rom);
+      if(!map[meta.id]) map[meta.id] = { meta: meta, games: [] };
+      map[meta.id].games.push(rom);
+    });
+    return Object.values(map).sort((a,b)=>{
+      const byCount = (b.games.length||0) - (a.games.length||0);
+      if(byCount !== 0) return byCount;
+      return String(a.meta.name || '').localeCompare(String(b.meta.name || ''));
+    });
+  }
+
+  function _rvCollectionLabel(id){
+    const meta = _rvCollectionMetaById(id);
+    return meta ? meta.name : 'Classics';
+  }
+
+  function _rvCleanCardName(name){
+    if(typeof cleanName === 'function') return cleanName(name);
+    return String(name || '').replace(/\\.[a-z0-9]{1,6}$/i,'').trim();
+  }
+
+  function _rvPatchCollectionLabels(){
+    const navLinks = document.querySelectorAll('.nl');
+    if(navLinks && navLinks[1]) navLinks[1].textContent = 'Collections';
+    const title = document.querySelector('#view-systems .sys-hdr h1');
+    if(title) title.textContent = 'ALL COLLECTIONS';
+    const tools = document.querySelector('#view-systems .sys-hdr > div:last-child');
+    if(tools) tools.style.display = 'none';
+    const libSel = document.getElementById('libSys');
+    if(libSel){
+      const first = libSel.querySelector('option[value="all"]');
+      if(first) first.textContent = 'All Collections';
+    }
+  }
+
+  async function _rvBuildHomeCollections(){
+    const roms = await dbGetAll('roms');
+    const hr = document.getElementById('homeRows');
+    if(!hr) return;
+    if(!roms.length){
+      hr.innerHTML = '<div class="empty"><div class="empty-icon">🎮</div><div class="empty-title">No games yet</div><div class="empty-sub">Upload your ROM files to start playing</div><button class="bb p" onclick="sv(\\'roms\\',null)">⬆ Upload ROMs</button></div>';
+      const hs = document.getElementById('heroStats');
+      if(hs) hs.textContent = 'Upload ROMs to get started';
+      return;
+    }
+
+    const groups = _rvGroupByCollection(roms);
+    const hs = document.getElementById('heroStats');
+    if(hs) hs.textContent = roms.length + ' ROM' + (roms.length!==1?'s':'') + ' across ' + groups.length + ' collection' + (groups.length!==1?'s':'');
+    const heroRom = roms.slice().sort((a,b)=>(b.added||0)-(a.added||0))[0];
+    const ht = document.getElementById('heroTitle');
+    if(ht && heroRom) ht.textContent = _rvCleanCardName(heroRom.name || heroRom.filename || 'RetroVault');
+    const playBtn = document.querySelector('.hbtns .bplay');
+    if(playBtn && heroRom) playBtn.onclick = function(){ launchRomById(heroRom.id); };
+
+    let out = '';
+    groups.forEach((group)=>{
+      const cid = 'col-' + group.meta.id;
+      out += '<div class="row" id="row-'+cid+'">'+
+        '<div class="rh">'+
+          '<span style="color:'+group.meta.color+';font-weight:800;font-size:16px;">'+group.meta.icon+'</span>'+
+          '<div class="rt">'+group.meta.name+'</div>'+
+          '<span style="font-size:11px;color:var(--muted);margin-left:4px;">'+group.games.length+' game'+(group.games.length!==1?'s':'')+'</span>'+
+        '</div>'+
+        '<div class="row-wrap">'+
+          '<button class="row-arrow arr-l arr-hidden" onclick="rowScroll(\\''+cid+'\\',-1)">&#8249;</button>'+
+          '<div class="rscroll" id="rscroll-'+cid+'" onscroll="updateRowArrows(\\''+cid+'\\')">'+group.games.map((g)=>makeCard(g)).join('')+'</div>'+
+          '<button class="row-arrow arr-r" onclick="rowScroll(\\''+cid+'\\',1)">&#8250;</button>'+
+        '</div>'+
+      '</div>';
+    });
+    hr.innerHTML = out;
+    groups.forEach((group)=>updateRowArrows('col-' + group.meta.id));
+  }
+
+  async function _rvBuildCollectionGrid(){
+    const roms = await dbGetAll('roms');
+    const groups = _rvGroupByCollection(roms);
+    const info = document.getElementById('sysInfo');
+    if(info) info.textContent = groups.length + ' collections · ' + roms.length + ' ROMs uploaded';
+    const grid = document.getElementById('sysGrid');
+    if(!grid) return;
+    if(!groups.length){
+      grid.innerHTML = '<div class="empty"><div class="empty-icon">🎮</div><div class="empty-title">No collections yet</div><div class="empty-sub">Upload ROMs to build franchise collections</div></div>';
+      return;
+    }
+    grid.innerHTML = groups.map((group)=>{
+      return '<div class="scrd" style="--sc:'+group.meta.color+'" onclick="_rvJumpCollection(\\''+group.meta.id+'\\')">'+
+        '<span class="sbdg tag-r">collection</span>'+
+        '<div class="sci" style="background:'+group.meta.color+'22;color:'+group.meta.color+'">'+group.meta.icon+'</div>'+
+        '<div class="scn">'+group.meta.name+'</div>'+
+        '<div class="scc">'+group.games.length+' game'+(group.games.length!==1?'s':'')+'</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  async function _rvFilterLibCollections(roms){
+    if(!roms){
+      const all = await dbGetAll('roms');
+      roms = all.filter((r)=>r.favourite);
+    }
+    const sel = document.getElementById('libSys');
+    const selected = String((sel && sel.value) || 'all');
+    const selectedCollection = selected.startsWith('col:') ? selected.slice(4) : 'all';
+    const srch = String((document.getElementById('srch') && document.getElementById('srch').value) || '').toLowerCase();
+    const sort = String((document.getElementById('libSort') && document.getElementById('libSort').value) || 'recent');
+
+    let list = (roms || []).filter((r)=>{
+      if(selectedCollection !== 'all' && _rvCollectionMetaForRom(r).id !== selectedCollection) return false;
+      const nm = String(r.name || r.filename || '').toLowerCase();
+      return !srch || nm.includes(srch);
+    });
+    if(sort === 'alpha') list.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+    else list.sort((a,b)=>(b.added||0)-(a.added||0));
+
+    const el = document.getElementById('libRows');
+    if(!el) return;
+    if(!list.length){
+      el.innerHTML = '<div class="empty"><div class="empty-icon">❤️</div><div class="empty-title">'+(srch?'No results':'My List is empty')+'</div><div class="empty-sub">'+(srch?'Try a different search':'Press ❤ on any game card to add it here')+'</div></div>';
+      return;
+    }
+    const grouped = {};
+    list.forEach((r)=>{
+      const meta = _rvCollectionMetaForRom(r);
+      if(!grouped[meta.id]) grouped[meta.id] = { meta: meta, games: [] };
+      grouped[meta.id].games.push(r);
+    });
+    const groups = Object.values(grouped).sort((a,b)=>(b.games.length||0)-(a.games.length||0));
+    let html = '';
+    groups.forEach((group)=>{
+      html += '<div class="row"><div class="rh" style="padding:0 36px">'+
+        '<span style="color:'+group.meta.color+';font-weight:800;font-size:14px;">'+group.meta.icon+'</span>'+
+        '<div class="rt">'+group.meta.name+'</div>'+
+        '<span style="font-size:11px;color:var(--muted)">'+group.games.length+' games</span>'+
+      '</div><div class="rscroll">'+group.games.map((g)=>makeCard(g)).join('')+'</div></div>';
+    });
+    el.innerHTML = html;
+  }
+
+  async function _rvBuildLibCollections(){
+    const roms = await dbGetAll('roms');
+    const favs = roms.filter((r)=>r.favourite);
+    const sel = document.getElementById('libSys');
+    if(sel){
+      const current = String(sel.value || 'all');
+      sel.innerHTML = '<option value="all">All Collections</option>';
+      const groups = _rvGroupByCollection(favs);
+      groups.forEach((group)=>{
+        const opt = document.createElement('option');
+        opt.value = 'col:' + group.meta.id;
+        opt.textContent = group.meta.name;
+        sel.appendChild(opt);
+      });
+      const canRestore = Array.from(sel.options).some((o)=>o.value === current);
+      sel.value = canRestore ? current : 'all';
+    }
+    await _rvFilterLibCollections(favs);
+  }
+
+  window._rvJumpCollection = function(collectionId){
+    if(typeof sv === 'function') sv('library', null);
+    setTimeout(function(){
+      const sel = document.getElementById('libSys');
+      if(sel){
+        const targetValue = 'col:' + collectionId;
+        if(!Array.from(sel.options).some((o)=>o.value === targetValue)){
+          const opt = document.createElement('option');
+          opt.value = targetValue;
+          opt.textContent = _rvCollectionLabel(collectionId);
+          sel.appendChild(opt);
+        }
+        sel.value = targetValue;
+      }
+      if(typeof filterLib === 'function'){
+        const p = filterLib();
+        if(p && typeof p.catch === 'function') p.catch(()=>{});
+      }
+    }, 80);
+  };
+
+  function _rvEnableCollectionsMode(){
+    _rvPatchCollectionLabels();
+    window.buildHome = _rvBuildHomeCollections;
+    window.buildSysGrid = function(){ return _rvBuildCollectionGrid(); };
+    window.fSys = function(_f, btn){
+      if(btn){
+        document.querySelectorAll('.fb').forEach((b)=>b.classList.remove('on'));
+        btn.classList.add('on');
+      }
+      return _rvBuildCollectionGrid();
+    };
+    window.buildLib = _rvBuildLibCollections;
+    window.filterLib = _rvFilterLibCollections;
+  }
+
+  const boot = function(){
+    _rvEnableCollectionsMode();
+    _rvPatchCollectionLabels();
+    setTimeout(function(){
+      if(typeof buildHome === 'function'){
+        const p = buildHome();
+        if(p && typeof p.catch === 'function') p.catch(()=>{});
+      }
+    }, 0);
+  };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else setTimeout(boot, 0);
+})();
+</script>`;
+    html = html.replace('</body>', `${collectionsModePatch}\n</body>`);
+  }
+
+  if (!html.includes('window.__rvHybridUXMode=true')) {
+    const hybridUxPatch = `<script>
+(function(){
+  if(window.__rvHybridUXMode) return;
+  window.__rvHybridUXMode = true;
+
+  const HYBRID_PREF = {
+    metadataLayout: 'old',      // 1A
+    metadataActions: 'old',     // 2A
+    localArtworkTools: 'old',   // 3A
+    howItWorks: 'hybrid',       // 4C
+    settingsDensity: 'hybrid',  // 5C
+    usersFlow: 'old',           // 6A
+    browseMode: 'toggle',       // 7C
+    cardScale: 'medium'         // 8B
+  };
+
+  function _rvGetHybridPrefs(){
+    const defaults = {
+      settingsDensity: HYBRID_PREF.settingsDensity || 'hybrid',
+      usersFlow: HYBRID_PREF.usersFlow || 'old',
+      browseMode: _rvHybridModeStore(),
+    };
+    try{
+      const raw = localStorage.getItem('rv-hybrid-prefs');
+      if(!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      const out = Object.assign({}, defaults, parsed || {});
+      if(!['compact','hybrid','cinematic'].includes(out.settingsDensity)) out.settingsDensity = defaults.settingsDensity;
+      if(!['old','netflix'].includes(out.usersFlow)) out.usersFlow = defaults.usersFlow;
+      out.browseMode = out.browseMode === 'consoles' ? 'consoles' : 'collections';
+      return out;
+    }catch(e){
+      return defaults;
+    }
+  }
+
+  function _rvSaveHybridPrefs(next){
+    const curr = _rvGetHybridPrefs();
+    const merged = Object.assign({}, curr, next || {});
+    localStorage.setItem('rv-hybrid-prefs', JSON.stringify(merged));
+    return merged;
+  }
+
+  function _rvHybridModeStore(){
+    try{
+      const raw = localStorage.getItem('rv-browse-mode');
+      if(raw === 'collections' || raw === 'consoles') return raw;
+    }catch(e){}
+    return 'collections';
+  }
+
+  function _rvSetBrowseMode(mode){
+    const next = mode === 'consoles' ? 'consoles' : 'collections';
+    try{ localStorage.setItem('rv-browse-mode', next); }catch(e){}
+    return next;
+  }
+
+  function _rvInjectBrowseToggle(){
+    const nav = document.querySelector('.nav-r') || document.querySelector('.nav');
+    if(!nav || document.getElementById('rvBrowseToggleBtn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'rvBrowseToggleBtn';
+    btn.className = 'nb';
+    btn.type = 'button';
+    const applyLabel = ()=>{
+      const mode = _rvHybridModeStore();
+      btn.textContent = mode === 'collections' ? '🧩 Collections' : '🕹 Consoles';
+      btn.title = 'Switch browse mode';
+    };
+    btn.onclick = ()=>{
+      const mode = _rvHybridModeStore();
+      _rvSetBrowseMode(mode === 'collections' ? 'consoles' : 'collections');
+      applyLabel();
+      if(typeof refreshAll === 'function'){
+        const p = refreshAll();
+        if(p && typeof p.catch === 'function') p.catch(()=>{});
+      }
+      if(typeof buildSysGrid === 'function'){
+        const p2 = buildSysGrid('all');
+        if(p2 && typeof p2.catch === 'function') p2.catch(()=>{});
+      }
+      if(typeof buildLib === 'function'){
+        const p3 = buildLib();
+        if(p3 && typeof p3.catch === 'function') p3.catch(()=>{});
+      }
+    };
+    applyLabel();
+    nav.prepend(btn);
+  }
+
+  function _rvApplyHybridStyles(){
+    if(document.getElementById('rvHybridUXStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'rvHybridUXStyle';
+    style.textContent = [
+      '.gc{ width:148px !important; }',
+      '.ga{ height:222px !important; border-radius:6px !important; }',
+      '.gc:hover{ transform:scale(1.14) translateY(-4px) !important; }',
+      '#rvBrowseToggleBtn{ margin-right:4px; }',
+      '.rv-old-users-compact #rvProfilePicker .rv-wrap{ width:min(760px,94vw) !important; }',
+      '.rv-old-users-compact #rvProfilePicker .rv-title{ font-size:42px !important; }',
+      '.rv-old-users-compact #rvProfilePicker .rv-grid{ grid-template-columns:repeat(auto-fit,minmax(128px,1fr)) !important; gap:12px !important; }',
+      '.rv-old-users-compact #rvProfilePicker .rv-avatar{ width:106px !important; height:106px !important; }',
+      '.rv-settings-compact .setp .sblk{ padding:10px 10px !important; }',
+      '.rv-settings-compact .setp .srow{ padding:4px 0 !important; }',
+      '.rv-settings-compact .setp .slbl{ font-size:11px !important; }',
+      '.rv-settings-balanced .setp .sblk{ padding:14px 14px !important; }',
+      '.rv-settings-balanced .setp .srow{ padding:6px 0 !important; }',
+      '.rv-settings-balanced .setp .slbl{ font-size:12px !important; }',
+      '.rv-settings-cinematic .setp .sblk{ padding:18px 18px !important; }',
+      '.rv-settings-cinematic .setp .srow{ padding:9px 0 !important; }',
+      '.rv-settings-cinematic .setp .slbl{ font-size:13px !important; }',
+      '#rvHybridPrefCard{ background:var(--s1); border:1px solid var(--border); border-radius:10px; padding:12px; margin:12px 0; }',
+      '#rvHybridPrefCard .rvh-row{ display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 4px; }',
+      '#rvHybridPrefCard .rvh-title{ font-size:13px; font-weight:700; margin-bottom:6px; }',
+      '#rvHybridPrefCard .rvh-sub{ font-size:12px; color:var(--muted); }'
+    ].join('\\n');
+    document.head.appendChild(style);
+  }
+
+  function _rvPatchMetadataPanel(){
+    const scMain = document.getElementById('sc-main');
+    if(!scMain || document.getElementById('rvMetaHybridTools')) return;
+    const box = document.createElement('div');
+    box.id = 'rvMetaHybridTools';
+    box.style.background = 'var(--s1)';
+    box.style.border = '1px solid var(--border)';
+    box.style.borderRadius = '10px';
+    box.style.padding = '12px';
+    box.style.margin = '12px 0';
+
+    box.innerHTML =
+      '<div style=\"font-size:13px;font-weight:700;margin-bottom:8px;\">Metadata Utility Tools</div>'+
+      '<div style=\"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;\">'+
+        '<button class=\"bb p\" id=\"rvMetaScrapeAll\">⬇ Scrape All ROMs</button>'+
+        '<button class=\"bb s\" id=\"rvMetaMissingOnly\">⬇ Missing Art Only</button>'+
+        '<button class=\"bb s\" id=\"rvMetaMissingTrailers\">🎬 Missing Trailers</button>'+
+        '<button class=\"bb s\" id=\"rvMetaLocalArt\">🖼 Use Local Artwork</button>'+
+        '<button class=\"bb s\" id=\"rvMetaUploadR2\">☁ Upload Local Artwork to R2</button>'+
+      '</div>'+
+      '<label style=\"display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:8px;\">'+
+        '<input id=\"rvMetaOverwriteToggle\" type=\"checkbox\" /> Overwrite existing cover URLs'+
+      '</label>'+
+      '<div id=\"rvMetaHowItWorks\" style=\"font-size:12px;color:var(--muted);line-height:1.65;\">'+
+        '<strong style=\"color:var(--text)\">How it works:</strong> Hash + filename matching runs first, then enabled providers are used as fallback. Local artwork can be applied before cloud provider lookups.'+
+      '</div>';
+
+    const anchor = scMain.querySelector('.bb-row');
+    if(anchor && anchor.parentElement){
+      anchor.parentElement.insertBefore(box, anchor.nextSibling);
+    } else {
+      scMain.insertBefore(box, scMain.firstChild);
+    }
+
+    const clickBySelector = (sel)=>{
+      const target = document.querySelector(sel);
+      if(target && typeof target.click === 'function') target.click();
+    };
+
+    const allBtn = document.getElementById('rvMetaScrapeAll');
+    const missBtn = document.getElementById('rvMetaMissingOnly');
+    const trailersBtn = document.getElementById('rvMetaMissingTrailers');
+    const localBtn = document.getElementById('rvMetaLocalArt');
+    const uploadBtn = document.getElementById('rvMetaUploadR2');
+    const overwrite = document.getElementById('rvMetaOverwriteToggle');
+
+    if(allBtn) allBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.p');
+    if(missBtn) missBtn.onclick = ()=>clickBySelector('#sc-main .bb-row .bb.s');
+    if(trailersBtn) trailersBtn.onclick = async ()=>{
+      try{
+        const roms = await dbGetAll('roms');
+        const need = (roms || []).filter((r)=>!r || !r.videoUrl);
+        const count = need.length;
+        if(typeof toast==='function') toast(count ? ('Trailer queue: '+count+' game(s) missing videoUrl metadata') : 'All listed games already have trailer metadata');
+        const st = document.getElementById('rvMetaHowItWorks');
+        if(st) st.innerHTML = '<strong style=\"color:var(--text)\">Trailer report:</strong> '+count+' game(s) currently missing trailer metadata. Add provider support or import trailer URLs in metadata.';
+      }catch(e){
+        if(typeof toast==='function') toast('Trailer scan failed: '+e.message,'err');
+      }
+    };
+    if(localBtn) localBtn.onclick = ()=>{
+      if(typeof scTab === 'function'){
+        const tabs = document.querySelectorAll('#view-scraper .si');
+        const targetBtn = tabs && tabs[3] ? tabs[3] : null;
+        scTab('sc-sources', targetBtn || null);
+      }
+      if(typeof toast==='function') toast('Open Sources + Media Directories section (ES-DE layout) for local artwork mapping.');
+      const dirs = document.getElementById('sc-dirs');
+      if(dirs){
+        dirs.style.display = 'block';
+        dirs.style.visibility = 'visible';
+        dirs.style.height = 'auto';
+        dirs.style.overflow = 'visible';
+        setTimeout(()=>dirs.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+      }
+    };
+    if(uploadBtn) uploadBtn.onclick = ()=>{
+      if(typeof sv === 'function') sv('roms', null);
+      setTimeout(()=>{
+        if(typeof rTab === 'function'){
+          const tab = document.querySelector('#view-roms .si[onclick*=\"cloud\"]');
+          rTab('cloud', tab || null);
+        }
+      }, 90);
+      if(typeof toast==='function') toast('Use ROMs → Cloud Sync to upload artwork/media assets to R2.');
+    };
+    if(overwrite){
+      overwrite.checked = localStorage.getItem('rv-meta-overwrite') === '1';
+      overwrite.onchange = ()=>localStorage.setItem('rv-meta-overwrite', overwrite.checked ? '1' : '0');
+    }
+  }
+
+  function _rvApplyUsersFlowPreference(){
+    const prefs = _rvGetHybridPrefs();
+    document.documentElement.classList.remove('rv-old-users-compact');
+    if(prefs.usersFlow === 'old'){
+      document.documentElement.classList.add('rv-old-users-compact');
+      try{ localStorage.setItem('rv-profile-picker-seen','1'); }catch(e){}
+    } else {
+      try{ localStorage.removeItem('rv-profile-picker-seen'); }catch(e){}
+    }
+  }
+
+  function _rvApplySettingsPreference(){
+    const prefs = _rvGetHybridPrefs();
+    document.documentElement.classList.remove('rv-settings-compact','rv-settings-balanced','rv-settings-cinematic');
+    if(prefs.settingsDensity === 'compact') document.documentElement.classList.add('rv-settings-compact');
+    else if(prefs.settingsDensity === 'cinematic') document.documentElement.classList.add('rv-settings-cinematic');
+    else document.documentElement.classList.add('rv-settings-balanced');
+  }
+
+  function _rvInjectHybridPrefsCard(){
+    const host = document.getElementById('st-gen') || document.getElementById('view-settings');
+    if(!host || document.getElementById('rvHybridPrefCard')) return;
+    const card = document.createElement('div');
+    card.id = 'rvHybridPrefCard';
+    card.innerHTML =
+      '<div class=\"rvh-title\">Hybrid UX Preferences</div>'+
+      '<div class=\"rvh-sub\">Control browse mode, settings density, and users flow.</div>'+
+      '<div class=\"rvh-row\" id=\"rvHybridBrowseRow\"></div>'+
+      '<div class=\"rvh-row\" id=\"rvHybridDensityRow\"></div>'+
+      '<div class=\"rvh-row\" id=\"rvHybridUsersRow\"></div>'+
+      '<div class=\"rvh-sub\" id=\"rvHybridPrefStatus\">Saved automatically.</div>';
+    host.prepend(card);
+
+    const mkBtn = (label, active, onClick)=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = active ? 'bb p' : 'bb s';
+      b.textContent = label;
+      b.onclick = onClick;
+      return b;
+    };
+
+    const draw = ()=>{
+      const prefs = _rvGetHybridPrefs();
+      const browseRow = document.getElementById('rvHybridBrowseRow');
+      const densRow = document.getElementById('rvHybridDensityRow');
+      const usersRow = document.getElementById('rvHybridUsersRow');
+      if(!browseRow || !densRow || !usersRow) return;
+      browseRow.innerHTML = '';
+      densRow.innerHTML = '';
+      usersRow.innerHTML = '';
+
+      ['collections','consoles'].forEach((mode)=>{
+        browseRow.appendChild(mkBtn('Browse: '+(mode==='collections'?'Collections':'Consoles'), prefs.browseMode===mode, ()=>{
+          _rvSetBrowseMode(mode);
+          _rvSaveHybridPrefs({ browseMode: mode });
+          draw();
+          if(typeof refreshAll === 'function') Promise.resolve(refreshAll()).catch(()=>{});
+          if(typeof buildSysGrid === 'function') Promise.resolve(buildSysGrid('all')).catch(()=>{});
+          if(typeof buildLib === 'function') Promise.resolve(buildLib()).catch(()=>{});
+        }));
+      });
+
+      ['compact','hybrid','cinematic'].forEach((mode)=>{
+        densRow.appendChild(mkBtn('Density: '+mode, prefs.settingsDensity===mode, ()=>{
+          _rvSaveHybridPrefs({ settingsDensity: mode });
+          _rvApplySettingsPreference();
+          draw();
+        }));
+      });
+
+      [['old','Users: Simple'],['netflix','Users: Netflix']].forEach(([mode,label])=>{
+        usersRow.appendChild(mkBtn(label, prefs.usersFlow===mode, ()=>{
+          _rvSaveHybridPrefs({ usersFlow: mode });
+          _rvApplyUsersFlowPreference();
+          draw();
+        }));
+      });
+    };
+    draw();
+  }
+
+  function _rvPatchBrowseModeSwitching(){
+    if(window.__rvHybridBrowseWrapped) return;
+    window.__rvHybridBrowseWrapped = true;
+
+    const origBuildHome = window.buildHome;
+    const origBuildSysGrid = window.buildSysGrid;
+    const origBuildLib = window.buildLib;
+    const origFilterLib = window.filterLib;
+
+    function isCollections(){
+      const prefs = _rvGetHybridPrefs();
+      return (prefs && prefs.browseMode ? prefs.browseMode : _rvHybridModeStore()) === 'collections';
+    }
+
+    if(typeof origBuildHome === 'function'){
+      window.buildHome = async function(){
+        if(isCollections() && typeof window._rvBuildHomeCollections === 'function'){
+          return window._rvBuildHomeCollections();
+        }
+        return origBuildHome();
+      };
+    }
+    if(typeof origBuildSysGrid === 'function'){
+      window.buildSysGrid = async function(filter){
+        if(isCollections() && typeof window._rvBuildCollectionGrid === 'function'){
+          return window._rvBuildCollectionGrid();
+        }
+        return origBuildSysGrid(filter || 'all');
+      };
+    }
+    if(typeof origBuildLib === 'function'){
+      window.buildLib = async function(){
+        if(isCollections() && typeof window._rvBuildLibCollections === 'function'){
+          return window._rvBuildLibCollections();
+        }
+        return origBuildLib();
+      };
+    }
+    if(typeof origFilterLib === 'function'){
+      window.filterLib = async function(roms){
+        if(isCollections() && typeof window._rvFilterLibCollections === 'function'){
+          return window._rvFilterLibCollections(roms);
+        }
+        return origFilterLib(roms);
+      };
+    }
+
+    const navLinks = document.querySelectorAll('.nl');
+    if(navLinks && navLinks[1]){
+      const refreshLabel = ()=>{
+        navLinks[1].textContent = isCollections() ? 'Collections' : 'Systems';
+      };
+      refreshLabel();
+      const oldClick = navLinks[1].onclick;
+      navLinks[1].onclick = function(ev){
+        refreshLabel();
+        if(typeof oldClick === 'function') return oldClick.call(this, ev);
+      };
+    }
+
+    const libSel = document.getElementById('libSys');
+    if(libSel){
+      const first = libSel.querySelector('option[value=\"all\"]');
+      if(first) first.textContent = isCollections() ? 'All Collections' : 'All Systems';
+    }
+  }
+
+  function boot(){
+    _rvApplyHybridStyles();
+    _rvInjectBrowseToggle();
+    _rvPatchBrowseModeSwitching();
+    _rvPatchMetadataPanel();
+    _rvApplyUsersFlowPreference();
+    _rvApplySettingsPreference();
+    _rvInjectHybridPrefsCard();
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else setTimeout(boot, 0);
+})();
+</script>`;
+    html = html.replace('</body>', `${hybridUxPatch}\n</body>`);
+  }
+
   if (!html.includes('function _rvGetScrapeSourceConfig(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
     const scraperSourceHelper = `
@@ -356,7 +1126,23 @@ function _rvNormTitle(v){
 }
 
 function _rvProxyUrl(url){
-  return window.location.origin + '/scraper-proxy?url=' + encodeURIComponent(url);
+  return window.location.origin + '/scraper-proxy?url=' + encodeURIComponent(url) + '&soft404=1';
+}
+
+async function _rvProbeViaProxy(url){
+  try{
+    const resp = await fetch(_rvProxyUrl(url) + '&probe=1');
+    if(!resp.ok) return { ok:false, upstreamStatus: resp.status, missing:false };
+    const data = await resp.json().catch(()=>({}));
+    if(data && typeof data === 'object'){
+      const missing = !!(data.miss || (data.proxy && data.proxy.missing));
+      if(missing) return { ok:false, upstreamStatus: 404, missing:true };
+      return data;
+    }
+    return { ok:false, upstreamStatus: 0, missing:false };
+  }catch(e){
+    return { ok:false, upstreamStatus: 0, missing:false };
+  }
 }
 
 function _rvToPlainText(v){
@@ -408,7 +1194,11 @@ async function _rvFetchJsonViaProxy(url, init){
   if(!resp.ok) throw new Error('HTTP '+resp.status);
   const text = await resp.text();
   try{
-    return JSON.parse(text);
+    const payload = JSON.parse(text);
+    if(payload && (payload.miss || (payload.proxy && payload.proxy.missing))){
+      return null;
+    }
+    return payload;
   }catch(e){
     throw new Error('Invalid JSON response');
   }
@@ -537,8 +1327,8 @@ async function _rvScrapeLibretro(romId){
     const sysSeg = encodeURIComponent(sys);
     const boxUrl = 'https://thumbnails.libretro.com/' + sysSeg + '/Named_Boxarts/' + rel;
     try{
-      const probe = await fetch(_rvProxyUrl(boxUrl));
-      if(probe.ok){
+      const probe = await _rvProbeViaProxy(boxUrl);
+      if(probe && probe.ok){
         const changed = await _rvApplyMetaPatch(romId, { coverUrl: boxUrl }, 'libretro');
         if(changed) return true;
       }
@@ -1444,10 +2234,9 @@ if(document.readyState === 'loading'){
 
   function upsertChip(profileLike){
     const profile = (profileLike && typeof profileLike === 'object') ? profileLike : {};
-    const display = String(profile.displayName || ownerId());
     const avatar = profile.avatar && typeof profile.avatar === 'object' ? profile.avatar : { type:'preset', preset:'neon' };
     const avatarUrl = String(profile.avatarUrl || '').trim();
-    const host = document.querySelector('.nr') || document.querySelector('.nav') || document.body;
+    const host = document.querySelector('.nav-r') || document.querySelector('.nr') || document.querySelector('.nav') || document.body;
     if(!host) return null;
     let chip = document.getElementById('rvOwnerChip');
     if(!chip){
@@ -1458,11 +2247,12 @@ if(document.readyState === 'loading'){
       chip.style.display = 'inline-flex';
       chip.style.alignItems = 'center';
       chip.style.gap = '6px';
-      chip.style.maxWidth = '220px';
+      chip.style.maxWidth = '44px';
+      chip.style.minWidth = '36px';
       chip.style.overflow = 'hidden';
       chip.style.textOverflow = 'ellipsis';
       chip.style.whiteSpace = 'nowrap';
-      chip.style.padding = '4px 10px';
+      chip.style.padding = '4px 8px';
       chip.onclick = async function(){
         const current = (window.__rvProfile && window.__rvProfile.displayName) || ownerId();
         const next = String(prompt('Profile display name', current) || '').trim();
@@ -1495,18 +2285,10 @@ if(document.readyState === 'loading'){
       avatarNode.style.overflow = 'hidden';
       avatarNode.style.fontSize = '12px';
       avatarNode.style.flex = '0 0 20px';
-      const labelNode = document.createElement('span');
-      labelNode.id = 'rvOwnerChipText';
-      labelNode.style.maxWidth = '170px';
-      labelNode.style.overflow = 'hidden';
-      labelNode.style.textOverflow = 'ellipsis';
-      labelNode.style.whiteSpace = 'nowrap';
       chip.appendChild(avatarNode);
-      chip.appendChild(labelNode);
-      host.prepend(chip);
+      host.appendChild(chip);
     }
     const avatarNode = document.getElementById('rvOwnerChipAvatar');
-    const labelNode = document.getElementById('rvOwnerChipText');
     if(avatarNode){
       avatarNode.innerHTML = '';
       if(avatar.type === 'upload' && avatarUrl){
@@ -1521,7 +2303,6 @@ if(document.readyState === 'loading'){
         avatarNode.textContent = _rvPresetEmoji(avatar.preset);
       }
     }
-    if(labelNode) labelNode.textContent = display;
     return chip;
   }
 
@@ -3379,6 +4160,8 @@ export default {
     if (path === '/scraper-proxy') {
       const target = url.searchParams.get('url');
       if (!target) return new Response(JSON.stringify({ ok: false, error: 'Missing url' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+      const requestSoftNotFound = parseTruthyQueryValue(url.searchParams.get('softNotFound'))
+        || parseTruthyQueryValue(url.searchParams.get('soft404'));
 
       let targetUrl;
       try {
@@ -3387,6 +4170,18 @@ export default {
       } catch {
         return new Response(JSON.stringify({ ok: false, error: 'Invalid URL — must be HTTPS' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
       }
+
+      const knownScrapeHosts = new Set([
+        'gamesdb.launchbox-app.com',
+        'thumbnails.libretro.com',
+        'en.wikipedia.org',
+        'www.wikidata.org',
+        'api.thegamesdb.net',
+        'api.mobygames.com',
+        'api.igdb.com',
+        'www.giantbomb.com',
+      ]);
+      const softNotFound = requestSoftNotFound || (method === 'GET' && knownScrapeHosts.has(targetUrl.hostname));
 
       try {
         const upstreamInit = {
@@ -3410,6 +4205,28 @@ export default {
         const upstream = await fetch(target, upstreamInit);
         const respText = await upstream.text();
         const upstreamCt = upstream.headers.get('Content-Type') || 'text/plain';
+        if (softNotFound && upstream.status === 404) {
+          return new Response(JSON.stringify({
+            ok: false,
+            miss: true,
+            status: 404,
+            url: target,
+            proxy: {
+              missing: true,
+              status: 404,
+              host: targetUrl.hostname,
+            },
+          }), {
+            status: 200,
+            headers: {
+              ...corsHeaders(origin),
+              'Content-Type': 'application/json',
+              'Cache-Control': 'public, max-age=300',
+              'X-Retrovault-Soft-Miss': '1',
+              'X-Proxied-By': 'RetroVault Worker',
+            },
+          });
+        }
 
         return new Response(respText, {
           status: upstream.status,
