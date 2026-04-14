@@ -413,6 +413,12 @@ body{background:#141414!important;color:#fff!important;}
   if(window.__rvCollectionsMode) return;
   window.__rvCollectionsMode = true;
 
+  if(typeof window.__rvStockBuildHome !== 'function' && typeof buildHome === 'function') window.__rvStockBuildHome = buildHome;
+  if(typeof window.__rvStockBuildSysGrid !== 'function' && typeof buildSysGrid === 'function') window.__rvStockBuildSysGrid = buildSysGrid;
+  if(typeof window.__rvStockBuildLib !== 'function' && typeof buildLib === 'function') window.__rvStockBuildLib = buildLib;
+  if(typeof window.__rvStockFilterLib !== 'function' && typeof filterLib === 'function') window.__rvStockFilterLib = filterLib;
+  if(typeof window.__rvStockFSys !== 'function' && typeof fSys === 'function') window.__rvStockFSys = fSys;
+
   const RV_COLLECTION_RULES = [
     { id:'mario', name:'Mario', icon:'🍄', color:'#ff3b30', tests:[/\\bmario\\b/i,/\\bwario\\b/i,/\\byoshi\\b/i,/\\btoad\\b/i] },
     { id:'zelda', name:'Zelda', icon:'🗡️', color:'#1abc9c', tests:[/\\bzelda\\b/i,/\\bhyrule\\b/i,/\\blink\\b/i] },
@@ -474,16 +480,28 @@ body{background:#141414!important;color:#fff!important;}
   }
 
   function _rvPatchCollectionLabels(){
+    const collectionsActive = (function(){
+      try{
+        const raw = localStorage.getItem('rv-hybrid-prefs');
+        if(raw){
+          const p = JSON.parse(raw);
+          if(p && p.browseMode === 'consoles') return false;
+          if(p && p.browseMode === 'collections') return true;
+        }
+      }catch(e){}
+      const bm = localStorage.getItem('rv-browse-mode');
+      return bm !== 'consoles';
+    })();
     const navLinks = document.querySelectorAll('.nl');
-    if(navLinks && navLinks[1]) navLinks[1].textContent = 'Collections';
+    if(navLinks && navLinks[1]) navLinks[1].textContent = collectionsActive ? 'Collections' : 'Systems';
     const title = document.querySelector('#view-systems .sys-hdr h1');
-    if(title) title.textContent = 'ALL COLLECTIONS';
+    if(title) title.textContent = collectionsActive ? 'ALL COLLECTIONS' : 'ALL SYSTEMS';
     const tools = document.querySelector('#view-systems .sys-hdr > div:last-child');
-    if(tools) tools.style.display = 'none';
+    if(tools) tools.style.display = collectionsActive ? 'none' : '';
     const libSel = document.getElementById('libSys');
     if(libSel){
       const first = libSel.querySelector('option[value="all"]');
-      if(first) first.textContent = 'All Collections';
+      if(first) first.textContent = collectionsActive ? 'All Collections' : 'All Systems';
     }
   }
 
@@ -647,6 +665,13 @@ body{background:#141414!important;color:#fff!important;}
     window.filterLib = _rvFilterLibCollections;
   }
 
+  window._rvBuildHomeCollections = _rvBuildHomeCollections;
+  window._rvBuildCollectionGrid = _rvBuildCollectionGrid;
+  window._rvBuildLibCollections = _rvBuildLibCollections;
+  window._rvFilterLibCollections = _rvFilterLibCollections;
+
+  window._rvRefreshBrowseLabels = _rvPatchCollectionLabels;
+
   const boot = function(){
     _rvEnableCollectionsMode();
     _rvPatchCollectionLabels();
@@ -729,15 +754,22 @@ body{background:#141414!important;color:#fff!important;}
     btn.id = 'rvBrowseToggleBtn';
     btn.className = 'nb';
     btn.type = 'button';
+    const currentBrowseMode = ()=>{
+      const prefs = _rvGetHybridPrefs();
+      return prefs.browseMode || _rvHybridModeStore();
+    };
     const applyLabel = ()=>{
-      const mode = _rvHybridModeStore();
-      btn.textContent = mode === 'collections' ? '🧩 Collections' : '🕹 Consoles';
-      btn.title = 'Switch browse mode';
+      const mode = currentBrowseMode();
+      btn.textContent = mode === 'collections' ? '\uD83E\uDDE9 Collections' : '\uD83D\uDD79 Consoles';
+      btn.title = mode === 'collections' ? 'Franchise collections on Home — tap for consoles grid' : 'Console systems grid — tap for collections on Home';
     };
     btn.onclick = ()=>{
-      const mode = _rvHybridModeStore();
-      _rvSetBrowseMode(mode === 'collections' ? 'consoles' : 'collections');
+      const mode = currentBrowseMode();
+      const next = mode === 'collections' ? 'consoles' : 'collections';
+      _rvSetBrowseMode(next);
+      _rvSaveHybridPrefs({ browseMode: next });
       applyLabel();
+      if(typeof window._rvRefreshBrowseLabels === 'function') window._rvRefreshBrowseLabels();
       if(typeof refreshAll === 'function'){
         const p = refreshAll();
         if(p && typeof p.catch === 'function') p.catch(()=>{});
@@ -749,6 +781,11 @@ body{background:#141414!important;color:#fff!important;}
       if(typeof buildLib === 'function'){
         const p3 = buildLib();
         if(p3 && typeof p3.catch === 'function') p3.catch(()=>{});
+      }
+      if(next === 'collections'){
+        if(typeof sv === 'function') sv('home', null);
+      } else if(typeof sv === 'function'){
+        sv('systems', null);
       }
     };
     applyLabel();
@@ -934,9 +971,15 @@ body{background:#141414!important;color:#fff!important;}
           _rvSetBrowseMode(mode);
           _rvSaveHybridPrefs({ browseMode: mode });
           draw();
+          if(typeof window._rvRefreshBrowseLabels === 'function') window._rvRefreshBrowseLabels();
           if(typeof refreshAll === 'function') Promise.resolve(refreshAll()).catch(()=>{});
           if(typeof buildSysGrid === 'function') Promise.resolve(buildSysGrid('all')).catch(()=>{});
           if(typeof buildLib === 'function') Promise.resolve(buildLib()).catch(()=>{});
+          if(mode === 'collections'){
+            if(typeof sv === 'function') sv('home', null);
+          } else if(typeof sv === 'function'){
+            sv('systems', null);
+          }
         }));
       });
 
@@ -963,10 +1006,10 @@ body{background:#141414!important;color:#fff!important;}
     if(window.__rvHybridBrowseWrapped) return;
     window.__rvHybridBrowseWrapped = true;
 
-    const origBuildHome = window.buildHome;
-    const origBuildSysGrid = window.buildSysGrid;
-    const origBuildLib = window.buildLib;
-    const origFilterLib = window.filterLib;
+    const origBuildHome = window.__rvStockBuildHome || window.buildHome;
+    const origBuildSysGrid = window.__rvStockBuildSysGrid || window.buildSysGrid;
+    const origBuildLib = window.__rvStockBuildLib || window.buildLib;
+    const origFilterLib = window.__rvStockFilterLib || window.filterLib;
 
     function isCollections(){
       const prefs = _rvGetHybridPrefs();
@@ -987,6 +1030,20 @@ body{background:#141414!important;color:#fff!important;}
           return window._rvBuildCollectionGrid();
         }
         return origBuildSysGrid(filter || 'all');
+      };
+    }
+    if(typeof window.__rvStockFSys === 'function'){
+      window.fSys = function(f, btn){
+        if(isCollections()){
+          document.querySelectorAll('.fb').forEach((b)=>b.classList.remove('on'));
+          if(btn) btn.classList.add('on');
+          if(typeof window._rvBuildCollectionGrid === 'function'){
+            const p = window._rvBuildCollectionGrid();
+            if(p && typeof p.catch === 'function') p.catch(()=>{});
+          }
+          return;
+        }
+        return window.__rvStockFSys(f, btn);
       };
     }
     if(typeof origBuildLib === 'function'){
