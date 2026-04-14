@@ -1159,6 +1159,14 @@ function _rvNormCoverUrl(v){
   const raw = String(v || '').trim();
   if(!raw) return '';
   if(raw.startsWith('//')) return 'https:' + raw;
+  // Unwrap same-origin proxy URLs so broken-cover tracking matches upstream.
+  try{
+    const u = new URL(raw, window.location.href);
+    if(u.origin === window.location.origin && u.pathname === '/img-proxy'){
+      const inner = u.searchParams.get('url');
+      if(inner) return String(inner).trim();
+    }
+  }catch(e){}
   return raw;
 }
 
@@ -1329,7 +1337,8 @@ async function _rvApplyHasheousToRom(romId, api, opts){
     }
   }
   if(cover && !_rvIsBadCoverUrl(cover)){
-    take('coverUrl', cover);
+    const proxied = window.location.origin + '/img-proxy?url=' + encodeURIComponent(cover);
+    take('coverUrl', proxied);
   }
   take('description', desc);
   if(year && /^(19|20)\d{2}$/.test(year)) take('year', year);
@@ -3923,6 +3932,50 @@ export default {
     }
 
     // ════════════════════════════════════════════════════════════════════
+
+
+    // ════════════════════════════════════════════════════════════════════
+    // IMAGE PROXY — GET /img-proxy?url=
+    // Same-origin image fetch so COEP pages can display third-party boxart.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/img-proxy') {
+      const target = url.searchParams.get('url');
+      if (!target) return new Response('Missing url', { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' } });
+      if (method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      if (method !== 'GET' && method !== 'HEAD') return new Response('Method not allowed', { status: 405, headers: corsHeaders(origin) });
+
+      // Only allow http(s)
+      let parsed;
+      try { parsed = new URL(target); } catch { parsed = null; }
+      if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')) {
+        return new Response('Invalid url', { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' } });
+      }
+
+      try {
+        const upstream = await fetch(parsed.toString(), {
+          method: method,
+          headers: { 'User-Agent': 'RetroVault/2.0' },
+        });
+        if (!upstream.ok) {
+          return new Response('Upstream error: ' + upstream.status, {
+            status: upstream.status,
+            headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' },
+          });
+        }
+        const ct = upstream.headers.get('Content-Type') || 'image/jpeg';
+        const responseHeaders = {
+          ...corsHeaders(origin),
+          'Content-Type': ct,
+          'Cache-Control': 'public, max-age=86400',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+        };
+        const cl = upstream.headers.get('Content-Length');
+        if (cl) responseHeaders['Content-Length'] = cl;
+        return new Response(method === 'HEAD' ? null : upstream.body, { status: 200, headers: responseHeaders });
+      } catch (err) {
+        return new Response('Proxy fetch failed: ' + err.message, { status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' } });
+      }
+    }
     // ROM PROXY — GET /rom-proxy?url=   (CORS bypass for R2 ROM fetches)
     // ════════════════════════════════════════════════════════════════════
     if (path === '/rom-proxy') {
