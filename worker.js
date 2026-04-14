@@ -106,9 +106,17 @@ const RELEASE_LOG = [
       'After sync, metadata sidecars apply R2-hosted box art (including GIF) even when a stale remote cover URL is already set.',
     ],
   },
+  {
+    id: '2026-04-14-d',
+    title: 'Fix client SyntaxError from cloud-key normalize regex',
+    details: [
+      'normalizeCloudKey and metadata-restore paths used a broken /^\\/+ regex in the injected bundle (invalid RegExp, cascading parse errors).',
+      'Replaced with /^[/]+/ so leading slashes strip reliably without ambiguous escaping in the served HTML.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-gif-cover-meta-reconcile';
+const APP_RELEASE_VERSION = '2026.04.14-gif-cover-regex-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1568,7 +1576,7 @@ if(document.readyState === 'loading'){
     )
     .replace(
       "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[r.cloudStoragePath,r]));\n",
-      "    const normalizeCloudKey = k => String(k||'').replace(/%2F/gi,'/').replace(/^\\/+/, '');\n    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[normalizeCloudKey(r.cloudStoragePath),r]));\n"
+      "    const normalizeCloudKey = k => String(k||'').replace(/%2F/gi,'/').replace(/^[/]+/, '');\n    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[normalizeCloudKey(r.cloudStoragePath),r]));\n"
     )
     .replace(
       "      if(existingKeys.has(obj.key)) continue;\n",
@@ -1734,10 +1742,10 @@ if(document.readyState === 'loading'){
             }
           }`,
     `          for(const meta of metaData.metas){
-            const ck = meta && meta.cloudStoragePath ? String(meta.cloudStoragePath).replace(/%2F/gi,'/').replace(/^\/+/,'') : '';
+            const ck = meta && meta.cloudStoragePath ? String(meta.cloudStoragePath).replace(/%2F/gi,'/').replace(/^[/]+/,'') : '';
             const match = allRoms.find(r => {
               if(!r) return false;
-              const rk = r.cloudStoragePath ? String(r.cloudStoragePath).replace(/%2F/gi,'/').replace(/^\/+/,'') : '';
+              const rk = r.cloudStoragePath ? String(r.cloudStoragePath).replace(/%2F/gi,'/').replace(/^[/]+/,'') : '';
               if(rk && ck && rk === ck) return true;
               if(r.filename === meta.filename && r.console === meta.console) return true;
               if(r.name === meta.name && r.console === meta.console) return true;

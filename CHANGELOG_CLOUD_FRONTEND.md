@@ -69,6 +69,9 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - After **Sync from bucket**, metadata sidecars apply R2-hosted cover URLs (your uploaded art) even when the local row still has a remote scraper URL, so GIF box art follows the same path as ROM sync.
 - Existing ROM rows get `cloudStoragePath` updated to the normalized R2 key when the bucket listing returns it, improving sidecar matching across devices.
 
+### Hotfix: client SyntaxError on `/app`
+- Fixed invalid injected regex in `normalizeCloudKey` (was `/^\+/` after HTML embedding) which broke the whole script with “Invalid regular expression: missing /” and follow-on “Unexpected token 'try'”.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.
