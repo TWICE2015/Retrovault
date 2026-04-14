@@ -1717,6 +1717,68 @@ if(document.readyState === 'loading'){
   window.cloudBannerShow = function(){};
   window.cloudBannerHide = function(){};
 
+  // Route third-party box art through same-origin /img-proxy (COEP-safe). IndexedDB rows may still hold raw https://cdn.thegamesdb.net/... URLs.
+  function _rvCoverUrlForImg(u){
+    const raw = String(u || '').trim();
+    if(!raw) return '';
+    let abs = raw;
+    if(abs.startsWith('//')) abs = 'https:' + abs;
+    if(!/^https?:\/\//i.test(abs)) return raw;
+    try{
+      const parsed = new URL(abs, window.location.href);
+      if(parsed.origin === window.location.origin && parsed.pathname === '/img-proxy') return abs;
+      if(parsed.origin === window.location.origin) return abs;
+    }catch(e){ return raw; }
+    return window.location.origin + '/img-proxy?url=' + encodeURIComponent(abs);
+  }
+  window._rvCoverUrlForImg = _rvCoverUrlForImg;
+
+  function _rvPatchCoverRendering(){
+    if(window.__rvCoverRenderPatched) return;
+    window.__rvCoverRenderPatched = true;
+    if(typeof makeCard === 'function' && typeof window.__rvOrigMakeCard !== 'function'){
+      window.__rvOrigMakeCard = makeCard;
+      window.makeCard = function(rom){
+        const r = rom && typeof rom === 'object' ? Object.assign({}, rom) : rom;
+        if(r && r.coverUrl) r.coverUrl = _rvCoverUrlForImg(r.coverUrl);
+        return window.__rvOrigMakeCard(r);
+      };
+    }
+    if(typeof showDet === 'function' && typeof window.__rvOrigShowDet !== 'function'){
+      window.__rvOrigShowDet = showDet;
+      window.showDet = async function(id){
+        await window.__rvOrigShowDet(id);
+        try{
+          const covEl = document.getElementById('detCov');
+          const img = covEl && covEl.querySelector('img');
+          if(!img) return;
+          const cur = img.getAttribute('src') || '';
+          const fixed = _rvCoverUrlForImg(cur);
+          if(fixed && fixed !== cur) img.setAttribute('src', fixed);
+        }catch(e){}
+      };
+    }
+    if(typeof buildRomTable === 'function' && typeof window.__rvOrigBuildRomTable !== 'function'){
+      window.__rvOrigBuildRomTable = buildRomTable;
+      window.buildRomTable = async function(){
+        await window.__rvOrigBuildRomTable();
+        try{
+          document.querySelectorAll('#romTbody img.thumb').forEach(function(img){
+            const cur = img.getAttribute('src') || '';
+            const fixed = _rvCoverUrlForImg(cur);
+            if(fixed && fixed !== cur) img.setAttribute('src', fixed);
+          });
+        }catch(e){}
+      };
+    }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ _rvPatchCoverRendering(); });
+  } else {
+    setTimeout(_rvPatchCoverRendering, 0);
+  }
+  setTimeout(_rvPatchCoverRendering, 800);
+
   function ownerId(){
     try{
       if(typeof window._rvOwnerId === 'function') return window._rvOwnerId();
