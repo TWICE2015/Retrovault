@@ -76,6 +76,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - **Upload** button on the game detail panel (next to **Set**) opens the image picker (PNG, JPEG, WebP, GIF).
 - Drag-and-drop targets the **left box art**; listeners are delegated so it keeps working after the cover image is injected.
 
+### Cover drop reliability
+- Drop target is the **whole game info panel** (not only the small cover tile).
+- Handles **empty MIME types** (extension-based), **DataTransferItem** file entries, **data:image/...** and **http(s) image URLs** when the OS does not expose a File (browser-tab drags may still be blocked by CORS).
+- **Paste** an image while the game panel is open to set cover.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.

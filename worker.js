@@ -123,9 +123,18 @@ const RELEASE_LOG = [
       'Tooltip and placeholder text explain drop-on-box-art vs URL.',
     ],
   },
+  {
+    id: '2026-04-14-f',
+    title: 'Cover drop: full panel target + browser-drag + empty MIME',
+    details: [
+      'Drop works anywhere on the game info panel (#detPanel), not only the small cover tile.',
+      'Coerces image/* file items, data: URLs, and http(s) image URLs when the OS drag payload has no File list.',
+      'Accepts extension-only image filenames when type is empty; paste from clipboard also sets cover.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cover-upload-ux';
+const APP_RELEASE_VERSION = '2026.04.14-cover-drop-wide';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1625,11 +1634,15 @@ if(document.readyState === 'loading'){
     )
     .replace(
       '<input type="text" id="artUrlInput" placeholder="Cover art URL (auto-filled by scraper)…">',
-      '<input type="text" id="artUrlInput" placeholder="Cover URL — or use Upload / drop image on box art (left)">'
+      '<input type="text" id="artUrlInput" placeholder="Cover URL — or Upload / drop image anywhere on this panel">'
     )
     .replace(
       '<button class="bb s" onclick="setArtUrl()">Set</button>',
       '<button class="bb s" type="button" id="rvCoverUploadBtn" onclick="if(window._rvPickCoverFile){window._rvPickCoverFile();}else{document.getElementById(\'rvCoverFileInput\')?.click();}">Upload</button>\n        <button class="bb s" onclick="setArtUrl()">Set</button>'
+    )
+    .replace(
+      '<div class="det">',
+      '<div class="det" id="detPanel">'
     )
     .replace(
       "      const publicUrl = r2Base+'/'+obj.key;",
@@ -1878,9 +1891,41 @@ if(document.readyState === 'loading'){
   }
   setTimeout(_rvPatchCoverRendering, 800);
 
+  function _rvLooksLikeImageFile(file){
+    if(!file) return false;
+    const t = String(file.type || '').toLowerCase();
+    if(/^image\//.test(t)) return true;
+    const n = String(file.name || '').toLowerCase();
+    return /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(n);
+  }
+
+  function _rvMimeFromFilename(name){
+    const n = String(name || '').toLowerCase();
+    if(n.endsWith('.png')) return 'image/png';
+    if(n.endsWith('.webp')) return 'image/webp';
+    if(n.endsWith('.gif')) return 'image/gif';
+    if(n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg';
+    if(n.endsWith('.bmp')) return 'image/bmp';
+    if(n.endsWith('.avif')) return 'image/avif';
+    return '';
+  }
+
   async function _rvApplyCoverImageFile(file){
-    if(!file || !/^image\//.test(file.type || '')){
+    if(!file || !_rvLooksLikeImageFile(file)){
       if(typeof toast === 'function') toast('Use a PNG, JPG, WebP, or GIF image', 'warn');
+      return;
+    }
+    if(!file.type || !/^image\//.test(file.type)){
+      const guess = _rvMimeFromFilename(file.name);
+      if(guess){
+        try{
+          const buf = await file.arrayBuffer();
+          file = new File([buf], file.name || 'cover.png', { type: guess });
+        }catch(e){}
+      }
+    }
+    if(!file.type || !/^image\//.test(file.type)){
+      if(typeof toast === 'function') toast('Could not read image type — rename the file with .png / .jpg / .gif', 'warn');
       return;
     }
     if(!detRomId){
@@ -1948,35 +1993,101 @@ if(document.readyState === 'loading'){
   }
   window._rvPickCoverFile = _rvPickCoverFile;
 
+  async function _rvCoerceCoverDropToFile(dt){
+    if(!dt) return null;
+    if(dt.files && dt.files.length){
+      for(let i = 0; i < dt.files.length; i++){
+        const f = dt.files[i];
+        if(_rvLooksLikeImageFile(f)) return f;
+      }
+    }
+    if(dt.items && dt.items.length){
+      for(let j = 0; j < dt.items.length; j++){
+        const it = dt.items[j];
+        if(it.kind === 'file'){
+          const f = typeof it.getAsFile === 'function' ? it.getAsFile() : null;
+          if(f && _rvLooksLikeImageFile(f)) return f;
+        }
+      }
+    }
+    let uri = '';
+    try{
+      uri = dt.getData('text/uri-list') || dt.getData('text/plain') || '';
+    }catch(e){}
+    const first = String(uri || '').split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean)[0] || '';
+    if(first.indexOf('data:image/') === 0){
+      try{
+        const res = await fetch(first);
+        const blob = await res.blob();
+        const ext = (blob.type && blob.type.split('/')[1]) ? blob.type.split('/')[1].replace('jpeg','jpg') : 'png';
+        return new File([blob], 'pasted-cover.' + ext, { type: blob.type || 'image/png' });
+      }catch(e){}
+    }
+    if(/^https?:\/\//i.test(first) || first.indexOf('blob:') === 0){
+      try{
+        const res = await fetch(first, { mode: 'cors', credentials: 'omit' });
+        if(!res.ok) return null;
+        const blob = await res.blob();
+        let name = 'cover.jpg';
+        try{
+          const u = new URL(first, window.location.href);
+          const seg = (u.pathname.split('/').pop() || '').split('?')[0];
+          if(seg && /\.(png|jpe?g|gif|webp)$/i.test(seg)) name = seg;
+        }catch(e2){}
+        const mime = blob.type && /^image\//.test(blob.type) ? blob.type : _rvMimeFromFilename(name);
+        if(!mime) return null;
+        const typed = new Blob([await blob.arrayBuffer()], { type: mime });
+        return new File([typed], name, { type: mime });
+      }catch(e){}
+    }
+    return null;
+  }
+
   function _rvInitCoverDropZone(){
     _rvEnsureCoverFileInput();
     if(window.__rvCoverDropDelegated) return;
     window.__rvCoverDropDelegated = true;
     document.addEventListener('dragover', function(e){
       if(!_rvDetailOverlayOpen()) return;
-      const cov = e.target && e.target.closest ? e.target.closest('#detCov') : null;
-      if(!cov) return;
+      const panel = e.target && e.target.closest ? e.target.closest('#detPanel') : null;
+      if(!panel) return;
       e.preventDefault();
       e.stopPropagation();
-      cov.style.boxShadow = '0 0 0 2px var(--accent)';
+      const cov = document.getElementById('detCov');
+      if(cov) cov.style.boxShadow = '0 0 0 2px var(--accent)';
     }, true);
     document.addEventListener('dragleave', function(e){
-      const cov = e.target && e.target.closest ? e.target.closest('#detCov') : null;
-      if(!cov) return;
+      const panel = e.target && e.target.closest ? e.target.closest('#detPanel') : null;
+      if(!panel) return;
       try{
         const rt = e.relatedTarget;
-        if(!rt || !cov.contains(rt)) cov.style.boxShadow = '';
-      }catch(err){ cov.style.boxShadow = ''; }
+        const det = document.getElementById('detPanel');
+        if(!det || !rt || !det.contains(rt)){
+          const cov = document.getElementById('detCov');
+          if(cov) cov.style.boxShadow = '';
+        }
+      }catch(err){
+        const cov = document.getElementById('detCov');
+        if(cov) cov.style.boxShadow = '';
+      }
     }, true);
     document.addEventListener('drop', function(e){
       if(!_rvDetailOverlayOpen()) return;
-      const cov = e.target && e.target.closest ? e.target.closest('#detCov') : null;
-      if(!cov) return;
+      const panel = e.target && e.target.closest ? e.target.closest('#detPanel') : null;
+      if(!panel) return;
       e.preventDefault();
       e.stopPropagation();
-      cov.style.boxShadow = '';
-      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if(f) _rvApplyCoverImageFile(f).catch(function(err){ if(typeof toast==='function') toast('Cover upload failed: ' + err.message, 'err'); });
+      const cov = document.getElementById('detCov');
+      if(cov) cov.style.boxShadow = '';
+      const dt = e.dataTransfer;
+      _rvCoerceCoverDropToFile(dt).then(function(f){
+        if(f) return _rvApplyCoverImageFile(f);
+        if(typeof toast === 'function'){
+          toast('Drag a saved image from your PC (Downloads/Pictures), not from a browser tab — or tap Upload', 'warn');
+        }
+      }).catch(function(err){
+        if(typeof toast==='function') toast('Cover upload failed: ' + (err && err.message ? err.message : err), 'err');
+      });
     }, true);
     document.addEventListener('click', function(e){
       if(!_rvDetailOverlayOpen()) return;
@@ -1987,6 +2098,19 @@ if(document.readyState === 'loading'){
       if(e.target && e.target.closest && e.target.closest('input,textarea,select')) return;
       _rvPickCoverFile();
     }, true);
+    document.addEventListener('paste', function(e){
+      if(!_rvDetailOverlayOpen()) return;
+      const cd = e.clipboardData;
+      if(!cd || !cd.files || !cd.files.length) return;
+      for(let k = 0; k < cd.files.length; k++){
+        const f = cd.files[k];
+        if(_rvLooksLikeImageFile(f)){
+          e.preventDefault();
+          _rvApplyCoverImageFile(f).catch(function(err){ if(typeof toast==='function') toast('Cover paste failed: ' + err.message, 'err'); });
+          return;
+        }
+      }
+    }, true);
   }
 
   function _rvRefreshCoverDropHint(){
@@ -1994,7 +2118,7 @@ if(document.readyState === 'loading'){
     if(!cov) return;
     cov.style.position = cov.style.position || 'relative';
     cov.style.cursor = 'pointer';
-    const hint = 'Drop image here or click — PNG, JPG, WebP, GIF (uploads to R2)';
+    const hint = 'Drop image on this panel or click cover — PNG, JPG, WebP, GIF (uploads to R2)';
     if(!cov.title || cov.title.indexOf('uploads to R2') === -1){
       cov.title = hint;
     }
