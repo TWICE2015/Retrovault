@@ -1473,7 +1473,15 @@ function _rvInitHasheousControls(){
     + '<button class="bb p" type="button" id="rvHasheousAllBtn">Fetch metadata for all ROMs</button>'
     + '<button class="bb s" type="button" id="rvHasheousMissingBtn">Missing artwork only</button>'
     + '</div>'
-    + '<div id="rvHasheousStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>';
+    + '<div id="rvHasheousStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>'
+    + '<details style="margin-top:12px;font-size:11px;color:var(--muted);line-height:1.55;">'
+    + '<summary style="cursor:pointer;color:var(--text);font-weight:600;">Scrapers vs manual covers</summary>'
+    + '<div style="margin-top:8px;">'
+    + '<strong style="color:var(--text);">Hasheous (built in):</strong> hash match, no API key, good when your ROM matches a known dump. Misses hacks, overdumps, or unlisted files.<br/>'
+    + '<strong style="color:var(--text);">ScreenScraper:</strong> huge art set but needs an account; not wired in this build.<br/>'
+    + '<strong style="color:var(--text);">Skraper / LaunchBox (desktop):</strong> strongest for full media libraries offline, then you sync files yourself.<br/>'
+    + '<strong style="color:var(--text);">Manual:</strong> open a game, then drag a PNG or JPG onto the cover, or paste a URL and tap Set. Covers upload to your R2 path under <code>.../art/</code> and metadata sidecars update for sync.'
+    + '</div></details>';
 
   host.appendChild(card);
   document.getElementById('rvHasheousAllBtn').onclick = function(){
@@ -1755,6 +1763,7 @@ if(document.readyState === 'loading'){
           const cur = img.getAttribute('src') || '';
           const fixed = _rvCoverUrlForImg(cur);
           if(fixed && fixed !== cur) img.setAttribute('src', fixed);
+          if(typeof _rvInitManualCoverTools === 'function') _rvInitManualCoverTools();
         }catch(e){}
       };
     }
@@ -1778,6 +1787,166 @@ if(document.readyState === 'loading'){
     setTimeout(_rvPatchCoverRendering, 0);
   }
   setTimeout(_rvPatchCoverRendering, 800);
+
+  async function _rvApplyCoverImageFile(file){
+    if(!file || !/^image\//.test(file.type || '')){
+      if(typeof toast === 'function') toast('Use a PNG, JPG, WebP, or GIF image', 'warn');
+      return;
+    }
+    if(!detRomId){
+      if(typeof toast === 'function') toast('Open a game (info panel) first', 'warn');
+      return;
+    }
+    const rom = await dbGet('roms', detRomId);
+    if(!rom){
+      if(typeof toast === 'function') toast('ROM not found', 'err');
+      return;
+    }
+    const oid = ownerId();
+    const cid = String(rom.console || 'nes');
+    const base = String(rom.filename || rom.name || 'cover')
+      .replace(/\.(zip|7z|rar|rom|nes|smc|sfc|gba|z64|n64|iso|bin)$/i, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .slice(0, 96) || 'cover';
+    const extMatch = String(file.name || '').match(/\.([a-z0-9]+)$/i);
+    const ext = extMatch ? extMatch[1].toLowerCase() : (file.type.indexOf('png') >= 0 ? 'png' : file.type.indexOf('webp') >= 0 ? 'webp' : 'jpg');
+    const artKey = cid + '/art/' + base + '-cover.' + ext;
+    const form = new FormData();
+    form.append('file', file);
+    form.append('key', artKey);
+    if(typeof toast === 'function') toast('Uploading cover to cloud…', 'warn');
+    const resp = await fetch(window.location.origin + '/r2-upload', {
+      method: 'POST',
+      body: form,
+      headers: oid ? { 'X-Retrovault-Owner': oid } : {},
+    });
+    const data = await resp.json().catch(function(){ return {}; });
+    if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+    const fullKey = data.key || artKey;
+    rom.coverUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(fullKey) + (oid ? ('&owner=' + encodeURIComponent(oid)) : '');
+    await dbPut('roms', rom);
+    if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
+    await showDet(detRomId);
+    if(typeof refreshAll === 'function') await refreshAll();
+    if(typeof toast === 'function') toast('Cover saved to your R2 library');
+  }
+
+  function _rvEnsureCoverFileInput(){
+    if(document.getElementById('rvCoverFileInput')) return;
+    const hid = document.createElement('input');
+    hid.type = 'file';
+    hid.id = 'rvCoverFileInput';
+    hid.accept = 'image/png,image/jpeg,image/webp,image/gif';
+    hid.style.display = 'none';
+    hid.addEventListener('change', function(){
+      const f = this.files && this.files[0];
+      this.value = '';
+      if(f) _rvApplyCoverImageFile(f).catch(function(e){ if(typeof toast==='function') toast('Cover upload failed: ' + e.message, 'err'); });
+    });
+    document.body.appendChild(hid);
+  }
+
+  function _rvInitCoverDropZone(){
+    _rvEnsureCoverFileInput();
+    const cov = document.getElementById('detCov');
+    if(!cov || cov.dataset.rvDropInit === '1') return;
+    cov.dataset.rvDropInit = '1';
+    cov.style.position = cov.style.position || 'relative';
+    cov.title = (cov.title || '') + ' — Drop an image here or click to pick a file (saved to R2)';
+    ['dragenter', 'dragover'].forEach(function(evName){
+      cov.addEventListener(evName, function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        cov.style.boxShadow = '0 0 0 2px var(--accent)';
+      });
+    });
+    ['dragleave', 'drop'].forEach(function(evName){
+      cov.addEventListener(evName, function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if(evName !== 'drop') cov.style.boxShadow = '';
+      });
+    });
+    cov.addEventListener('drop', function(e){
+      cov.style.boxShadow = '';
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if(f) _rvApplyCoverImageFile(f).catch(function(err){ if(typeof toast==='function') toast('Cover upload failed: ' + err.message, 'err'); });
+    });
+    cov.addEventListener('click', function(e){
+      if(e.target && e.target.closest && e.target.closest('button')) return;
+      const inp = document.getElementById('rvCoverFileInput');
+      if(inp) inp.click();
+    });
+  }
+
+  function _rvWrapSetArtUrlForMetaBackup(){
+    if(window.__rvSetArtUrlWrapped) return;
+    if(typeof setArtUrl !== 'function') return;
+    window.__rvOrigSetArtUrl = setArtUrl;
+    window.setArtUrl = async function(){
+      await window.__rvOrigSetArtUrl();
+      try{
+        if(detRomId && typeof r2SaveMeta === 'function'){
+          const rom = await dbGet('roms', detRomId);
+          if(rom) await r2SaveMeta(rom);
+        }
+      }catch(e){}
+    };
+    window.__rvSetArtUrlWrapped = true;
+  }
+
+  function _rvWrapR2SaveMetaWithOwnerHeader(){
+    if(window.__rvR2SaveMetaWrapped) return;
+    if(typeof r2SaveMeta !== 'function') return;
+    window.__rvOrigR2SaveMeta = r2SaveMeta;
+    window.r2SaveMeta = async function(rom){
+      if(!rom || !rom.name) return;
+      if(!rom.coverUrl && !rom.description && !rom.year && !rom.rating) return;
+      try{
+        const safeFile = (rom.filename||rom.name).replace(/[^a-zA-Z0-9._-]/g,'_');
+        const key = 'meta/' + (rom.console||'unknown') + '/' + safeFile + '.json';
+        const payload = {
+          name: rom.name,
+          filename: rom.filename||rom.name,
+          console: rom.console,
+          cloudStoragePath: rom.cloudStoragePath||null,
+          coverUrl: rom.coverUrl||null,
+          description: rom.description||null,
+          year: rom.year||null,
+          rating: rom.rating||null,
+          developer: rom.developer||null,
+          genres: rom.genres||null,
+        };
+        const oid = (typeof _rvOwnerId === 'function' ? _rvOwnerId() : '') || localStorage.getItem('rv-owner-id') || '';
+        const resp = await fetch(window.location.origin+'/r2-meta-save', {
+          method: 'POST',
+          headers: {
+            'Content-Type':'application/json',
+            ...(oid ? { 'X-Retrovault-Owner': oid } : {}),
+          },
+          body: JSON.stringify({ key, meta: payload }),
+        });
+        if(resp.ok && typeof logScrape === 'function') logScrape('[r2-meta] OK Saved metadata: '+key);
+        else if(typeof logScrape === 'function') logScrape('[r2-meta] WARN Meta save failed: '+resp.status);
+      }catch(e){
+        if(typeof logScrape === 'function') logScrape('[r2-meta] ERR Meta save error: '+e.message);
+      }
+    };
+    window.__rvR2SaveMetaWrapped = true;
+  }
+
+  function _rvInitManualCoverTools(){
+    _rvWrapR2SaveMetaWithOwnerHeader();
+    _rvWrapSetArtUrlForMetaBackup();
+    _rvInitCoverDropZone();
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ _rvInitManualCoverTools(); });
+  } else {
+    setTimeout(_rvInitManualCoverTools, 0);
+  }
+  setTimeout(_rvInitManualCoverTools, 600);
+  setTimeout(_rvInitManualCoverTools, 2000);
 
   function ownerId(){
     try{
