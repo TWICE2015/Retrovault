@@ -114,9 +114,18 @@ const RELEASE_LOG = [
       'Replaced with /^[/]+/ so leading slashes strip reliably without ambiguous escaping in the served HTML.',
     ],
   },
+  {
+    id: '2026-04-14-e',
+    title: 'Cover upload: Upload button + reliable drag on box art',
+    details: [
+      'Game detail adds an Upload button next to Set for picking PNG/JPEG/WebP/GIF without hunting the drop zone.',
+      'Drag-and-drop uses document-level delegation so it still works after the cover innerHTML is replaced by showDet.',
+      'Tooltip and placeholder text explain drop-on-box-art vs URL.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-gif-cover-regex-fix';
+const APP_RELEASE_VERSION = '2026.04.14-cover-upload-ux';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1615,6 +1624,14 @@ if(document.readyState === 'loading'){
       "  if(name==='settings'){ buildCoreMapList(); buildThemeGrid(); updateAbout(); buildBiosRows(); }\n  if(name==='home'){ buildHome(); }\n}"
     )
     .replace(
+      '<input type="text" id="artUrlInput" placeholder="Cover art URL (auto-filled by scraper)…">',
+      '<input type="text" id="artUrlInput" placeholder="Cover URL — or use Upload / drop image on box art (left)">'
+    )
+    .replace(
+      '<button class="bb s" onclick="setArtUrl()">Set</button>',
+      '<button class="bb s" type="button" id="rvCoverUploadBtn" onclick="if(window._rvPickCoverFile){window._rvPickCoverFile();}else{document.getElementById(\'rvCoverFileInput\')?.click();}">Upload</button>\n        <button class="bb s" onclick="setArtUrl()">Set</button>'
+    )
+    .replace(
       "      const publicUrl = r2Base+'/'+obj.key;",
       "      const publicUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(obj.key) + '&owner=' + encodeURIComponent(_rvOwnerId());"
     )
@@ -1836,6 +1853,7 @@ if(document.readyState === 'loading'){
           const fixed = _rvCoverUrlForImg(cur);
           if(fixed && fixed !== cur) img.setAttribute('src', fixed);
           if(typeof _rvInitManualCoverTools === 'function') _rvInitManualCoverTools();
+          if(typeof _rvRefreshCoverDropHint === 'function') _rvRefreshCoverDropHint();
         }catch(e){}
       };
     }
@@ -1918,38 +1936,70 @@ if(document.readyState === 'loading'){
     document.body.appendChild(hid);
   }
 
+  function _rvDetailOverlayOpen(){
+    const ov = document.getElementById('detOverlay');
+    return !!(ov && ov.classList && ov.classList.contains('on'));
+  }
+
+  function _rvPickCoverFile(){
+    _rvEnsureCoverFileInput();
+    const inp = document.getElementById('rvCoverFileInput');
+    if(inp) inp.click();
+  }
+  window._rvPickCoverFile = _rvPickCoverFile;
+
   function _rvInitCoverDropZone(){
     _rvEnsureCoverFileInput();
-    const cov = document.getElementById('detCov');
-    if(!cov || cov.dataset.rvDropInit === '1') return;
-    cov.dataset.rvDropInit = '1';
-    cov.style.position = cov.style.position || 'relative';
-    cov.title = (cov.title || '') + ' — Drop PNG, JPG, WebP, or GIF here or click to pick (saved to R2, syncs with library)';
-    ['dragenter', 'dragover'].forEach(function(evName){
-      cov.addEventListener(evName, function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        cov.style.boxShadow = '0 0 0 2px var(--accent)';
-      });
-    });
-    ['dragleave', 'drop'].forEach(function(evName){
-      cov.addEventListener(evName, function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        if(evName !== 'drop') cov.style.boxShadow = '';
-      });
-    });
-    cov.addEventListener('drop', function(e){
+    if(window.__rvCoverDropDelegated) return;
+    window.__rvCoverDropDelegated = true;
+    document.addEventListener('dragover', function(e){
+      if(!_rvDetailOverlayOpen()) return;
+      const cov = e.target && e.target.closest ? e.target.closest('#detCov') : null;
+      if(!cov) return;
+      e.preventDefault();
+      e.stopPropagation();
+      cov.style.boxShadow = '0 0 0 2px var(--accent)';
+    }, true);
+    document.addEventListener('dragleave', function(e){
+      const cov = e.target && e.target.closest ? e.target.closest('#detCov') : null;
+      if(!cov) return;
+      try{
+        const rt = e.relatedTarget;
+        if(!rt || !cov.contains(rt)) cov.style.boxShadow = '';
+      }catch(err){ cov.style.boxShadow = ''; }
+    }, true);
+    document.addEventListener('drop', function(e){
+      if(!_rvDetailOverlayOpen()) return;
+      const cov = e.target && e.target.closest ? e.target.closest('#detCov') : null;
+      if(!cov) return;
+      e.preventDefault();
+      e.stopPropagation();
       cov.style.boxShadow = '';
       const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
       if(f) _rvApplyCoverImageFile(f).catch(function(err){ if(typeof toast==='function') toast('Cover upload failed: ' + err.message, 'err'); });
-    });
-    cov.addEventListener('click', function(e){
+    }, true);
+    document.addEventListener('click', function(e){
+      if(!_rvDetailOverlayOpen()) return;
+      const cov = e.target && e.target.closest ? e.target.closest('#detCov') : null;
+      if(!cov) return;
       if(e.target && e.target.closest && e.target.closest('button')) return;
-      const inp = document.getElementById('rvCoverFileInput');
-      if(inp) inp.click();
-    });
+      if(e.target && e.target.closest && e.target.closest('a')) return;
+      if(e.target && e.target.closest && e.target.closest('input,textarea,select')) return;
+      _rvPickCoverFile();
+    }, true);
   }
+
+  function _rvRefreshCoverDropHint(){
+    const cov = document.getElementById('detCov');
+    if(!cov) return;
+    cov.style.position = cov.style.position || 'relative';
+    cov.style.cursor = 'pointer';
+    const hint = 'Drop image here or click — PNG, JPG, WebP, GIF (uploads to R2)';
+    if(!cov.title || cov.title.indexOf('uploads to R2') === -1){
+      cov.title = hint;
+    }
+  }
+  window._rvRefreshCoverDropHint = _rvRefreshCoverDropHint;
 
   function _rvWrapSetArtUrlForMetaBackup(){
     if(window.__rvSetArtUrlWrapped) return;

@@ -72,6 +72,10 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 ### Hotfix: client SyntaxError on `/app`
 - Fixed invalid injected regex in `normalizeCloudKey` (was `/^\+/` after HTML embedding) which broke the whole script with “Invalid regular expression: missing /” and follow-on “Unexpected token 'try'”.
 
+### Cover upload UX
+- **Upload** button on the game detail panel (next to **Set**) opens the image picker (PNG, JPEG, WebP, GIF).
+- Drag-and-drop targets the **left box art**; listeners are delegated so it keeps working after the cover image is injected.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.
