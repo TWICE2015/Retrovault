@@ -1146,6 +1146,11 @@ function _rvNormCoverUrl(v){
   return raw;
 }
 
+function _rvIsHttpUrl(v){
+  const s = String(v || '').trim().toLowerCase();
+  return s.startsWith('http://') || s.startsWith('https://');
+}
+
 function _rvGetBadCoverList(){
   try{
     const arr = JSON.parse(localStorage.getItem('rv-bad-cover-urls') || '[]');
@@ -1189,9 +1194,12 @@ async function _rvMarkCoverBroken(romId, badUrl){
 window._rvMarkCoverBroken = _rvMarkCoverBroken;
 
 function _rvSkraperBasename(p){
-  const s = String(p || '').replace(/\\/g,'/').trim();
+  const bs = String.fromCharCode(92);
+  const s = String(p || '').split(bs).join('/').trim();
   const parts = s.split('/');
-  return (parts[parts.length - 1] || '').replace(/^\.\//,'').trim();
+  let base = parts[parts.length - 1] || '';
+  if(base.indexOf('./') === 0) base = base.slice(2);
+  return base.trim();
 }
 
 function _rvSkraperXmlText(gameEl, tag){
@@ -1291,7 +1299,7 @@ async function _rvSkraperResolveCoverUrl(entry, rom, imageMap, uploadToR2){
       return '';
     }
   }
-  if(/^https?:\/\//i.test(imgPath)) return imgPath;
+  if(_rvIsHttpUrl(imgPath)) return imgPath;
   return '';
 }
 
@@ -1374,7 +1382,7 @@ async function _rvRunSkraperImport(){
     if(entry.genre) patch.genres = entry.genre;
     let videoUrl = '';
     if(entry.video){
-      if(/^https?:\/\//i.test(entry.video)) videoUrl = entry.video;
+      if(_rvIsHttpUrl(entry.video)) videoUrl = entry.video;
     }
     if(videoUrl) patch.videoUrl = videoUrl;
     const coverUrl = await _rvSkraperResolveCoverUrl(entry, rom, imageMap, uploadR2);
@@ -1877,7 +1885,7 @@ if(document.readyState === 'loading'){
     root.innerHTML = ''+
       '<div class="rv-wrap">'+
         '<button type="button" class="rv-close-x" id="rvProfilePickerCloseBtn" title="Close" aria-label="Close">×</button>'+
-        '<h2 class="rv-title">Who\'s watching?</h2>'+
+        '<h2 class="rv-title">Who\\u2019s watching?</h2>'+
         '<div class="rv-grid" id="rvProfilePickerGrid"></div>'+
         '<div class="rv-badge" id="rvProfilePickerStatus"></div>'+
         '<div class="rv-actions" id="rvProfilePickerActions"></div>'+
