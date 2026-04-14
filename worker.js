@@ -1756,10 +1756,17 @@ if(document.readyState === 'loading'){
       '#rvProfilePicker .rv-title{font-size:clamp(34px,4.2vw,56px);font-weight:650;color:#fff;margin:0 0 10px;letter-spacing:.01em;}',
       '#rvProfilePicker .rv-sub{font-size:14px;color:#b3b3b3;margin:0 0 34px;line-height:1.55;}',
       '#rvProfilePicker .rv-grid{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:26px 28px;margin:0 auto 26px;max-width:980px;}',
-      '#rvProfilePicker .rv-tile{width:140px;background:transparent;border:0;color:#fff;padding:0;cursor:pointer;position:relative;transition:transform .18s ease;}',
+      '#rvProfilePicker .rv-tile{width:140px;background:transparent;border:0;color:#fff;padding:0;cursor:pointer;position:relative;transition:transform .22s cubic-bezier(.2,.8,.2,1),filter .22s ease,opacity .22s ease;}',
       '#rvProfilePicker .rv-tile:hover{transform:scale(1.06);}',
       '#rvProfilePicker .rv-tile:focus{outline:2px solid #fff;outline-offset:4px;}',
       '#rvProfilePicker .rv-tile.rv-active .rv-avatar{box-shadow:0 0 0 3px #fff;}',
+      '#rvProfilePicker.rv-switching{pointer-events:none;}',
+      '#rvProfilePicker.rv-switching .rv-tile{filter:grayscale(.35) brightness(.55);opacity:.35;transform:scale(.92);}',
+      '#rvProfilePicker.rv-switching .rv-tile.rv-switch-hero{filter:none;opacity:1;transform:scale(1.14);z-index:2;}',
+      '#rvProfilePicker.rv-switching .rv-tile.rv-switch-hero .rv-avatar{box-shadow:0 0 0 3px #fff,0 18px 50px rgba(0,0,0,.55);}',
+      '#rvProfilePicker.rv-switching .rv-title,#rvProfilePicker.rv-switching .rv-sub,#rvProfilePicker.rv-switching .rv-actions,#rvProfilePicker.rv-switching .rv-badge{opacity:.15;}',
+      '#rvProfilePicker.rv-exit{animation:rvPfFadeOut .28s ease forwards;}',
+      '@keyframes rvPfFadeOut{from{opacity:1}to{opacity:0}}',
       '#rvProfilePicker .rv-avatar{width:120px;height:120px;margin:0 auto 10px;border-radius:6px;background:#2b2b2b;display:flex;align-items:center;justify-content:center;overflow:hidden;}',
       '#rvProfilePicker .rv-av-img{width:100%;height:100%;object-fit:cover;border-radius:4px;}',
       '#rvProfilePicker .rv-tile-add{opacity:.95;}',
@@ -1790,6 +1797,44 @@ if(document.readyState === 'loading'){
       '#rvProfileEditorCard .rv-e-actions .rv-e-danger{border-color:#b71c1c;color:#ff8a80;}'
     ].join('');
     document.head.appendChild(style);
+  }
+
+
+
+  function _rvReducedMotion(){
+    try{ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; }
+  }
+
+  function _rvSleep(ms){
+    return new Promise(function(resolve){ setTimeout(resolve, ms); });
+  }
+
+  async function _rvAnimateProfilePick(tile){
+    const root = document.getElementById('rvProfilePicker');
+    const grid = document.getElementById('rvProfilePickerGrid');
+    if(!root || !grid || !tile) return;
+    if(_rvReducedMotion()) return;
+    root.classList.add('rv-switching');
+    Array.prototype.forEach.call(grid.querySelectorAll('.rv-tile'), function(btn){
+      if(btn === tile) btn.classList.add('rv-switch-hero');
+      else btn.classList.remove('rv-switch-hero');
+    });
+    await _rvSleep(420);
+  }
+
+  async function _rvAnimateProfilePickerExit(){
+    const root = document.getElementById('rvProfilePicker');
+    if(!root) return;
+    if(_rvReducedMotion()){
+      root.classList.remove('show');
+      return;
+    }
+    root.classList.add('rv-exit');
+    await _rvSleep(260);
+    root.classList.remove('show');
+    root.classList.remove('rv-exit');
+    root.classList.remove('rv-switching');
+    Array.prototype.forEach.call(root.querySelectorAll('.rv-switch-hero'), function(el){ el.classList.remove('rv-switch-hero'); });
   }
 
   function _rvGetActiveProfileId(){
@@ -1940,16 +1985,15 @@ if(document.readyState === 'loading'){
       const name = '<div class="rv-name">'+_rvEscapeHtml(slot.displayName || id)+'</div>';
       const edit = '<button type="button" class="rv-edit-btn" data-edit="1">Edit</button>';
       tile.innerHTML = avatar + name + edit;
-      tile.onclick = function(){
-        _rvSelectProfile(id);
-      };
-      tile.addEventListener('click', function(ev){
+      tile.onclick = function(ev){
         const t = ev && ev.target;
         if(t && t.dataset && t.dataset.edit === '1'){
           ev.stopPropagation();
           _rvOpenProfileEditor(slot);
+          return;
         }
-      });
+        _rvSelectProfile(id, tile);
+      };
       grid.appendChild(tile);
     });
     const addTile = document.createElement('button');
@@ -2188,10 +2232,11 @@ if(document.readyState === 'loading'){
     localStorage.setItem('rv-profile-picker-dismissed','1');
   }
 
-  async function _rvSelectProfile(profileId){
+  async function _rvSelectProfile(profileId, sourceTile){
     const baseOwner = _rvBaseOwnerIdFromCurrentOwner();
     const pid = _rvSetActiveProfileId(profileId);
     if(!pid) return;
+    await _rvAnimateProfilePick(sourceTile || null);
     try{
       _rvSetPickerStatus('Switching profile…', false);
       await _rvPersistProfileSelection(baseOwner, pid);
@@ -2206,8 +2251,9 @@ if(document.readyState === 'loading'){
     }
     localStorage.removeItem('rv-profile-picker-dismissed');
     if(typeof toast==='function') toast('Profile switched to '+pid);
-    _rvCloseProfilePicker();
-    setTimeout(function(){ window.location.reload(); }, 120);
+    await _rvAnimateProfilePickerExit();
+    window.__rvProfileManageMode = false;
+    setTimeout(function(){ window.location.reload(); }, 40);
   }
 
   async function _rvPromptAddProfile(){
