@@ -2234,10 +2234,9 @@ if(document.readyState === 'loading'){
 
   function upsertChip(profileLike){
     const profile = (profileLike && typeof profileLike === 'object') ? profileLike : {};
-    const display = String(profile.displayName || ownerId());
     const avatar = profile.avatar && typeof profile.avatar === 'object' ? profile.avatar : { type:'preset', preset:'neon' };
     const avatarUrl = String(profile.avatarUrl || '').trim();
-    const host = document.querySelector('.nr') || document.querySelector('.nav') || document.body;
+    const host = document.querySelector('.nav-r') || document.querySelector('.nr') || document.querySelector('.nav') || document.body;
     if(!host) return null;
     let chip = document.getElementById('rvOwnerChip');
     if(!chip){
@@ -2248,11 +2247,12 @@ if(document.readyState === 'loading'){
       chip.style.display = 'inline-flex';
       chip.style.alignItems = 'center';
       chip.style.gap = '6px';
-      chip.style.maxWidth = '220px';
+      chip.style.maxWidth = '44px';
+      chip.style.minWidth = '36px';
       chip.style.overflow = 'hidden';
       chip.style.textOverflow = 'ellipsis';
       chip.style.whiteSpace = 'nowrap';
-      chip.style.padding = '4px 10px';
+      chip.style.padding = '4px 8px';
       chip.onclick = async function(){
         const current = (window.__rvProfile && window.__rvProfile.displayName) || ownerId();
         const next = String(prompt('Profile display name', current) || '').trim();
@@ -2285,18 +2285,10 @@ if(document.readyState === 'loading'){
       avatarNode.style.overflow = 'hidden';
       avatarNode.style.fontSize = '12px';
       avatarNode.style.flex = '0 0 20px';
-      const labelNode = document.createElement('span');
-      labelNode.id = 'rvOwnerChipText';
-      labelNode.style.maxWidth = '170px';
-      labelNode.style.overflow = 'hidden';
-      labelNode.style.textOverflow = 'ellipsis';
-      labelNode.style.whiteSpace = 'nowrap';
       chip.appendChild(avatarNode);
-      chip.appendChild(labelNode);
-      host.prepend(chip);
+      host.appendChild(chip);
     }
     const avatarNode = document.getElementById('rvOwnerChipAvatar');
-    const labelNode = document.getElementById('rvOwnerChipText');
     if(avatarNode){
       avatarNode.innerHTML = '';
       if(avatar.type === 'upload' && avatarUrl){
@@ -2311,7 +2303,6 @@ if(document.readyState === 'loading'){
         avatarNode.textContent = _rvPresetEmoji(avatar.preset);
       }
     }
-    if(labelNode) labelNode.textContent = display;
     return chip;
   }
 
