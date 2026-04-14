@@ -139,12 +139,20 @@ const RELEASE_LOG = [
       'After upload, coverUrl uses the console-relative R2 key (not users/.../ doubled) so GET /r2-rom resolves the same object that was written.',
       'FormData includes owner for workers that resolve owner from body; require owner before upload with a clear toast.',
       'GET /r2-rom strips a matching users/{owner}/ prefix from key= for older saved URLs; rejects other users’ prefixes.',
-      'Cache-bust query on cover URL so the img reloads after replace.',
+      'Stable cache-bust via rom.coverRev (&v=) so the img reloads after replace without random query params in sidecars.',
+    ],
+  },
+  {
+    id: '2026-04-14-h',
+    title: 'R2.dev / public URL covers: force /img-proxy for COEP',
+    details: [
+      'Direct https://*.r2.dev/... images return 200 but lack CORP headers; COEP pages block them as <img src>.',
+      'setArtUrl and showDet now run cover URLs through _rvCoverUrlForImg so external art uses same-origin /img-proxy.',
     ],
   },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cover-r2-key-fix';
+const APP_RELEASE_VERSION = '2026.04.14-r2dev-cover-img-proxy';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1653,6 +1661,14 @@ if(document.readyState === 'loading'){
     .replace(
       '<div class="det">',
       '<div class="det" id="detPanel">'
+    )
+    .replace(
+      "function setArtUrl(){\n  const url=document.getElementById('artUrlInput').value.trim();\n  if(!url||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=url;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}",
+      "function setArtUrl(){\n  const raw=document.getElementById('artUrlInput').value.trim();\n  if(!raw||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(raw):raw;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}"
+    )
+    .replace(
+      "  if(rom.coverUrl){\n    covEl.innerHTML=`<img src=\"${rom.coverUrl}\" style=\"width:100%;height:100%;object-fit:cover;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {",
+      "  if(rom.coverUrl){\n    const __rvCovSrc=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(rom.coverUrl):rom.coverUrl;\n    covEl.innerHTML=`<img src=\"${__rvCovSrc}\" style=\"width:100%;height:100%;object-fit:cover;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {"
     )
     .replace(
       "      const publicUrl = r2Base+'/'+obj.key;",
