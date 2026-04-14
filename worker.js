@@ -150,9 +150,17 @@ const RELEASE_LOG = [
       'setArtUrl and showDet now run cover URLs through _rvCoverUrlForImg so external art uses same-origin /img-proxy.',
     ],
   },
+  {
+    id: '2026-04-14-i',
+    title: 'Migrate stored r2.dev cover URLs + proxy in meta save/restore',
+    details: [
+      'One-time IndexedDB migration rewrites *.r2.dev and r2.cloudflarestorage.com coverUrl values to /img-proxy?url= for COEP.',
+      'Metadata sync restores and r2SaveMeta payloads normalize cover URLs the same way.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-r2dev-cover-img-proxy';
+const APP_RELEASE_VERSION = '2026.04.14-cover-r2-migrate-proxy';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1822,7 +1830,10 @@ if(document.readyState === 'loading'){
                 }catch(e){}
                 return true;
               }
-              if(meta.coverUrl && wantsCoverFromMeta(meta.coverUrl)){ match.coverUrl = meta.coverUrl; changed=true; }
+              if(meta.coverUrl && wantsCoverFromMeta(meta.coverUrl)){
+                match.coverUrl = (typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(meta.coverUrl):meta.coverUrl;
+                changed=true;
+              }
               if(meta.description && !match.description) { match.description = meta.description; changed=true; }
               if(meta.year        && !match.year)        { match.year        = meta.year;        changed=true; }
               if(meta.rating      && !match.rating)      { match.rating      = meta.rating;      changed=true; }
@@ -1869,6 +1880,35 @@ if(document.readyState === 'loading'){
   }
   window._rvCoverUrlForImg = _rvCoverUrlForImg;
 
+  async function _rvMigrateExternalCoverUrlsOnce(){
+    const flag = 'rv-cover-proxy-mig-v2';
+    try{
+      if(localStorage.getItem(flag) === '1') return;
+      if(typeof dbGetAll !== 'function' || typeof dbPut !== 'function') return;
+      const roms = await dbGetAll('roms');
+      let n = 0;
+      for(let i = 0; i < (roms || []).length; i++){
+        const r = roms[i];
+        if(!r || !r.coverUrl) continue;
+        const u = String(r.coverUrl).trim();
+        if(!u || u.indexOf('/img-proxy') >= 0) continue;
+        if(!/^https?:\/\//i.test(u)) continue;
+        try{
+          const host = new URL(u, window.location.href).hostname || '';
+          if(host.indexOf('.r2.dev') < 0 && host.indexOf('r2.cloudflarestorage.com') < 0) continue;
+        }catch(e){ continue; }
+        const fixed = _rvCoverUrlForImg(u);
+        if(fixed && fixed !== u){
+          r.coverUrl = fixed;
+          await dbPut('roms', r);
+          n++;
+        }
+      }
+      if(n > 0 && typeof logScrape === 'function') logScrape('[cover-mig] Rewrote '+n+' cover URL(s) for COEP /img-proxy');
+      localStorage.setItem(flag, '1');
+    }catch(e){}
+  }
+
   function _rvPatchCoverRendering(){
     if(window.__rvCoverRenderPatched) return;
     window.__rvCoverRenderPatched = true;
@@ -1911,10 +1951,12 @@ if(document.readyState === 'loading'){
     }
   }
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', function(){ _rvPatchCoverRendering(); });
+    document.addEventListener('DOMContentLoaded', function(){ _rvMigrateExternalCoverUrlsOnce().catch(function(){}); _rvPatchCoverRendering(); });
   } else {
+    setTimeout(function(){ _rvMigrateExternalCoverUrlsOnce().catch(function(){}); }, 0);
     setTimeout(_rvPatchCoverRendering, 0);
   }
+  setTimeout(function(){ _rvMigrateExternalCoverUrlsOnce().catch(function(){}); }, 400);
   setTimeout(_rvPatchCoverRendering, 800);
 
   function _rvLooksLikeImageFile(file){
@@ -2200,7 +2242,7 @@ if(document.readyState === 'loading'){
           filename: rom.filename||rom.name,
           console: rom.console,
           cloudStoragePath: rom.cloudStoragePath||null,
-          coverUrl: rom.coverUrl||null,
+          coverUrl: (typeof _rvCoverUrlForImg==='function' && rom.coverUrl)?_rvCoverUrlForImg(rom.coverUrl):(rom.coverUrl||null),
           description: rom.description||null,
           year: rom.year||null,
           rating: rom.rating||null,

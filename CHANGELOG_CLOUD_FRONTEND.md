@@ -83,6 +83,7 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 
 ### R2 public URL (`*.r2.dev`) box art + COEP
 - Pasting a public **R2.dev** image URL and tapping **Set** now stores **`/img-proxy?url=...`** so the cover displays under **Cross-Origin-Embedder-Policy** (raw `r2.dev` responses often omit `Cross-Origin-Resource-Policy` and were blocked).
+- **One-time migration** rewrites existing IndexedDB `coverUrl` rows that still point at raw `*.r2.dev` (or `r2.cloudflarestorage.com`) so old libraries fix themselves on load.
 
 ### Cover URL ↔ R2 key fix
 - Manual cover uploads now store **`/r2-rom?key=`** as the **console-relative** path (e.g. `gb/art/foo-cover.png`), matching how the worker scopes keys under `users/{owner}/`.
