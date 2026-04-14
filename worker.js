@@ -158,9 +158,18 @@ const RELEASE_LOG = [
       'Metadata sync restores and r2SaveMeta payloads normalize cover URLs the same way.',
     ],
   },
+  {
+    id: '2026-04-14-j',
+    title: 'R2-rom fallback keys + rom-proxy CORP',
+    details: [
+      'GET /r2-rom tries alternate filename spellings when the exact key 404s (double-underscore vs single, underscores vs spaces).',
+      '404 JSON body includes triedKeys and a short hint for debugging.',
+      'GET /rom-proxy responses add Cross-Origin-Resource-Policy: cross-origin for COEP embeds.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cover-r2-migrate-proxy';
+const APP_RELEASE_VERSION = '2026.04.14-r2-rom-fallback-keys';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -4552,6 +4561,7 @@ export default {
           ...corsHeaders(origin),
           'Content-Type': upstream.headers.get('Content-Type') || 'application/octet-stream',
           'Cache-Control': 'public, max-age=86400',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
         };
         const cl = upstream.headers.get('Content-Length');
         if (cl) responseHeaders['Content-Length'] = cl;
@@ -4591,15 +4601,42 @@ export default {
             status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
-        const key = toOwnedKey(rawKey, ownerId);
-        if (!key) {
-          return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), {
-            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
-          });
+        const tryKeys = [];
+        const pushTry = (rel) => {
+          const k = toOwnedKey(rel, ownerId);
+          if (k && !tryKeys.includes(k)) tryKeys.push(k);
+        };
+        pushTry(rawKey);
+        const parts = rawKey.split('/').filter(Boolean);
+        if (parts.length >= 2) {
+          const base = parts[parts.length - 1];
+          const dir = parts.slice(0, -1).join('/');
+          if (base.includes('__')) {
+            pushTry(`${dir}/${base.replace(/__+/g, '_')}`);
+            pushTry(`${dir}/${base.replace(/__+/g, ' ')}`);
+          }
+          if (base.includes('_') && !base.includes('__')) {
+            pushTry(`${dir}/${base.replace(/_+/g, ' ')}`);
+          }
         }
-        const obj = await env.ROM_BUCKET.get(key);
+        let obj = null;
+        let usedKey = null;
+        for (let ti = 0; ti < tryKeys.length; ti++) {
+          const candidate = tryKeys[ti];
+          const got = await env.ROM_BUCKET.get(candidate);
+          if (got) {
+            obj = got;
+            usedKey = candidate;
+            break;
+          }
+        }
         if (!obj) {
-          return new Response('ROM not found', { status: 404, headers: corsHeaders(origin) });
+          return new Response(JSON.stringify({
+            ok: false,
+            error: 'ROM not found',
+            triedKeys: tryKeys,
+            hint: 'Sync from bucket or re-upload; filename in the app must match the object key under users/{owner}/',
+          }), { status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         }
         return new Response(obj.body, {
           status: 200,
@@ -4608,6 +4645,7 @@ export default {
             'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
             'Cache-Control': 'public, max-age=86400',
             'Cross-Origin-Resource-Policy': 'cross-origin',
+            'X-Retrovault-R2-Key': usedKey || '',
           },
         });
       } catch (err) {
