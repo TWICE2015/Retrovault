@@ -64,6 +64,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 ### BIOS serving
 - Restored `GET` and `HEAD` for `/bios/:filename` so firmware in the `bios/` R2 prefix streams with COOP/COEP/CORP headers expected by the emulator shell.
 
+### Manual box art (GIF) + sync
+- Drag-and-drop and file picker accept GIF/WebP as well as PNG/JPEG; extension is inferred from MIME when the file has no name.
+- After **Sync from bucket**, metadata sidecars apply R2-hosted cover URLs (your uploaded art) even when the local row still has a remote scraper URL, so GIF box art follows the same path as ROM sync.
+- Existing ROM rows get `cloudStoragePath` updated to the normalized R2 key when the bucket listing returns it, improving sidecar matching across devices.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.

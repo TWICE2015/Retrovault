@@ -97,9 +97,18 @@ const RELEASE_LOG = [
       'GET|HEAD /bios/ was restored so emulator BIOS files still stream from R2 with correct cross-origin headers.',
     ],
   },
+  {
+    id: '2026-04-14-c',
+    title: 'GIF box art + metadata reconcile after R2 sync',
+    details: [
+      'Manual cover uploads (PNG/JPEG/WebP/GIF) keep correct file extensions when the browser omits a filename.',
+      'Bucket sync updates each ROM’s cloudStoragePath when the worker reports a normalized R2 key.',
+      'After sync, metadata sidecars apply R2-hosted box art (including GIF) even when a stale remote cover URL is already set.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-hasheous-only-metadata';
+const APP_RELEASE_VERSION = '2026.04.14-gif-cover-meta-reconcile';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -110,6 +119,7 @@ const CHANGELOG_DATA = {
     'Broken-cover recovery and card fallback fixes',
     'Worker /hasheous-lookup proxy for CORS-safe API calls',
     'BIOS files served again from R2 at /bios/',
+    'GIF/WebP box art uploads and post-sync metadata reconcile for R2 cover URLs',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -1480,7 +1490,7 @@ function _rvInitHasheousControls(){
     + '<strong style="color:var(--text);">Hasheous (built in):</strong> hash match, no API key, good when your ROM matches a known dump. Misses hacks, overdumps, or unlisted files.<br/>'
     + '<strong style="color:var(--text);">ScreenScraper:</strong> huge art set but needs an account; not wired in this build.<br/>'
     + '<strong style="color:var(--text);">Skraper / LaunchBox (desktop):</strong> strongest for full media libraries offline, then you sync files yourself.<br/>'
-    + '<strong style="color:var(--text);">Manual:</strong> open a game, then drag a PNG or JPG onto the cover, or paste a URL and tap Set. Covers upload to your R2 path under <code>.../art/</code> and metadata sidecars update for sync.'
+    + '<strong style="color:var(--text);">Manual:</strong> open a game, then drag a PNG, JPG, WebP, or GIF onto the cover, or paste a URL and tap Set. Covers upload to your R2 path under <code>.../art/</code> and metadata sidecars update for sync.'
     + '</div></details>';
 
   host.appendChild(card);
@@ -1570,7 +1580,7 @@ if(document.readyState === 'loading'){
     )
     .replace(
       "      await dbAdd('roms',{\n        name: cleanName(filename),\n        filename,\n        console: consoleId,\n        consoleName: s.name,\n        size: obj.size||0,\n        coverUrl: null, description: null, year: null, rating: null,\n        added: Date.now(),\n        ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n        romUrl: publicUrl,\n        cloudStoragePath: obj.key,\n        data: null,\n      });\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n",
-      "      if(existingRom){\n        let changed = false;\n        if(existingRom.console !== consoleId){ existingRom.console = consoleId; changed = true; }\n        if(existingRom.consoleName !== s.name){ existingRom.consoleName = s.name; changed = true; }\n        if(existingRom.filename !== filename){ existingRom.filename = filename; changed = true; }\n        const cleanedName = cleanName(filename);\n        if(existingRom.name !== cleanedName){ existingRom.name = cleanedName; changed = true; }\n        if(existingRom.romUrl !== publicUrl){ existingRom.romUrl = publicUrl; changed = true; }\n        if(existingRom.ejsSys !== (s.ejsSys||'')){ existingRom.ejsSys = s.ejsSys||''; changed = true; }\n        if(existingRom.ejsCore !== (s.ejsCore||'')){ existingRom.ejsCore = s.ejsCore||''; changed = true; }\n        if(changed){ await dbPut('roms', existingRom); }\n      } else {\n        await dbAdd('roms',{\n          name: cleanName(filename),\n          filename,\n          console: consoleId,\n          consoleName: s.name,\n          size: obj.size||0,\n          coverUrl: null, description: null, year: null, rating: null,\n          added: Date.now(),\n          ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n          romUrl: publicUrl,\n          cloudStoragePath: obj.key,\n          data: null,\n        });\n      }\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n"
+      "      if(existingRom){\n        let changed = false;\n        if(existingRom.cloudStoragePath !== normalizedKey){ existingRom.cloudStoragePath = normalizedKey; changed = true; }\n        if(existingRom.console !== consoleId){ existingRom.console = consoleId; changed = true; }\n        if(existingRom.consoleName !== s.name){ existingRom.consoleName = s.name; changed = true; }\n        if(existingRom.filename !== filename){ existingRom.filename = filename; changed = true; }\n        const cleanedName = cleanName(filename);\n        if(existingRom.name !== cleanedName){ existingRom.name = cleanedName; changed = true; }\n        if(existingRom.romUrl !== publicUrl){ existingRom.romUrl = publicUrl; changed = true; }\n        if(existingRom.ejsSys !== (s.ejsSys||'')){ existingRom.ejsSys = s.ejsSys||''; changed = true; }\n        if(existingRom.ejsCore !== (s.ejsCore||'')){ existingRom.ejsCore = s.ejsCore||''; changed = true; }\n        if(changed){ await dbPut('roms', existingRom); }\n      } else {\n        await dbAdd('roms',{\n          name: cleanName(filename),\n          filename,\n          console: consoleId,\n          consoleName: s.name,\n          size: obj.size||0,\n          coverUrl: null, description: null, year: null, rating: null,\n          added: Date.now(),\n          ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n          romUrl: publicUrl,\n          cloudStoragePath: obj.key,\n          data: null,\n        });\n      }\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n"
     )
     .replace(
       "return { publicUrl, fullPath: key };",
@@ -1705,6 +1715,60 @@ if(document.readyState === 'loading'){
       "dot.classList.toggle('show', false);"
     );
 
+  html = html.replace(
+    `          for(const meta of metaData.metas){
+            const match = allRoms.find(r =>
+              (r.cloudStoragePath && meta.cloudStoragePath && r.cloudStoragePath === meta.cloudStoragePath) ||
+              (r.filename === meta.filename && r.console === meta.console) ||
+              (r.name === meta.name && r.console === meta.console)
+            );
+            if(match){
+              let changed = false;
+              if(meta.coverUrl    && !match.coverUrl)    { match.coverUrl    = meta.coverUrl;    changed=true; }
+              if(meta.description && !match.description) { match.description = meta.description; changed=true; }
+              if(meta.year        && !match.year)        { match.year        = meta.year;        changed=true; }
+              if(meta.rating      && !match.rating)      { match.rating      = meta.rating;      changed=true; }
+              if(meta.developer   && !match.developer)   { match.developer   = meta.developer;   changed=true; }
+              if(meta.genres      && !match.genres)      { match.genres      = meta.genres;      changed=true; }
+              if(changed){ await dbPut('roms', match); metaRestored++; }
+            }
+          }`,
+    `          for(const meta of metaData.metas){
+            const ck = meta && meta.cloudStoragePath ? String(meta.cloudStoragePath).replace(/%2F/gi,'/').replace(/^\/+/,'') : '';
+            const match = allRoms.find(r => {
+              if(!r) return false;
+              const rk = r.cloudStoragePath ? String(r.cloudStoragePath).replace(/%2F/gi,'/').replace(/^\/+/,'') : '';
+              if(rk && ck && rk === ck) return true;
+              if(r.filename === meta.filename && r.console === meta.console) return true;
+              if(r.name === meta.name && r.console === meta.console) return true;
+              return false;
+            });
+            if(match){
+              let changed = false;
+              function wantsCoverFromMeta(url){
+                const u = String(url||'').trim();
+                if(!u) return false;
+                const cur = String(match.coverUrl||'').trim();
+                if(!cur) return true;
+                try{
+                  const mp = new URL(u, window.location.href).pathname||'';
+                  if(mp === '/r2-rom' || mp === '/img-proxy' || u.indexOf('/r2-rom?') >= 0) return true;
+                  const cp = new URL(cur, window.location.href).pathname||'';
+                  if(cp === '/r2-rom' || cp === '/img-proxy' || cur.indexOf('/r2-rom?') >= 0) return false;
+                }catch(e){}
+                return true;
+              }
+              if(meta.coverUrl && wantsCoverFromMeta(meta.coverUrl)){ match.coverUrl = meta.coverUrl; changed=true; }
+              if(meta.description && !match.description) { match.description = meta.description; changed=true; }
+              if(meta.year        && !match.year)        { match.year        = meta.year;        changed=true; }
+              if(meta.rating      && !match.rating)      { match.rating      = meta.rating;      changed=true; }
+              if(meta.developer   && !match.developer)   { match.developer   = meta.developer;   changed=true; }
+              if(meta.genres      && !match.genres)      { match.genres      = meta.genres;      changed=true; }
+              if(changed){ await dbPut('roms', match); metaRestored++; }
+            }
+          }`
+  );
+
   if (!html.includes('window.__rvNoFirebaseMode=true')) {
     const noFirebasePatch = `<script>
 (function(){
@@ -1809,7 +1873,7 @@ if(document.readyState === 'loading'){
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .slice(0, 96) || 'cover';
     const extMatch = String(file.name || '').match(/\.([a-z0-9]+)$/i);
-    const ext = extMatch ? extMatch[1].toLowerCase() : (file.type.indexOf('png') >= 0 ? 'png' : file.type.indexOf('webp') >= 0 ? 'webp' : 'jpg');
+    const ext = extMatch ? extMatch[1].toLowerCase() : (file.type.indexOf('png') >= 0 ? 'png' : file.type.indexOf('webp') >= 0 ? 'webp' : file.type.indexOf('gif') >= 0 ? 'gif' : 'jpg');
     const artKey = cid + '/art/' + base + '-cover.' + ext;
     const form = new FormData();
     form.append('file', file);
@@ -1852,7 +1916,7 @@ if(document.readyState === 'loading'){
     if(!cov || cov.dataset.rvDropInit === '1') return;
     cov.dataset.rvDropInit = '1';
     cov.style.position = cov.style.position || 'relative';
-    cov.title = (cov.title || '') + ' — Drop an image here or click to pick a file (saved to R2)';
+    cov.title = (cov.title || '') + ' — Drop PNG, JPG, WebP, or GIF here or click to pick (saved to R2, syncs with library)';
     ['dragenter', 'dragover'].forEach(function(evName){
       cov.addEventListener(evName, function(e){
         e.preventDefault();
