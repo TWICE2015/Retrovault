@@ -54,6 +54,16 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Added release-notes and GitHub integration status API endpoints.
 - Added route split prep (`/` landing target, `/app` app target) while preserving existing app route behavior.
 
+## 2026-04-14
+
+### Metadata: Hasheous only
+- Removed worker routes that proxied arbitrary scraper URLs and the LaunchBox index search (`/scraper-proxy`, `/lb-search`, and related test routes).
+- Added `POST /hasheous-lookup`, which forwards hash payloads to `https://hasheous.org/api/v1/Lookup/ByHash` with CORS-friendly responses for the browser.
+- Frontend scrape actions route through client-side ROM hashing and the Hasheous lookup only.
+
+### BIOS serving
+- Restored `GET` and `HEAD` for `/bios/:filename` so firmware in the `bios/` R2 prefix streams with COOP/COEP/CORP headers expected by the emulator shell.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.

@@ -88,19 +88,28 @@ const RELEASE_LOG = [
       'Sources tab detection prefers the tab whose onclick references sc-sources, with text and index fallbacks.',
     ],
   },
+  {
+    id: '2026-04-14-b',
+    title: 'Hasheous-only metadata + worker BIOS route',
+    details: [
+      'Metadata scraping uses only Hasheous hash lookup via POST /hasheous-lookup (CRC32, MD5, SHA-1, SHA-256).',
+      'Legacy scraper proxy and LaunchBox index routes were removed from the worker.',
+      'GET|HEAD /bios/ was restored so emulator BIOS files still stream from R2 with correct cross-origin headers.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-skraper-ui';
+const APP_RELEASE_VERSION = '2026.04.14-hasheous-only-metadata';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
   highlights: [
     'Owner-scoped cloud ROM sync and migration tools',
     'Online session create/join flow in settings',
-    'All-providers scraper settings with no-login defaults',
+    'Hasheous-only hash metadata (no multi-provider scraper stack)',
     'Broken-cover recovery and card fallback fixes',
-    'Reduced noisy scraper failures when index is missing',
-    'Skraper: cloud-scrape shortcuts open the import UI (Sources tab + file picker)',
+    'Worker /hasheous-lookup proxy for CORS-safe API calls',
+    'BIOS files served again from R2 at /bios/',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -845,17 +854,17 @@ body{background:#141414!important;color:#fff!important;}
     box.innerHTML =
       '<div style=\"font-size:13px;font-weight:700;margin-bottom:8px;\">Metadata Utility Tools</div>'+
       '<div style=\"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;\">'+
-        '<button class=\"bb p\" id=\"rvMetaScrapeAll\">Skraper: import gamelist.xml</button>'+
-        '<button class=\"bb s\" id=\"rvMetaMissingOnly\">Skraper import (fill gaps)</button>'+
+        '<button class=\"bb p\" id=\"rvMetaScrapeAll\">Hasheous: all ROMs</button>'+
+        '<button class=\"bb s\" id=\"rvMetaMissingOnly\">Hasheous: missing art only</button>'+
         '<button class=\"bb s\" id=\"rvMetaMissingTrailers\">🎬 Missing Trailers</button>'+
-        '<button class=\"bb s\" id=\"rvMetaLocalArt\">🖼 Use Local Artwork</button>'+
+        '<button class=\"bb s\" id=\"rvMetaLocalArt\">Open Hasheous panel</button>'+
         '<button class=\"bb s\" id=\"rvMetaUploadR2\">☁ Upload Local Artwork to R2</button>'+
       '</div>'+
       '<label style=\"display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:8px;\">'+
         '<input id=\"rvMetaOverwriteToggle\" type=\"checkbox\" /> Overwrite existing cover URLs'+
       '</label>'+
       '<div id=\"rvMetaHowItWorks\" style=\"font-size:12px;color:var(--muted);line-height:1.65;\">'+
-        '<strong style=\"color:var(--text)\">How it works:</strong> Use <a href=\"https://www.skraper.net/\" target=\"_blank\" rel=\"noopener\">Skraper</a> on your PC to build <code>gamelist.xml</code> and artwork, then import under Scraper → Sources. Cloud API scrapers are disabled in this build.'+
+        '<strong style=\"color:var(--text)\">How it works:</strong> Metadata comes only from <a href=\"https://hasheous.org/\" target=\"_blank\" rel=\"noopener\">Hasheous</a> hash lookup (CRC32 + SHA-1/256). The app hashes your ROM, the worker queries Hasheous, then applies title, description, year, and TheGamesDB box art. No ScreenScraper, LaunchBox, or Skraper imports.'+
       '</div>';
 
     const anchor = scMain.querySelector('.bb-row');
@@ -877,16 +886,16 @@ body{background:#141414!important;color:#fff!important;}
     const uploadBtn = document.getElementById('rvMetaUploadR2');
     const overwrite = document.getElementById('rvMetaOverwriteToggle');
 
-    const _rvGoSkraperImport = (missingOnly)=>{
-      if(typeof window._rvOpenSkraperImportUI === 'function'){
-        window._rvOpenSkraperImportUI({ missingOnly:!!missingOnly });
+    const _rvGoHasheous = (missingOnly)=>{
+      if(typeof window._rvOpenHasheousPanel === 'function'){
+        window._rvOpenHasheousPanel({ missingOnly:!!missingOnly });
       } else if(typeof sv === 'function') sv('scraper', null);
       if(typeof toast === 'function'){
-        toast(missingOnly ? 'Skraper: leave Overwrite off to fill only empty fields' : 'Skraper: pick gamelist.xml, optional images, then Import');
+        toast(missingOnly ? 'Hasheous: use Missing artwork only in Sources' : 'Hasheous: use Fetch metadata for all ROMs in Sources');
       }
     };
-    if(allBtn) allBtn.onclick = ()=>_rvGoSkraperImport(false);
-    if(missBtn) missBtn.onclick = ()=>_rvGoSkraperImport(true);
+    if(allBtn) allBtn.onclick = ()=>_rvGoHasheous(false);
+    if(missBtn) missBtn.onclick = ()=>_rvGoHasheous(true);
     if(trailersBtn) trailersBtn.onclick = async ()=>{
       try{
         const roms = await dbGetAll('roms');
@@ -894,26 +903,13 @@ body{background:#141414!important;color:#fff!important;}
         const count = need.length;
         if(typeof toast==='function') toast(count ? ('Trailer queue: '+count+' game(s) missing videoUrl metadata') : 'All listed games already have trailer metadata');
         const st = document.getElementById('rvMetaHowItWorks');
-        if(st) st.innerHTML = '<strong style=\"color:var(--text)\">Trailer report:</strong> '+count+' game(s) missing videoUrl. If Skraper wrote &lt;video&gt; paths in gamelist.xml, import that file (http URLs work; local paths need manual hosting).';
+        if(st) st.innerHTML = '<strong style=\"color:var(--text)\">Trailer report:</strong> '+count+' game(s) missing videoUrl. Hasheous supplies box art and text only; set video URLs manually if needed.';
       }catch(e){
         if(typeof toast==='function') toast('Trailer scan failed: '+e.message,'err');
       }
     };
     if(localBtn) localBtn.onclick = ()=>{
-      if(typeof scTab === 'function'){
-        const tabs = document.querySelectorAll('#view-scraper .si');
-        const targetBtn = tabs && tabs[3] ? tabs[3] : null;
-        scTab('sc-sources', targetBtn || null);
-      }
-      if(typeof toast==='function') toast('Skraper: import gamelist.xml under Sources. Media folders below are optional.');
-      const dirs = document.getElementById('sc-dirs');
-      if(dirs){
-        dirs.style.display = 'block';
-        dirs.style.visibility = 'visible';
-        dirs.style.height = 'auto';
-        dirs.style.overflow = 'visible';
-        setTimeout(()=>dirs.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
-      }
+      _rvGoHasheous(false);
     };
     if(uploadBtn) uploadBtn.onclick = ()=>{
       if(typeof sv === 'function') sv('roms', null);
@@ -1117,10 +1113,10 @@ body{background:#141414!important;color:#fff!important;}
     html = html.replace('</body>', `${hybridUxPatch}\n</body>`);
   }
 
-  if (!html.includes('function _rvSkraperMetadataBoot(')) {
+  if (!html.includes('function _rvHasheousMetadataBoot(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
     const scraperSourceHelper = `
-function _rvSkraperMetadataBoot(){}
+function _rvHasheousMetadataBoot(){}
 
 function _rvCleanScrapeName(name){
   return String(name || '')
@@ -1191,147 +1187,130 @@ async function _rvMarkCoverBroken(romId, badUrl){
 
 window._rvMarkCoverBroken = _rvMarkCoverBroken;
 
-function _rvSkraperBasename(p){
-  const bs = String.fromCharCode(92);
-  const s = String(p || '').split(bs).join('/').trim();
-  const parts = s.split('/');
-  let base = parts[parts.length - 1] || '';
-  if(base.indexOf('./') === 0) base = base.slice(2);
-  return base.trim();
-}
-
-function _rvSkraperXmlText(gameEl, tag){
-  const nodes = gameEl.getElementsByTagName(tag);
-  const n = nodes && nodes[0];
-  return n ? String(n.textContent || '').trim() : '';
-}
-
-function _rvSkraperParseReleasedate(raw){
-  const s = String(raw || '').trim();
-  const m = s.match(/(\d{4})(\d{2})(\d{2})/);
-  if(m) return m[1];
-  const y = s.match(/\b(19|20)\d{2}\b/);
-  return y ? y[0] : '';
-}
-
-function _rvSkraperParseGamelist(xmlText){
-  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
-  if(doc.getElementsByTagName('parsererror').length){
-    throw new Error('Invalid XML (parse error)');
+function _rvHexBytes(buf){
+  const u8 = new Uint8Array(buf);
+  let s = '';
+  for(let i = 0; i < u8.length; i++){
+    const h = u8[i].toString(16);
+    s += (h.length === 1 ? '0' : '') + h;
   }
-  const games = doc.getElementsByTagName('game');
-  const out = [];
-  for(let i = 0; i < games.length; i++){
-    const g = games[i];
-    const path = _rvSkraperXmlText(g, 'path');
-    if(!path) continue;
-    const image = _rvSkraperXmlText(g, 'image') || _rvSkraperXmlText(g, 'thumbnail');
-    const video = _rvSkraperXmlText(g, 'video');
-    out.push({
-      path: path,
-      name: _rvSkraperXmlText(g, 'name'),
-      desc: _rvSkraperXmlText(g, 'desc'),
-      image: image,
-      rating: _rvSkraperXmlText(g, 'rating'),
-      releasedate: _rvSkraperXmlText(g, 'releasedate'),
-      developer: _rvSkraperXmlText(g, 'developer'),
-      genre: _rvSkraperXmlText(g, 'genre'),
-      video: video
-    });
-  }
-  return out;
+  return s;
 }
 
-function _rvSkraperFindRom(roms, entry){
-  const fn = _rvSkraperBasename(entry.path).toLowerCase();
-  if(!fn) return null;
-  const baseNoExt = fn.replace(/\.[^.]+$/, '');
-  for(let i = 0; i < roms.length; i++){
-    const r = roms[i];
-    const rf = String(r.filename || '').toLowerCase().trim();
-    const rn = String(r.name || '').toLowerCase().trim();
-    if(rf && rf === fn) return r;
-    if(rf && rf.replace(/\.[^.]+$/, '') === baseNoExt) return r;
-    if(rn && rn === baseNoExt) return r;
-    if(rn && _rvCleanScrapeName(rn).toLowerCase() === baseNoExt) return r;
+function _rvCrc32(buf){
+  let c = -1 >>> 0;
+  const u8 = new Uint8Array(buf);
+  for(let i = 0; i < u8.length; i++){
+    c ^= u8[i];
+    for(let k = 0; k < 8; k++){
+      c = (c >>> 1) ^ (0xedb88320 & (-(c & 1)));
+    }
+  }
+  return ((c ^ -1) >>> 0).toString(16).padStart(8,'0');
+}
+
+async function _rvDigestHex(algorithm, buf){
+  const d = await crypto.subtle.digest(algorithm, buf);
+  return _rvHexBytes(d);
+}
+
+async function _rvRomPayloadBuffer(rom){
+  if(!rom) return null;
+  if(rom.data){
+    try{
+      if(rom.data instanceof Blob) return await rom.data.arrayBuffer();
+      if(typeof rom.data.arrayBuffer === 'function') return await rom.data.arrayBuffer();
+    }catch(e){}
+  }
+  const cand = String(rom.romUrl || rom.url || '').trim();
+  if(cand){
+    try{
+      const r = await fetch(cand, { cache:'no-store' });
+      if(r.ok) return await r.arrayBuffer();
+    }catch(e){}
   }
   return null;
 }
 
-async function _rvSkraperUploadImageFile(file, romId){
-  const owner = (typeof _rvOwnerId === 'function') ? _rvOwnerId() : (localStorage.getItem('rv-owner-id') || 'main');
-  const ext = (file.name && file.name.match(/\.([a-z0-9]+)$/i)) ? RegExp.$1.toLowerCase() : 'png';
-  const safeExt = ['png','jpg','jpeg','webp','gif'].includes(ext) ? ext : 'png';
-  const key = 'meta/skraper-media/' + String(romId) + '-' + Date.now() + '.' + safeExt;
-  const buf = await file.arrayBuffer();
-  const ct = file.type || (safeExt === 'jpg' ? 'image/jpeg' : 'image/' + safeExt);
-  const url = window.location.origin + '/r2-upload?owner=' + encodeURIComponent(owner) + '&key=' + encodeURIComponent(key);
-  const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': ct, 'X-Retrovault-Owner': owner }, body: buf });
-  const data = await resp.json().catch(() => ({}));
-  if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP ' + resp.status));
-  const fullKey = data.key || key;
-  return window.location.origin + '/r2-rom?key=' + encodeURIComponent(fullKey) + '&owner=' + encodeURIComponent(owner);
+async function _rvComputeRomHashes(rom){
+  const buf = await _rvRomPayloadBuffer(rom);
+  if(!buf || !buf.byteLength) return null;
+  const crc = _rvCrc32(buf);
+  const sha1 = await _rvDigestHex('SHA-1', buf);
+  const sha256 = await _rvDigestHex('SHA-256', buf);
+  return { crc: crc, sha1: sha1, sha256: sha256, byteLength: buf.byteLength };
 }
 
-async function _rvSkraperBuildImageMap(fileList){
-  const map = Object.create(null);
-  if(!fileList || !fileList.length) return map;
-  for(let i = 0; i < fileList.length; i++){
-    const f = fileList[i];
-    const base = _rvSkraperBasename(f.name).toLowerCase();
-    if(base) map[base] = f;
-  }
-  return map;
+function _rvTgdbFrontCoverUrl(gameId){
+  const id = String(gameId || '').trim();
+  if(!id) return '';
+  return 'https://cdn.thegamesdb.net/images/original/boxart/front/' + id + '-1.jpg';
 }
 
-async function _rvSkraperResolveCoverUrl(entry, rom, imageMap, uploadToR2){
-  const imgPath = String(entry.image || '').trim();
-  if(!imgPath) return '';
-  const base = _rvSkraperBasename(imgPath).toLowerCase();
-  const file = imageMap[base];
-  if(file && uploadToR2){
-    try{
-      return await _rvSkraperUploadImageFile(file, rom.id);
-    }catch(e){
-      if(typeof logScrape === 'function') logScrape('[skraper] cover upload failed: ' + e.message);
-      return '';
-    }
+function _rvHasheousPickTgdbId(metadata){
+  if(!metadata || !metadata.length) return '';
+  for(let i = 0; i < metadata.length; i++){
+    const m = metadata[i];
+    if(!m) continue;
+    if(String(m.source || '') !== 'TheGamesDb') continue;
+    if(String(m.status || '') !== 'Mapped') continue;
+    const id = String(m.id || m.immutableId || '').trim();
+    if(id) return id;
   }
-  if(_rvIsHttpUrl(imgPath)) return imgPath;
   return '';
 }
 
-async function _rvApplySkraperPatch(romId, patch, overwrite){
+async function _rvHasheousFetchLookup(hashes){
+  const body = {};
+  if(hashes.crc) body.crc = String(hashes.crc).toLowerCase();
+  if(hashes.sha1) body.sha1 = String(hashes.sha1).toLowerCase();
+  if(hashes.sha256) body.sha256 = String(hashes.sha256).toLowerCase();
+  const resp = await fetch(window.location.origin + '/hasheous-lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const text = await resp.text();
+  let data = null;
+  try{ data = JSON.parse(text); }catch(e){ data = null; }
+  if(!resp.ok){
+    const msg = (data && (data.detail || data.title)) ? String(data.detail || data.title) : (text.slice(0, 200) || ('HTTP ' + resp.status));
+    throw new Error(msg);
+  }
+  return data;
+}
+
+async function _rvApplyHasheousToRom(romId, api, opts){
+  opts = opts || {};
+  const overwrite = !!opts.overwrite;
+  const missingOnly = !!opts.missingOnly;
   const rom = await dbGet('roms', romId);
-  if(!rom || !patch) return false;
+  if(!rom || !api) return false;
+  const sig = api.signature || {};
+  const gameSig = sig.game || {};
+  const metaList = api.metadata || [];
+  const tgdbId = _rvHasheousPickTgdbId(metaList);
+  const cover = _rvNormCoverUrl(_rvTgdbFrontCoverUrl(tgdbId));
+  const title = String(api.name || gameSig.name || '').trim();
+  const desc = _rvToPlainText(gameSig.description || '');
+  const year = String(gameSig.year || '').trim().slice(0, 4);
   let changed = false;
-  const apply = (field, val) => {
+  const take = (field, val) => {
     if(val == null || val === '') return;
-    const v = field === 'description' ? _rvToPlainText(val) : val;
-    if(overwrite || !rom[field]){
-      if(rom[field] !== v){ rom[field] = v; changed = true; }
-    }
+    if(missingOnly && rom[field]) return;
+    if(!overwrite && rom[field]) return;
+    if(rom[field] !== val){ rom[field] = val; changed = true; }
   };
-  if(patch.name){
-    const nm = String(patch.name).trim().slice(0, 120);
-    if(nm && (overwrite || !rom.name)){
-      if(rom.name !== nm){ rom.name = nm; changed = true; }
+  if(title){
+    if(overwrite || missingOnly || !rom.name || rom.name === cleanName(rom.filename)){
+      if(rom.name !== title){ rom.name = title; changed = true; }
     }
   }
-  const cov = _rvNormCoverUrl(patch.coverUrl);
-  if(cov && !_rvIsBadCoverUrl(cov)){
-    if(overwrite || !rom.coverUrl || _rvIsBadCoverUrl(_rvNormCoverUrl(rom.coverUrl))){
-      if(rom.coverUrl !== cov){ rom.coverUrl = cov; changed = true; }
-    }
+  if(cover && !_rvIsBadCoverUrl(cover)){
+    take('coverUrl', cover);
   }
-  apply('description', patch.description);
-  apply('year', patch.year);
-  apply('rating', patch.rating);
-  apply('developer', patch.developer);
-  apply('genres', patch.genres);
-  if(patch.videoUrl){
-    apply('videoUrl', patch.videoUrl);
-  }
+  take('description', desc);
+  if(year && /^(19|20)\d{2}$/.test(year)) take('year', year);
   if(changed){
     await dbPut('roms', rom);
     if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
@@ -1339,75 +1318,58 @@ async function _rvApplySkraperPatch(romId, patch, overwrite){
   return changed;
 }
 
-async function _rvRunSkraperImport(){
-  const xmlInput = document.getElementById('rvSkraperGamelistFile');
-  const imgInput = document.getElementById('rvSkraperImageFiles');
-  const status = document.getElementById('rvSkraperImportStatus');
-  const overwrite = !!(document.getElementById('rvSkraperOverwrite') && document.getElementById('rvSkraperOverwrite').checked);
-  const uploadR2 = !(document.getElementById('rvSkraperNoUpload') && document.getElementById('rvSkraperNoUpload').checked);
-
-  if(!xmlInput || !xmlInput.files || !xmlInput.files[0]){
-    if(typeof toast === 'function') toast('Choose gamelist.xml first', 'warn');
-    return;
+async function _rvHasheousScrapeRom(romId, opts){
+  opts = opts || {};
+  const statusEl = document.getElementById('rvHasheousStatus');
+  const rom = await dbGet('roms', romId);
+  if(!rom){
+    if(statusEl) statusEl.textContent = 'ROM not found.';
+    return false;
   }
-  const xmlFile = xmlInput.files[0];
-  const xmlText = await xmlFile.text();
-  let entries;
+  const hashes = await _rvComputeRomHashes(rom);
+  if(!hashes){
+    if(statusEl) statusEl.textContent = 'Could not read ROM bytes for hashing (re-download or re-sync this game).';
+    if(typeof logScrape === 'function') logScrape('[hasheous] no payload for ' + rom.name);
+    return false;
+  }
+  let api;
   try{
-    entries = _rvSkraperParseGamelist(xmlText);
+    api = await _rvHasheousFetchLookup(hashes);
   }catch(e){
-    if(status) status.textContent = 'Parse error: ' + e.message;
-    if(typeof toast === 'function') toast('gamelist.xml: ' + e.message, 'err');
-    return;
+    if(statusEl) statusEl.textContent = 'Hasheous error: ' + e.message;
+    if(typeof logScrape === 'function') logScrape('[hasheous] lookup failed: ' + e.message);
+    return false;
   }
-  const imageMap = await _rvSkraperBuildImageMap(imgInput && imgInput.files ? imgInput.files : null);
-  const roms = await dbGetAll('roms');
-  let matched = 0;
-  let updated = 0;
-  let skipped = 0;
-  for(let i = 0; i < entries.length; i++){
-    const entry = entries[i];
-    const rom = _rvSkraperFindRom(roms, entry);
-    if(!rom){ skipped++; continue; }
-    matched++;
-    const patch = {};
-    if(entry.name) patch.name = entry.name;
-    if(entry.desc) patch.description = entry.desc;
-    const y = _rvSkraperParseReleasedate(entry.releasedate);
-    if(y) patch.year = y;
-    if(entry.rating) patch.rating = String(entry.rating).trim();
-    if(entry.developer) patch.developer = entry.developer;
-    if(entry.genre) patch.genres = entry.genre;
-    let videoUrl = '';
-    if(entry.video){
-      if(_rvIsHttpUrl(entry.video)) videoUrl = entry.video;
-    }
-    if(videoUrl) patch.videoUrl = videoUrl;
-    const coverUrl = await _rvSkraperResolveCoverUrl(entry, rom, imageMap, uploadR2);
-    if(coverUrl) patch.coverUrl = coverUrl;
-    const did = await _rvApplySkraperPatch(rom.id, patch, overwrite);
-    if(did) updated++;
+  const ow = (opts.overwrite != null) ? opts.overwrite : (localStorage.getItem('rv-meta-overwrite') === '1');
+  const miss = !!opts.missingOnly;
+  const did = await _rvApplyHasheousToRom(romId, api, { overwrite: ow, missingOnly: miss });
+  if(typeof logScrape === 'function'){
+    logScrape('[hasheous] ' + rom.name + (did ? ' updated' : ' no changes'));
   }
-  const msg = 'Skraper import: ' + entries.length + ' entries, ' + matched + ' matched, ' + updated + ' updated, ' + skipped + ' unmatched.';
-  if(status) status.textContent = msg;
-  if(typeof toast === 'function') toast(msg);
+  return did;
+}
+
+async function _rvRunHasheousQueue(romList, opts){
+  const st = document.getElementById('rvHasheousStatus');
+  let ok = 0;
+  for(let i = 0; i < romList.length; i++){
+    const r = romList[i];
+    if(st) st.textContent = 'Hasheous ' + (i + 1) + '/' + romList.length + ': ' + (r && r.name ? r.name : '');
+    try{
+      if(await _rvHasheousScrapeRom(r.id, opts)) ok++;
+    }catch(e){}
+    await new Promise(function(res){ setTimeout(res, 350); });
+  }
+  if(st) st.textContent = 'Done. Updated ' + ok + ' of ' + romList.length + ' ROM(s).';
+  if(typeof toast === 'function') toast('Hasheous: updated ' + ok + '/' + romList.length);
   if(typeof refreshAll === 'function') await refreshAll();
 }
 
-function _rvOpenSkraperImportUI(opts){
+function _rvOpenHasheousPanel(opts){
   opts = opts || {};
-  const missingOnly = !!opts.missingOnly;
-  const delayMs = typeof opts.delayMs === 'number' ? opts.delayMs : 160;
   if(typeof sv === 'function') sv('scraper', null);
   setTimeout(function(){
-    _rvInitScrapeSourceControls();
-    const panel = document.getElementById('sc-sources');
-    if(panel){
-      panel.style.display = 'block';
-      panel.style.visibility = 'visible';
-      panel.style.height = 'auto';
-      panel.style.overflow = 'visible';
-    }
+    _rvInitHasheousControls();
     if(typeof scTab === 'function'){
       const tabs = document.querySelectorAll('#view-scraper .si');
       let targetBtn = null;
@@ -1415,103 +1377,104 @@ function _rvOpenSkraperImportUI(opts){
         const t = tabs[i];
         if(!t) continue;
         const oc = String(t.getAttribute('onclick') || '');
-        if(oc.indexOf('sc-sources') >= 0){
-          targetBtn = t;
-          break;
-        }
+        if(oc.indexOf('sc-sources') >= 0){ targetBtn = t; break; }
       }
       if(!targetBtn){
         for(let j = 0; j < tabs.length; j++){
           const u = tabs[j];
-          if(!u) continue;
-          if(String(u.textContent || '').toLowerCase().indexOf('source') >= 0){
-            targetBtn = u;
-            break;
-          }
+          if(u && String(u.textContent || '').toLowerCase().indexOf('source') >= 0){ targetBtn = u; break; }
         }
       }
       if(!targetBtn && tabs[3]) targetBtn = tabs[3];
       scTab('sc-sources', targetBtn || null);
     }
-    const card = document.getElementById('rvSkraperImportCard');
+    const card = document.getElementById('rvHasheousCard');
     if(card) card.scrollIntoView({ behavior:'smooth', block:'start' });
-    const ow = document.getElementById('rvSkraperOverwrite');
-    if(ow) ow.checked = !missingOnly;
-    const inp = document.getElementById('rvSkraperGamelistFile');
-    if(inp && typeof inp.focus === 'function') inp.focus();
-  }, delayMs);
+    const ow = document.getElementById('rvHasheousOverwrite');
+    if(ow) ow.checked = !opts.missingOnly;
+  }, 160);
 }
-window._rvOpenSkraperImportUI = _rvOpenSkraperImportUI;
+
+window._rvOpenHasheousPanel = _rvOpenHasheousPanel;
 
 function _rvPatchScrapePipeline(){
-  if(window.__rvSkraperPipelinePatched) return;
+  if(window.__rvHasheousPipelinePatched) return;
   if(typeof autoScrapeWithFallback === 'function'){
     window.__rvAutoScrapeWithFallbackOriginal = autoScrapeWithFallback;
-    autoScrapeWithFallback = async function(){
-      if(typeof _rvOpenSkraperImportUI === 'function') _rvOpenSkraperImportUI({ missingOnly:false });
-      if(typeof toast === 'function') toast('Online scrapers are disabled. Opening Skraper import — use Skraper (skraper.net) on your PC, then pick gamelist.xml here.', 'warn');
-      if(typeof logScrape === 'function') logScrape('[skraper] Import gamelist.xml from Skraper instead of cloud scrape');
+    autoScrapeWithFallback = async function(romId, ssCreds){
+      await _rvHasheousScrapeRom(romId, { missingOnly:false });
+      if(window.__rvEnableFirebaseCloud===true && typeof sbPush === 'function') sbPush().catch(function(){});
+      if(typeof refreshAll === 'function') await refreshAll();
     };
   }
   if(typeof scrapeMissing === 'function'){
     window.__rvScrapeMissingOriginal = scrapeMissing;
     scrapeMissing = async function(){
-      if(typeof _rvOpenSkraperImportUI === 'function') _rvOpenSkraperImportUI({ missingOnly:true });
-      if(typeof toast === 'function') toast('Opening Skraper import. Leave Overwrite off to fill only empty fields.', 'warn');
+      const roms = (await dbGetAll('roms')).filter(function(r){ return r && !r.coverUrl; });
+      if(typeof toast === 'function') toast('Hasheous: ' + roms.length + ' ROM(s) missing artwork');
+      await _rvRunHasheousQueue(roms, { missingOnly:true });
     };
   }
-  window.__rvSkraperPipelinePatched = true;
+  window.__rvHasheousPipelinePatched = true;
 }
 
-function _rvInitScrapeSourceControls(){
+function _rvInitHasheousControls(){
   const host = document.getElementById('sc-sources');
   if(!host) return;
   const legacy = document.getElementById('rvScrapeSourcesCard');
   if(legacy) legacy.remove();
-  if(document.getElementById('rvSkraperImportCard')) return;
+  if(document.getElementById('rvHasheousCard')) return;
 
   const card = document.createElement('div');
-  card.id = 'rvSkraperImportCard';
+  card.id = 'rvHasheousCard';
   card.className = 'sblk';
   card.style.marginTop = '12px';
   card.innerHTML = ''
-    + '<h3>Skraper metadata</h3>'
+    + '<h3>Hasheous metadata</h3>'
     + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.55;">'
-    + 'RetroVault does not call Skraper or ScreenScraper from the browser. '
-    + '<a href="https://www.skraper.net/" target="_blank" rel="noopener">Skraper</a> is a Windows app that downloads artwork and writes an EmulationStation <code style="font-size:11px;">gamelist.xml</code> next to your ROMs. '
-    + 'Export that file, then import it here. Optional: multi-select the image files Skraper saved (boxart paths in the XML) to upload covers to your R2 bucket.'
+    + 'RetroVault uses only <a href="https://hasheous.org/" target="_blank" rel="noopener">Hasheous</a> for automatic metadata. '
+    + 'It matches your ROM file hash (CRC32, SHA-1, SHA-256) to No-Intro / Redump style signatures, then fills title, description, year, and a TheGamesDB box art URL. '
+    + 'Other cloud scrapers and XML imports are removed.'
     + '</div>'
-    + '<label style="display:block;font-size:12px;margin:8px 0 4px;">gamelist.xml</label>'
-    + '<input type="file" id="rvSkraperGamelistFile" accept=".xml,text/xml,application/xml" style="max-width:100%;" />'
-    + '<label style="display:block;font-size:12px;margin:12px 0 4px;">Skraper images (optional, multi-select)</label>'
-    + '<input type="file" id="rvSkraperImageFiles" multiple accept="image/png,image/jpeg,image/webp,image/gif" style="max-width:100%;" />'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);">'
-    + '<input type="checkbox" id="rvSkraperOverwrite" /> Overwrite existing description / year / etc.</label>'
-    + '<label style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:var(--muted);">'
-    + '<input type="checkbox" id="rvSkraperNoUpload" /> Do not upload images to R2 (only use http(s) paths from XML)</label>'
+    + '<input type="checkbox" id="rvHasheousOverwrite" /> Overwrite existing description / year / cover</label>'
     + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'
-    + '<button class="bb p" type="button" id="rvSkraperImportBtn">Import gamelist.xml</button>'
+    + '<button class="bb p" type="button" id="rvHasheousAllBtn">Fetch metadata for all ROMs</button>'
+    + '<button class="bb s" type="button" id="rvHasheousMissingBtn">Missing artwork only</button>'
     + '</div>'
-    + '<div id="rvSkraperImportStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>';
+    + '<div id="rvHasheousStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>';
 
   host.appendChild(card);
-  document.getElementById('rvSkraperImportBtn').onclick = function(){
-    _rvRunSkraperImport().catch(function(e){
-      const st = document.getElementById('rvSkraperImportStatus');
+  document.getElementById('rvHasheousAllBtn').onclick = function(){
+    dbGetAll('roms').then(function(roms){
+      const list = roms || [];
+      const owEl = document.getElementById('rvHasheousOverwrite');
+      const ow = !!(owEl && owEl.checked);
+      return _rvRunHasheousQueue(list, { missingOnly:false, overwrite:ow });
+    }).catch(function(e){
+      const st = document.getElementById('rvHasheousStatus');
       if(st) st.textContent = String(e && e.message ? e.message : e);
-      if(typeof toast === 'function') toast('Import failed: ' + (e && e.message ? e.message : e), 'err');
+    });
+  };
+  document.getElementById('rvHasheousMissingBtn').onclick = function(){
+    dbGetAll('roms').then(function(roms){
+      const list = (roms || []).filter(function(r){ return r && !r.coverUrl; });
+      return _rvRunHasheousQueue(list, { missingOnly:true });
+    }).catch(function(e){
+      const st = document.getElementById('rvHasheousStatus');
+      if(st) st.textContent = String(e && e.message ? e.message : e);
     });
   };
 }
 
 if(document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', function(){
-    _rvInitScrapeSourceControls();
+    _rvInitHasheousControls();
     setTimeout(_rvPatchScrapePipeline, 0);
     setTimeout(_rvPatchScrapePipeline, 1200);
   });
 } else {
-  setTimeout(_rvInitScrapeSourceControls, 0);
+  setTimeout(_rvInitHasheousControls, 0);
   setTimeout(_rvPatchScrapePipeline, 0);
   setTimeout(_rvPatchScrapePipeline, 1200);
 }
@@ -1600,19 +1563,19 @@ if(document.readyState === 'loading'){
     )
     .replace(
       "Scraper initialized. Login to ScreenScraper.fr to begin.",
-      "Scraper initialized. No-login scraping is ready (LaunchBox first). Add ScreenScraper only as optional fallback."
+      "Scraper initialized. Metadata uses Hasheous hash lookup only (see Sources)."
     )
     .replace(
       "<strong style=\"color:var(--text);\">Tip:</strong> If ScreenScraper has better retro coverage, use both — run LaunchBox first for modern/PC games, then ScreenScraper for retro consoles.",
-      "<strong style=\"color:var(--text);\">Tip:</strong> Default mode is no-login (LaunchBox first). ScreenScraper is optional fallback for games LaunchBox cannot match."
+      "<strong style=\"color:var(--text);\">Tip:</strong> Use Scraper → Sources for Hasheous (hash lookup). Older cloud scrapers are not used."
     )
     .replace(
       "Configure which databases to query for metadata.",
-      "No-login sources are used first. Optional logged-in sources are fallback only."
+      "Hasheous matches ROM hashes to DAT signatures and mapped game records."
     )
     .replace(
       "Best retro coverage — box art, screenshots, videos",
-      "Optional fallback (requires login) — use when no-login sources miss a game"
+      "Hasheous — hash match, TheGamesDB cover URLs when mapped"
     )
     .replace(
       "name.replace(/_/g,' ').replace(/s*[([][^)]]*[)]]/g,'')\n        .replace(/s*-s*(Rev|Version|v)s*[d.]+s*$/i,'')\n        .replace(/s+(USA|Europe|Japan|World|En|Fr|De|Es|It)s*$/i,'')\n        .replace(/s+/g,' ').trim();",
@@ -1629,10 +1592,6 @@ if(document.readyState === 'loading'){
     .replace(
       "async function scrapeMissing(){\n  const creds=getSsCreds();\n  if(!creds){ toast('Login to ScreenScraper first','err'); return; }\n  const roms=(await dbGetAll('roms')).filter(r=>!r.coverUrl);\n  toast(`Scraping ${roms.length} ROMs without artwork…`);\n  for(const r of roms){ await scrapeRomById(r.id,creds); await new Promise(x=>setTimeout(x,1100)); }\n  toast('Done — check covers');\n}",
       "async function scrapeMissing(){\n  const creds=getSsCreds();\n  const roms=(await dbGetAll('roms')).filter(r=>!r.coverUrl);\n  toast(`Scraping ${roms.length} ROMs without artwork…`);\n  for(const r of roms){ await autoScrapeWithFallback(r.id, creds); await new Promise(x=>setTimeout(x,850)); }\n  toast('Done — check covers');\n}"
-    )
-    .replace(
-      "async function autoScrapeWithFallback(romId, ssCreds){\n  const rom = await dbGet('roms', romId);\n  if(!rom) return;\n  let gotMeta = false;\n\n  // Try ScreenScraper first (best retro coverage)\n  if(ssCreds && ssCreds.user){\n    logScrape(`[auto-scrape] Trying ScreenScraper for: ${rom.name}`);\n    await scrapeRomById(romId, ssCreds);\n    const updated = await dbGet('roms', romId);\n    gotMeta = !!(updated?.coverUrl);\n    if(gotMeta) logScrape(`[auto-scrape] ✓ ScreenScraper found metadata for ${rom.name}`);\n  }\n\n  // Fallback to LaunchBox if SS found nothing\n  if(!gotMeta){\n    logScrape(`[auto-scrape] SS no match — trying LaunchBox for: ${rom.name}`);\n    await lbScrapeRom(romId);\n    const updated2 = await dbGet('roms', romId);\n    if(updated2?.coverUrl) logScrape(`[auto-scrape] ✓ LaunchBox found metadata for ${rom.name}`);\n    else logScrape(`[auto-scrape] ⚠ No metadata found for ${rom.name} in either source`);\n  }\n\n  // Push updated metadata to cloud\n  if(cloudSignedIn()) sbPush().catch(()=>{});\n  await refreshAll();\n}",
-      "async function autoScrapeWithFallback(romId, ssCreds){\n  const rom = await dbGet('roms', romId);\n  if(!rom) return;\n  let gotMeta = false;\n\n  // Try LaunchBox first (no-login default source)\n  logScrape(`[auto-scrape] Trying LaunchBox for: ${rom.name}`);\n  await lbScrapeRom(romId);\n  const afterLb = await dbGet('roms', romId);\n  gotMeta = !!(afterLb?.coverUrl);\n  if(gotMeta) logScrape(`[auto-scrape] ✓ LaunchBox found metadata for ${rom.name}`);\n\n  // Optional fallback to ScreenScraper when credentials are saved\n  if(!gotMeta && ssCreds && ssCreds.user){\n    logScrape(`[auto-scrape] LaunchBox no match — trying ScreenScraper for: ${rom.name}`);\n    await scrapeRomById(romId, ssCreds);\n    const afterSs = await dbGet('roms', romId);\n    gotMeta = !!(afterSs?.coverUrl);\n    if(gotMeta) logScrape(`[auto-scrape] ✓ ScreenScraper fallback found metadata for ${rom.name}`);\n  } else if(!gotMeta){\n    logScrape(`[auto-scrape] LaunchBox no match and ScreenScraper not configured for ${rom.name}`);\n  }\n\n  // Push updated metadata to cloud\n  if(cloudSignedIn()) sbPush().catch(()=>{});\n  await refreshAll();\n}"
     )
     .replace(
       "onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\"",
@@ -4188,117 +4147,12 @@ export default {
       }
     }
 
-    // ════════════════════════════════════════════════════════════════════
-    // SCRAPER CORS PROXY — GET/POST /scraper-proxy?url=
-    // Bypasses CORS for ScreenScraper, LaunchBox, IGDB, TGDB
-    // ════════════════════════════════════════════════════════════════════
-    if (path === '/scraper-proxy') {
-      const target = url.searchParams.get('url');
-      if (!target) return new Response(JSON.stringify({ ok: false, error: 'Missing url' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
-      const requestSoftNotFound = parseTruthyQueryValue(url.searchParams.get('softNotFound'))
-        || parseTruthyQueryValue(url.searchParams.get('soft404'));
-
-      let targetUrl;
-      try {
-        targetUrl = new URL(target);
-        if (targetUrl.protocol !== 'https:') throw new Error('HTTPS only');
-      } catch {
-        return new Response(JSON.stringify({ ok: false, error: 'Invalid URL — must be HTTPS' }), { status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
-      }
-
-      const knownScrapeHosts = new Set([
-        'gamesdb.launchbox-app.com',
-        'thumbnails.libretro.com',
-        'en.wikipedia.org',
-        'www.wikidata.org',
-        'api.thegamesdb.net',
-        'api.mobygames.com',
-        'api.igdb.com',
-        'www.giantbomb.com',
-      ]);
-      const softNotFound = requestSoftNotFound || (method === 'GET' && knownScrapeHosts.has(targetUrl.hostname));
-
-      try {
-        const upstreamInit = {
-          method: ['POST', 'PUT'].includes(method) ? method : 'GET',
-          headers: { 'Accept': 'application/json, text/xml, */*', 'User-Agent': 'RetroVault/2.0' },
-        };
-        // Forward IGDB / scraper auth headers
-        const fwdHeaders = ['Client-ID', 'Authorization', 'X-Mashape-Key'];
-        fwdHeaders.forEach(h => { const v = request.headers.get(h); if(v) upstreamInit.headers[h] = v; });
-        // Forward request headers that scrapers need (IGDB auth)
-        const clientId = request.headers.get('Client-ID');
-        const authHeader = request.headers.get('Authorization');
-        if (clientId) upstreamInit.headers['Client-ID'] = clientId;
-        if (authHeader) upstreamInit.headers['Authorization'] = authHeader;
-        if (['POST', 'PUT'].includes(method)) {
-          upstreamInit.body = await request.text();
-          const reqCt = request.headers.get('Content-Type');
-          if (reqCt) upstreamInit.headers['Content-Type'] = reqCt;
-        }
-
-        const upstream = await fetch(target, upstreamInit);
-        const respText = await upstream.text();
-        const upstreamCt = upstream.headers.get('Content-Type') || 'text/plain';
-        if (softNotFound && upstream.status === 404) {
-          return new Response(JSON.stringify({
-            ok: false,
-            miss: true,
-            status: 404,
-            url: target,
-            proxy: {
-              missing: true,
-              status: 404,
-              host: targetUrl.hostname,
-            },
-          }), {
-            status: 200,
-            headers: {
-              ...corsHeaders(origin),
-              'Content-Type': 'application/json',
-              'Cache-Control': 'public, max-age=300',
-              'X-Retrovault-Soft-Miss': '1',
-              'X-Proxied-By': 'RetroVault Worker',
-            },
-          });
-        }
-
-        return new Response(respText, {
-          status: upstream.status,
-          headers: { ...corsHeaders(origin), 'Content-Type': upstreamCt, 'Cache-Control': 'public, max-age=3600', 'X-Proxied-By': 'RetroVault Worker' },
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ ok: false, error: 'Scraper proxy failed: ' + err.message }), { status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
-      }
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    // SCRAPER TEST — GET /scraper-test
-    // ════════════════════════════════════════════════════════════════════
-    if (path === '/scraper-test') {
-      const tests = [
-        { name: 'ScreenScraper', url: 'https://api.screenscraper.fr/api2/' },
-        { name: 'LaunchBox', url: 'https://gamesdb.launchbox-app.com/api/GetGames?name=Mario' },
-        { name: 'TGDB', url: 'https://api.thegamesdb.net/v1/Games/ByGameName?apikey=&name=Mario' },
-      ];
-      const results = {};
-      await Promise.all(tests.map(async t => {
-        try {
-          const r = await fetch(t.url, { method: 'GET', headers: { 'User-Agent': 'RetroVault/2.0' } });
-          results[t.name] = { status: r.status, ok: r.status < 500 };
-        } catch (e) {
-          results[t.name] = { status: 0, ok: false, error: e.message };
-        }
-      }));
-      return new Response(JSON.stringify({ ok: true, results, proxy: '/scraper-proxy?url=...' }), { status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
-    }
-
-    // ════════════════════════════════════════════════════════════════════
+    // ====================================================================
     // BIOS SERVE — GET|HEAD /bios/:filename  serves from R2 bios/ prefix
     // HEAD is used by the frontend to probe which BIOS files exist in R2
     // without downloading them, so games auto-configure without manual uploads.
     // Cross-device BIOS access with correct COOP/COEP/CORP headers.
-    // ════════════════════════════════════════════════════════════════════
+    // ====================================================================
     if (path.startsWith('/bios/') && (method === 'GET' || method === 'HEAD')) {
       const filename = decodeURIComponent(path.replace('/bios/', '')).replace(/\.\./g, '').replace(/^\/+/, '');
       if (!filename) {
@@ -4348,90 +4202,74 @@ export default {
       }
     }
 
+    // ====================================================================
+    // HASHEOUS LOOKUP — POST /hasheous-lookup
+    // Proxies https://hasheous.org/api/v1/Lookup/ByHash (browser CORS blocks direct calls).
+    // ====================================================================
 
-    // ════════════════════════════════════════════════════════════════════
-    // LB-SEARCH — GET /lb-search?name=GAMENAME
-    // Reads meta/lb_index.json.gz from R2 (built by build_index.py).
-    // Entry format: [name, db_id, platform, year, overview, developer, rating, genres]
-    // ════════════════════════════════════════════════════════════════════
-    if (path === '/lb-search') {
-      const searchName = (url.searchParams.get('name') || '').trim();
-      if (!searchName) {
-        return new Response(JSON.stringify({ ok: false, error: 'Missing name' }), {
-          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
-        });
-      }
-      if (!env.ROM_BUCKET) {
-        return new Response(JSON.stringify({ ok: false, error: 'ROM_BUCKET not configured' }), {
-          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
-        });
-      }
+    if (path === '/hasheous-lookup' && method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+    if (path === '/hasheous-lookup' && method === 'POST') {
+      let body;
       try {
-        const obj = await env.ROM_BUCKET.get('meta/lb_index.json.gz');
-        if (!obj) {
-          // Return a successful empty result so the frontend can silently fall
-          // back to live providers without flooding console/network logs.
-          return new Response(JSON.stringify({ ok: true, game: null, score: -1, reason: 'index_missing' }), {
-            status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
-          });
-        }
-        const compressed = await obj.arrayBuffer();
-        const ds = new DecompressionStream('gzip');
-        const writer = ds.writable.getWriter();
-        const reader = ds.readable.getReader();
-        writer.write(compressed);
-        writer.close();
-        const parts = [];
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          if (value) parts.push(value);
-        }
-        const jsonText = new TextDecoder().decode(
-          parts.reduce((acc, c) => { const m = new Uint8Array(acc.length + c.length); m.set(acc); m.set(c, acc.length); return m; }, new Uint8Array(0))
-        );
-        const games = JSON.parse(jsonText);
-        function norm(s) {
-          return (s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/s+/g,' ').trim();
-        }
-        const needle = norm(searchName);
-        let best = null, bestScore = -1;
-        for (const g of games) {
-          const gname = norm(g[0]);
-          let score = 0;
-          if (gname === needle) score = 100;
-          else if (gname.startsWith(needle) || needle.startsWith(gname)) score = 80;
-          else if (gname.includes(needle) || needle.includes(gname)) score = 60;
-          else {
-            const nw = needle.split(' '), gw = gname.split(' ');
-            const shared = nw.filter(w => w.length > 2 && gw.includes(w)).length;
-            if (shared > 0) score = Math.round((shared / Math.max(nw.length, gw.length)) * 50);
-          }
-          if (score > bestScore) { bestScore = score; best = g; }
-        }
-        if (!best || bestScore < 30) {
-          return new Response(JSON.stringify({ ok: true, game: null, score: bestScore }), {
-            status: 200, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' }
-          });
-        }
-        const [name, db_id, platform, year, overview, developer, rating, genres] = best;
-        return new Response(JSON.stringify({
-          ok: true, score: bestScore,
-          game: { Name: name, DatabaseID: db_id, Platform: platform, ReleaseYear: year,
-                  Overview: overview, Developer: developer, CommunityRating: rating,
-                  Genres: genres, CoverUrl: db_id ? 'https://images.launchbox-app.com/' + db_id + '-01.jpg' : '' }
-        }), {
-          status: 200,
-          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' }
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ ok: false, error: 'Invalid JSON body' }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      const normHex = (v, len) => {
+        if (v == null) return '';
+        const s = String(v).trim().toLowerCase().replace(/[^a-f0-9]/g, '');
+        if (!s) return '';
+        if (len && s.length !== len) return '';
+        return s;
+      };
+      const payload = {};
+      const crc = normHex(body.crc, 8);
+      const md5 = normHex(body.md5, 32);
+      const sha1 = normHex(body.sha1, 40);
+      const sha256 = normHex(body.sha256, 64);
+      if (crc) payload.crc = crc;
+      if (md5) payload.md5 = md5;
+      if (sha1) payload.sha1 = sha1;
+      if (sha256) payload.sha256 = sha256;
+      if (!Object.keys(payload).length) {
+        return new Response(JSON.stringify({ ok: false, error: 'Provide at least one of crc, md5, sha1, sha256' }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      const qs = new URLSearchParams({ returnFields: 'All' });
+      const upstreamUrl = 'https://hasheous.org/api/v1/Lookup/ByHash?' + qs.toString();
+      try {
+        const up = await fetch(upstreamUrl, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'RetroVault/2.0',
+          },
+          body: JSON.stringify(payload),
+        });
+        const text = await up.text();
+        const ct = up.headers.get('Content-Type') || 'application/json';
+        return new Response(text, {
+          status: up.status,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': ct.includes('json') ? 'application/json; charset=UTF-8' : ct,
+            'Cache-Control': up.ok ? 'public, max-age=86400' : 'no-store',
+            'X-Proxied-By': 'RetroVault Hasheous',
+          },
         });
       } catch (err) {
-        return new Response(JSON.stringify({ ok: false, error: 'lb-search error: ' + err.message }), {
-          status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        return new Response(JSON.stringify({ ok: false, error: 'Hasheous proxy failed: ' + err.message }), {
+          status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
         });
       }
     }
 
-    // ════════════════════════════════════════════════════════════════════
     // RELEASE LOG + GITHUB INTEGRATION STATUS
     // ════════════════════════════════════════════════════════════════════
     if (path === '/changelog' || path === '/release-notes.json') {
