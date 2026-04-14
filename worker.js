@@ -1750,32 +1750,29 @@ if(document.readyState === 'loading'){
     const style = document.createElement('style');
     style.id = 'rvProfilePickerStyleV2';
     style.textContent = [
-      '#rvProfilePicker{position:fixed;inset:0;z-index:99999;background:#141414;display:none;align-items:center;justify-content:center;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;}',
+      '#rvProfilePicker{position:fixed;inset:0;z-index:99999;background:#141414;display:none;align-items:center;justify-content:center;padding:48px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;}',
       '#rvProfilePicker.show{display:flex;}',
-      '#rvProfilePicker .rv-wrap{position:relative;width:100%;max-width:880px;margin:0 auto;text-align:center;}',
-      '#rvProfilePicker .rv-close-x{position:absolute;top:8px;right:8px;z-index:2;width:40px;height:40px;border:1px solid #555;background:rgba(0,0,0,.45);color:#fff;border-radius:999px;font-size:22px;line-height:36px;cursor:pointer;padding:0;}',
-      '#rvProfilePicker .rv-close-x:hover{border-color:#fff;background:rgba(255,255,255,.12);}',
-      '#rvProfilePicker .rv-title{font-size:clamp(32px,3.8vw,52px);font-weight:400;color:#fff;margin:24px 0 8px;letter-spacing:.02em;}',
-      '#rvProfilePicker .rv-sub{font-size:15px;color:#808080;margin:0 0 36px;}',
-      '#rvProfilePicker .rv-grid{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:28px 32px;margin:0 auto 40px;max-width:920px;}',
-      '#rvProfilePicker .rv-tile{width:132px;background:transparent;border:0;color:#fff;padding:0;cursor:pointer;position:relative;transition:transform .18s ease;}',
+      '#rvProfilePicker .rv-wrap{position:relative;width:100%;max-width:980px;margin:0 auto;text-align:center;}',
+      '#rvProfilePicker .rv-title{font-size:clamp(34px,4.2vw,56px);font-weight:650;color:#fff;margin:0 0 10px;letter-spacing:.01em;}',
+      '#rvProfilePicker .rv-sub{font-size:14px;color:#b3b3b3;margin:0 0 34px;line-height:1.55;}',
+      '#rvProfilePicker .rv-grid{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:26px 28px;margin:0 auto 26px;max-width:980px;}',
+      '#rvProfilePicker .rv-tile{width:140px;background:transparent;border:0;color:#fff;padding:0;cursor:pointer;position:relative;transition:transform .18s ease;}',
       '#rvProfilePicker .rv-tile:hover{transform:scale(1.06);}',
       '#rvProfilePicker .rv-tile:focus{outline:2px solid #fff;outline-offset:4px;}',
       '#rvProfilePicker .rv-tile.rv-active .rv-avatar{box-shadow:0 0 0 3px #fff;}',
-      '#rvProfilePicker .rv-avatar{width:120px;height:120px;margin:0 auto 14px;border-radius:4px;background:#333;display:flex;align-items:center;justify-content:center;overflow:hidden;}',
+      '#rvProfilePicker .rv-avatar{width:120px;height:120px;margin:0 auto 10px;border-radius:6px;background:#2b2b2b;display:flex;align-items:center;justify-content:center;overflow:hidden;}',
       '#rvProfilePicker .rv-av-img{width:100%;height:100%;object-fit:cover;border-radius:4px;}',
-      '#rvProfilePicker .rv-tile-add .rv-avatar-add{width:120px;height:120px;margin:0 auto 14px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;}',
-      '#rvProfilePicker .rv-tile-add .rv-plus{font-size:64px;font-weight:300;color:#8c8c8c;line-height:1;}',
-      '#rvProfilePicker .rv-name{font-size:13px;color:#808080;text-align:center;max-width:132px;margin:0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-      '#rvProfilePicker.rv-manage .rv-edit-badge{opacity:1;pointer-events:none;}',
-      '#rvProfilePicker .rv-edit-badge{position:absolute;left:50%;top:52px;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:18px;line-height:36px;opacity:0;transition:opacity .15s;}',
-      '#rvProfilePicker.rv-manage .rv-tile:hover .rv-edit-badge{opacity:1;}',
-      '#rvProfilePicker .rv-actions{margin-top:8px;}',
-      '#rvProfilePicker .rv-btn-manage{margin-top:28px;padding:10px 28px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#808080;background:transparent;border:1px solid #808080;cursor:pointer;border-radius:2px;}',
-      '#rvProfilePicker .rv-btn-manage:hover{color:#fff;border-color:#fff;}',
-      '#rvProfilePicker .rv-btn-done{margin-left:12px;padding:10px 20px;font-size:13px;color:#fff;background:transparent;border:1px solid #444;cursor:pointer;border-radius:2px;}',
-      '#rvProfilePicker .rv-btn-done:hover{border-color:#fff;}',
-      '#rvProfilePicker .rv-badge{font-size:11px;color:#555;text-align:center;margin-top:8px;min-height:14px;}',
+      '#rvProfilePicker .rv-tile-add{opacity:.95;}',
+      '#rvProfilePicker .rv-tile-add:hover{opacity:1;}',
+      '#rvProfilePicker .rv-tile-add .rv-avatar-add{width:120px;height:120px;margin:0 auto 10px;border-radius:6px;background:rgba(255,255,255,.06);border:2px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;}',
+      '#rvProfilePicker .rv-tile-add .rv-plus{font-size:56px;font-weight:300;color:#b3b3b3;line-height:1;}',
+      '#rvProfilePicker .rv-name{font-size:13px;color:#b3b3b3;text-align:center;max-width:140px;margin:0 auto 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '#rvProfilePicker .rv-edit-btn{display:inline-block;font-size:12px;padding:4px 12px;border-radius:4px;border:1px solid rgba(255,255,255,.22);background:transparent;color:#e5e5e5;cursor:pointer;}',
+      '#rvProfilePicker .rv-edit-btn:hover{border-color:#fff;color:#fff;}',
+      '#rvProfilePicker .rv-actions{margin-top:12px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;}',
+      '#rvProfilePicker .rv-btn{padding:10px 18px;font-size:13px;color:#fff;background:transparent;border:1px solid #444;cursor:pointer;border-radius:4px;min-width:160px;}',
+      '#rvProfilePicker .rv-btn:hover{border-color:#fff;}',
+      '#rvProfilePicker .rv-badge{font-size:11px;color:#777;text-align:center;margin-top:10px;min-height:14px;}',
       '#rvProfileEditorOverlay{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;padding:16px;}',
       '#rvProfileEditorOverlay.show{display:flex;}',
       '#rvProfileEditorCard{width:min(400px,94vw);background:#181818;border-radius:8px;padding:24px 22px;text-align:left;color:#fff;box-shadow:0 8px 32px rgba(0,0,0,.6);}',
@@ -1845,25 +1842,27 @@ if(document.readyState === 'loading'){
     const actions = document.getElementById('rvProfilePickerActions');
     if(!actions) return;
     actions.innerHTML = '';
-    const manage = document.createElement('button');
-    manage.type = 'button';
-    manage.className = 'rv-btn-manage';
-    manage.id = 'rvProfileManageBtn';
-    if(window.__rvProfileManageMode){
-      manage.textContent = 'Done';
-      manage.onclick = function(){ _rvSetProfileManageMode(false); };
-      actions.appendChild(manage);
-      const hint = document.createElement('div');
-      hint.style.marginTop = '14px';
-      hint.style.fontSize = '13px';
-      hint.style.color = '#808080';
-      hint.textContent = 'Tap a profile to edit name and avatar.';
-      actions.appendChild(hint);
-    } else {
-      manage.textContent = 'Manage Profiles';
-      manage.onclick = function(){ _rvSetProfileManageMode(true); };
-      actions.appendChild(manage);
-    }
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'rv-btn rv-btn-add';
+    add.textContent = 'Add profile';
+    add.onclick = function(){ _rvOpenProfileEditor(null); };
+    actions.appendChild(add);
+
+    const setup = document.createElement('button');
+    setup.type = 'button';
+    setup.className = 'rv-btn rv-btn-setup';
+    setup.textContent = 'Run setup wizard';
+    setup.onclick = function(){
+      try{ if(typeof sv === 'function') sv('settings', null); }catch(e){}
+      try{ _rvCloseProfilePicker(); }catch(e){}
+      try{
+        // Best-effort: nudge user toward cloud setup section
+        const el = document.querySelector('#view-settings h2') || document.querySelector('#view-settings');
+        if(el && el.scrollIntoView) el.scrollIntoView({ behavior:'smooth', block:'start' });
+      }catch(e){}
+    };
+    actions.appendChild(setup);
   }
 
   function _rvSetProfileManageMode(on){
@@ -1892,8 +1891,9 @@ if(document.readyState === 'loading'){
     root.id = 'rvProfilePicker';
     root.innerHTML = ''+
       '<div class="rv-wrap">'+
-        '<button type="button" class="rv-close-x" id="rvProfilePickerCloseBtn" title="Close" aria-label="Close">×</button>'+
-        '<h2 class="rv-title">Who\\u2019s watching?</h2>'+
+        '<button type="button" class="rv-close-x" id="rvProfilePickerCloseBtn" title="Close" aria-label="Close" style="display:none">×</button>'+
+        '<h2 class="rv-title">Who\\u2019s playing?</h2>'+
+        '<div class="rv-sub">Choose a profile to play, or tap Edit to change the name and picture.<br/>Everything stays in this browser.</div>'+
         '<div class="rv-grid" id="rvProfilePickerGrid"></div>'+
         '<div class="rv-badge" id="rvProfilePickerStatus"></div>'+
         '<div class="rv-actions" id="rvProfilePickerActions"></div>'+
@@ -1928,7 +1928,6 @@ if(document.readyState === 'loading'){
     const grid = document.getElementById('rvProfilePickerGrid');
     if(!grid) return;
     const safe = Array.isArray(slots) ? slots : [];
-    const manage = !!window.__rvProfileManageMode;
     grid.innerHTML = '';
     safe.forEach(function(slot){
       const id = String(slot && (slot.id || slot.profileId) || '').trim();
@@ -1937,20 +1936,26 @@ if(document.readyState === 'loading'){
       tile.type = 'button';
       tile.className = 'rv-tile' + (id === activeId ? ' rv-active' : '');
       tile.dataset.profileId = id;
-      const badge = manage ? '<span class="rv-edit-badge">\u270E</span>' : '';
-      const avatar = '<div class="rv-avatar">'+_rvProfileAvatarHtml(slot)+badge+'</div>';
+      const avatar = '<div class="rv-avatar">'+_rvProfileAvatarHtml(slot)+'</div>';
       const name = '<div class="rv-name">'+_rvEscapeHtml(slot.displayName || id)+'</div>';
-      tile.innerHTML = avatar + name;
+      const edit = '<button type="button" class="rv-edit-btn" data-edit="1">Edit</button>';
+      tile.innerHTML = avatar + name + edit;
       tile.onclick = function(){
-        if(manage) _rvOpenProfileEditor(slot);
-        else _rvSelectProfile(id);
+        _rvSelectProfile(id);
       };
+      tile.addEventListener('click', function(ev){
+        const t = ev && ev.target;
+        if(t && t.dataset && t.dataset.edit === '1'){
+          ev.stopPropagation();
+          _rvOpenProfileEditor(slot);
+        }
+      });
       grid.appendChild(tile);
     });
     const addTile = document.createElement('button');
     addTile.type = 'button';
     addTile.className = 'rv-tile rv-tile-add';
-    addTile.innerHTML = '<div class="rv-avatar-add"><span class="rv-plus">+</span></div><div class="rv-name">Add Profile</div>';
+    addTile.innerHTML = '<div class="rv-avatar-add"><span class="rv-plus">+</span></div><div class="rv-name">Add</div>';
     addTile.onclick = function(){ _rvOpenProfileEditor(null); };
     grid.appendChild(addTile);
   }
