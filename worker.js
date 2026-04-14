@@ -167,9 +167,17 @@ const RELEASE_LOG = [
       'GET /rom-proxy responses add Cross-Origin-Resource-Policy: cross-origin for COEP embeds.',
     ],
   },
+  {
+    id: '2026-04-14-k',
+    title: 'Manual cover uploads under meta/{console}/art/',
+    details: [
+      'Drag/drop and file-picker box art now uploads to users/{owner}/meta/{console}/art/... instead of beside ROM keys under {console}/art/.',
+      'Keeps PNG/JPEG/GIF next to JSON sidecars in the metadata tree; ROM bucket sync still excludes meta/* from ROM listing.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-r2-rom-fallback-keys';
+const APP_RELEASE_VERSION = '2026.04.14-cover-upload-meta-art-path';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1551,7 +1559,7 @@ function _rvInitHasheousControls(){
     + '<strong style="color:var(--text);">Hasheous (built in):</strong> hash match, no API key, good when your ROM matches a known dump. Misses hacks, overdumps, or unlisted files.<br/>'
     + '<strong style="color:var(--text);">ScreenScraper:</strong> huge art set but needs an account; not wired in this build.<br/>'
     + '<strong style="color:var(--text);">Skraper / LaunchBox (desktop):</strong> strongest for full media libraries offline, then you sync files yourself.<br/>'
-    + '<strong style="color:var(--text);">Manual:</strong> open a game, then drag a PNG, JPG, WebP, or GIF onto the cover, or paste a URL and tap Set. Covers upload to your R2 path under <code>.../art/</code> and metadata sidecars update for sync.'
+    + '<strong style="color:var(--text);">Manual:</strong> open a game, then drag a PNG, JPG, WebP, or GIF onto the cover, or paste a URL and tap Set. Covers upload under <code>meta/&lt;console&gt;/art/</code> (next to JSON sidecars), not beside ROM binaries.'
     + '</div></details>';
 
   host.appendChild(card);
@@ -2026,7 +2034,7 @@ if(document.readyState === 'loading'){
       .slice(0, 96) || 'cover';
     const extMatch = String(file.name || '').match(/\.([a-z0-9]+)$/i);
     const ext = extMatch ? extMatch[1].toLowerCase() : (file.type.indexOf('png') >= 0 ? 'png' : file.type.indexOf('webp') >= 0 ? 'webp' : file.type.indexOf('gif') >= 0 ? 'gif' : 'jpg');
-    const artKeyRel = cid + '/art/' + base + '-cover.' + ext;
+    const artKeyRel = 'meta/' + cid + '/art/' + base + '-cover.' + ext;
     const form = new FormData();
     form.append('file', file);
     form.append('key', artKeyRel);

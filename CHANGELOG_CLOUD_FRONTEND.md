@@ -85,6 +85,9 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Pasting a public **R2.dev** image URL and tapping **Set** now stores **`/img-proxy?url=...`** so the cover displays under **Cross-Origin-Embedder-Policy** (raw `r2.dev` responses often omit `Cross-Origin-Resource-Policy` and were blocked).
 - **One-time migration** rewrites existing IndexedDB `coverUrl` rows that still point at raw `*.r2.dev` (or `r2.cloudflarestorage.com`) so old libraries fix themselves on load.
 
+### Manual cover R2 layout
+- Uploaded box art is stored under **`meta/<console>/art/`** (e.g. `users/{owner}/meta/nes/art/MyGame-cover.png`) so it lives in the **metadata** area with JSON sidecars, not next to ROM binaries under `nes/`.
+
 ### ROM stream 404 mitigation
 - **`GET /r2-rom`** may retry **similar object keys** (e.g. `__` vs `_`) when the exact key is missing — reduces “Network Error” when the app’s sanitized name differs slightly from the uploaded object name.
 - **`GET /rom-proxy`** adds **`Cross-Origin-Resource-Policy: cross-origin`** for COEP-safe cross-origin ROM fetches.
