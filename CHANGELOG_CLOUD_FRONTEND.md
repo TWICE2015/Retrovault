@@ -81,6 +81,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Handles **empty MIME types** (extension-based), **DataTransferItem** file entries, **data:image/...** and **http(s) image URLs** when the OS does not expose a File (browser-tab drags may still be blocked by CORS).
 - **Paste** an image while the game panel is open to set cover.
 
+### Cover URL ↔ R2 key fix
+- Manual cover uploads now store **`/r2-rom?key=`** as the **console-relative** path (e.g. `gb/art/foo-cover.png`), matching how the worker scopes keys under `users/{owner}/`.
+- **`/r2-rom`** also accepts legacy URLs that still embed the full `users/{owner}/...` key without double-prefixing.
+- Upload **requires** a set Shared Sync Owner ID; FormData includes **`owner`** for reliable server-side resolution.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.

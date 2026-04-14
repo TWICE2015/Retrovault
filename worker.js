@@ -132,9 +132,19 @@ const RELEASE_LOG = [
       'Accepts extension-only image filenames when type is empty; paste from clipboard also sets cover.',
     ],
   },
+  {
+    id: '2026-04-14-g',
+    title: 'Cover upload: correct /r2-rom key + owner in FormData',
+    details: [
+      'After upload, coverUrl uses the console-relative R2 key (not users/.../ doubled) so GET /r2-rom resolves the same object that was written.',
+      'FormData includes owner for workers that resolve owner from body; require owner before upload with a clear toast.',
+      'GET /r2-rom strips a matching users/{owner}/ prefix from key= for older saved URLs; rejects other users’ prefixes.',
+      'Cache-bust query on cover URL so the img reloads after replace.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cover-drop-wide';
+const APP_RELEASE_VERSION = '2026.04.14-cover-r2-key-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1938,6 +1948,10 @@ if(document.readyState === 'loading'){
       return;
     }
     const oid = ownerId();
+    if(!oid){
+      if(typeof toast === 'function') toast('Set Shared Sync Owner ID (ROMs → Cloud Sync) before uploading covers', 'err');
+      return;
+    }
     const cid = String(rom.console || 'nes');
     const base = String(rom.filename || rom.name || 'cover')
       .replace(/\.(zip|7z|rar|rom|nes|smc|sfc|gba|z64|n64|iso|bin)$/i, '')
@@ -1945,10 +1959,11 @@ if(document.readyState === 'loading'){
       .slice(0, 96) || 'cover';
     const extMatch = String(file.name || '').match(/\.([a-z0-9]+)$/i);
     const ext = extMatch ? extMatch[1].toLowerCase() : (file.type.indexOf('png') >= 0 ? 'png' : file.type.indexOf('webp') >= 0 ? 'webp' : file.type.indexOf('gif') >= 0 ? 'gif' : 'jpg');
-    const artKey = cid + '/art/' + base + '-cover.' + ext;
+    const artKeyRel = cid + '/art/' + base + '-cover.' + ext;
     const form = new FormData();
     form.append('file', file);
-    form.append('key', artKey);
+    form.append('key', artKeyRel);
+    if(oid) form.append('owner', oid);
     if(typeof toast === 'function') toast('Uploading cover to cloud…', 'warn');
     const resp = await fetch(window.location.origin + '/r2-upload', {
       method: 'POST',
@@ -1957,8 +1972,21 @@ if(document.readyState === 'loading'){
     });
     const data = await resp.json().catch(function(){ return {}; });
     if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP ' + resp.status));
-    const fullKey = data.key || artKey;
-    rom.coverUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(fullKey) + (oid ? ('&owner=' + encodeURIComponent(oid)) : '');
+    let streamKey = artKeyRel;
+    const k = data.key || '';
+    if(k){
+      const pref = 'users/' + oid + '/';
+      if(k.indexOf(pref) === 0){
+        streamKey = k.slice(pref.length);
+      } else if(k.indexOf('users/') !== 0){
+        streamKey = k;
+      } else {
+        streamKey = artKeyRel;
+      }
+    }
+    const rev = (Number(rom.coverRev) || 0) + 1;
+    rom.coverRev = rev;
+    rom.coverUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(streamKey) + '&owner=' + encodeURIComponent(oid) + '&v=' + rev;
     await dbPut('roms', rom);
     if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
     await showDet(detRomId);
@@ -4491,10 +4519,18 @@ export default {
             status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
-        const rawKey = normalizeR2Key(url.searchParams.get('key') || '');
+        let rawKey = normalizeR2Key(url.searchParams.get('key') || '');
         if (!rawKey) {
           return new Response(JSON.stringify({ ok: false, error: 'Missing key' }), {
             status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+          });
+        }
+        const scoped = ownerPrefix(ownerId);
+        if (rawKey.startsWith(scoped)) {
+          rawKey = rawKey.slice(scoped.length);
+        } else if (rawKey.startsWith('users/') && !rawKey.startsWith(scoped)) {
+          return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
         const key = toOwnedKey(rawKey, ownerId);
