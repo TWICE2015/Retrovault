@@ -80,18 +80,27 @@ const RELEASE_LOG = [
       'Metadata updates avoid known-bad cover URLs.',
     ],
   },
+  {
+    id: '2026-04-14-a',
+    title: 'Skraper import: blocked cloud scrape now opens Sources',
+    details: [
+      'When auto-scrape or “missing only” runs with cloud scrapers off, the app jumps to Scraper → Sources and focuses the gamelist.xml picker.',
+      'Sources tab detection prefers the tab whose onclick references sc-sources, with text and index fallbacks.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.13-cloud-plus';
+const APP_RELEASE_VERSION = '2026.04.14-skraper-ui';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
-  updatedAt: '2026-04-13',
+  updatedAt: '2026-04-14',
   highlights: [
     'Owner-scoped cloud ROM sync and migration tools',
     'Online session create/join flow in settings',
     'All-providers scraper settings with no-login defaults',
     'Broken-cover recovery and card fallback fixes',
     'Reduced noisy scraper failures when index is missing',
+    'Skraper: cloud-scrape shortcuts open the import UI (Sources tab + file picker)',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -869,23 +878,12 @@ body{background:#141414!important;color:#fff!important;}
     const overwrite = document.getElementById('rvMetaOverwriteToggle');
 
     const _rvGoSkraperImport = (missingOnly)=>{
-      if(typeof sv === 'function') sv('scraper', null);
-      setTimeout(function(){
-        if(typeof scTab === 'function'){
-          const tabs = document.querySelectorAll('#view-scraper .si');
-          const targetBtn = tabs && tabs[3] ? tabs[3] : null;
-          scTab('sc-sources', targetBtn || null);
-        }
-        const card = document.getElementById('rvSkraperImportCard');
-        if(card) card.scrollIntoView({ behavior:'smooth', block:'start' });
-        const ow = document.getElementById('rvSkraperOverwrite');
-        if(ow) ow.checked = !missingOnly;
-        const inp = document.getElementById('rvSkraperGamelistFile');
-        if(inp) inp.focus();
-        if(typeof toast === 'function'){
-          toast(missingOnly ? 'Skraper: leave Overwrite off to fill only empty fields' : 'Skraper: pick gamelist.xml, optional images, then Import');
-        }
-      }, 150);
+      if(typeof window._rvOpenSkraperImportUI === 'function'){
+        window._rvOpenSkraperImportUI({ missingOnly:!!missingOnly });
+      } else if(typeof sv === 'function') sv('scraper', null);
+      if(typeof toast === 'function'){
+        toast(missingOnly ? 'Skraper: leave Overwrite off to fill only empty fields' : 'Skraper: pick gamelist.xml, optional images, then Import');
+      }
     };
     if(allBtn) allBtn.onclick = ()=>_rvGoSkraperImport(false);
     if(missBtn) missBtn.onclick = ()=>_rvGoSkraperImport(true);
@@ -1396,19 +1394,70 @@ async function _rvRunSkraperImport(){
   if(typeof refreshAll === 'function') await refreshAll();
 }
 
+function _rvOpenSkraperImportUI(opts){
+  opts = opts || {};
+  const missingOnly = !!opts.missingOnly;
+  const delayMs = typeof opts.delayMs === 'number' ? opts.delayMs : 160;
+  if(typeof sv === 'function') sv('scraper', null);
+  setTimeout(function(){
+    _rvInitScrapeSourceControls();
+    const panel = document.getElementById('sc-sources');
+    if(panel){
+      panel.style.display = 'block';
+      panel.style.visibility = 'visible';
+      panel.style.height = 'auto';
+      panel.style.overflow = 'visible';
+    }
+    if(typeof scTab === 'function'){
+      const tabs = document.querySelectorAll('#view-scraper .si');
+      let targetBtn = null;
+      for(let i = 0; i < tabs.length; i++){
+        const t = tabs[i];
+        if(!t) continue;
+        const oc = String(t.getAttribute('onclick') || '');
+        if(oc.indexOf('sc-sources') >= 0){
+          targetBtn = t;
+          break;
+        }
+      }
+      if(!targetBtn){
+        for(let j = 0; j < tabs.length; j++){
+          const u = tabs[j];
+          if(!u) continue;
+          if(String(u.textContent || '').toLowerCase().indexOf('source') >= 0){
+            targetBtn = u;
+            break;
+          }
+        }
+      }
+      if(!targetBtn && tabs[3]) targetBtn = tabs[3];
+      scTab('sc-sources', targetBtn || null);
+    }
+    const card = document.getElementById('rvSkraperImportCard');
+    if(card) card.scrollIntoView({ behavior:'smooth', block:'start' });
+    const ow = document.getElementById('rvSkraperOverwrite');
+    if(ow) ow.checked = !missingOnly;
+    const inp = document.getElementById('rvSkraperGamelistFile');
+    if(inp && typeof inp.focus === 'function') inp.focus();
+  }, delayMs);
+}
+window._rvOpenSkraperImportUI = _rvOpenSkraperImportUI;
+
 function _rvPatchScrapePipeline(){
   if(window.__rvSkraperPipelinePatched) return;
   if(typeof autoScrapeWithFallback === 'function'){
     window.__rvAutoScrapeWithFallbackOriginal = autoScrapeWithFallback;
     autoScrapeWithFallback = async function(){
-      if(typeof toast === 'function') toast('Online scrapers are disabled. Use Skraper (skraper.net) on your PC, then import gamelist.xml under Scraper → Sources.', 'warn');
+      if(typeof _rvOpenSkraperImportUI === 'function') _rvOpenSkraperImportUI({ missingOnly:false });
+      if(typeof toast === 'function') toast('Online scrapers are disabled. Opening Skraper import — use Skraper (skraper.net) on your PC, then pick gamelist.xml here.', 'warn');
       if(typeof logScrape === 'function') logScrape('[skraper] Import gamelist.xml from Skraper instead of cloud scrape');
     };
   }
   if(typeof scrapeMissing === 'function'){
     window.__rvScrapeMissingOriginal = scrapeMissing;
     scrapeMissing = async function(){
-      if(typeof toast === 'function') toast('Use Skraper locally, then Import gamelist.xml.', 'warn');
+      if(typeof _rvOpenSkraperImportUI === 'function') _rvOpenSkraperImportUI({ missingOnly:true });
+      if(typeof toast === 'function') toast('Opening Skraper import. Leave Overwrite off to fill only empty fields.', 'warn');
     };
   }
   window.__rvSkraperPipelinePatched = true;
