@@ -288,9 +288,18 @@ const RELEASE_LOG = [
       'Replace nested button Edit control inside profile tile with span+role=button (valid HTML; fixes broken tile clicks).',
     ],
   },
+  {
+    id: '2026-04-16-a',
+    title: 'Auto YouTube trailer URL (optional YT_API_KEY)',
+    details: [
+      'GET /youtube-search-trailer?q= proxies YouTube Data API v3 search (server-side key).',
+      'After Hasheous applies title/metadata, optional trailer lookup fills rom.videoUrl when empty; Scraper checkbox + localStorage rv-youtube-trailer-on.',
+      'Home row hover + hero use existing videoUrl; user must wrangler secret put YT_API_KEY.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.15-profile-picker-click-fix';
+const APP_RELEASE_VERSION = '2026.04.16-youtube-trailer-scrape';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -312,6 +321,7 @@ const CHANGELOG_DATA = {
     'Home hero: Netflix-style muted full-bleed trailer when the featured game has videoUrl',
     'Card trailer hover: z-index vs placeholder art + credentialless YouTube iframes (COEP)',
     'Profile picker: Users / avatar chip always opens overlay; fix nested Edit button in tiles',
+    'Optional auto YouTube trailer URL during Hasheous scrape (YT_API_KEY secret)',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -1553,6 +1563,27 @@ function _rvHasheousPickTgdbId(metadata){
   return '';
 }
 
+async function _rvFetchYoutubeTrailerUrl(gameTitle, rom){
+  const base = String(gameTitle || '').trim();
+  if(!base) return '';
+  let q = base;
+  try{
+    if(rom && rom.console && typeof getSys === 'function'){
+      const s = getSys(rom.console);
+      if(s && s.name) q = base + ' ' + s.name + ' trailer';
+      else q = base + ' game trailer';
+    } else {
+      q = base + ' game trailer';
+    }
+  }catch(e){
+    q = base + ' game trailer';
+  }
+  const resp = await fetch(window.location.origin + '/youtube-search-trailer?q=' + encodeURIComponent(q.slice(0,200)));
+  const data = await resp.json().catch(function(){ return {}; });
+  if(!resp.ok || !data || !data.ok || !data.watchUrl) return '';
+  return String(data.watchUrl).trim();
+}
+
 async function _rvHasheousFetchLookup(hashes){
   const body = {};
   if(hashes.crc) body.crc = String(hashes.crc).toLowerCase();
@@ -1605,6 +1636,22 @@ async function _rvApplyHasheousToRom(romId, api, opts){
   }
   take('description', desc);
   if(year && /^(19|20)\d{2}$/.test(year)) take('year', year);
+  const ytOn = (function(){
+    try{
+      const el = document.getElementById('rvYoutubeTrailerOn');
+      if(el) return !!el.checked;
+    }catch(e){}
+    return localStorage.getItem('rv-youtube-trailer-on') !== '0';
+  })();
+  const gameTitleForTrailer = String(title || rom.name || '').trim();
+  if(ytOn && !rom.videoUrl && gameTitleForTrailer){
+    try{
+      const tu = await _rvFetchYoutubeTrailerUrl(gameTitleForTrailer, rom);
+      if(tu){ rom.videoUrl = tu; changed = true; }
+    }catch(e){
+      if(typeof logScrape === 'function') logScrape('[youtube-trailer] ' + (e && e.message ? e.message : e));
+    }
+  }
   if(changed){
     await dbPut('roms', rom);
     if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
@@ -1732,6 +1779,8 @@ function _rvInitHasheousControls(){
     + '</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);">'
     + '<input type="checkbox" id="rvHasheousOverwrite" /> Overwrite existing description / year / cover</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);">'
+    + '<input type="checkbox" id="rvYoutubeTrailerOn" checked /> Auto-find YouTube trailer URL when missing (worker needs <code style="font-size:10px;">YT_API_KEY</code>)</label>'
     + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'
     + '<button class="bb p" type="button" id="rvHasheousAllBtn">Fetch metadata for all ROMs</button>'
     + '<button class="bb s" type="button" id="rvHasheousMissingBtn">Missing artwork only</button>'
@@ -1747,6 +1796,15 @@ function _rvInitHasheousControls(){
     + '</div></details>';
 
   host.appendChild(card);
+  const ytChk = document.getElementById('rvYoutubeTrailerOn');
+  if(ytChk){
+    try{
+      ytChk.checked = localStorage.getItem('rv-youtube-trailer-on') !== '0';
+      ytChk.onchange = function(){
+        try{ localStorage.setItem('rv-youtube-trailer-on', ytChk.checked ? '1' : '0'); }catch(e){}
+      };
+    }catch(e){}
+  }
   document.getElementById('rvHasheousAllBtn').onclick = function(){
     dbGetAll('roms').then(function(roms){
       const list = roms || [];
@@ -5822,6 +5880,76 @@ export default {
         return new Response(JSON.stringify({ ok: false, error: 'Hasheous proxy failed: ' + err.message }), {
           status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
         });
+      }
+    }
+
+    // YOUTUBE TRAILER SEARCH — GET /youtube-search-trailer?q=...
+    // Uses YouTube Data API v3 (server-side key via env.YT_API_KEY). Optional; Hasheous scrape calls this to set rom.videoUrl.
+    if (path === '/youtube-search-trailer' && method === 'GET') {
+      const key = env && typeof env.YT_API_KEY === 'string' ? String(env.YT_API_KEY).trim() : '';
+      if (!key) {
+        return cloneJsonResponse(origin, {
+          ok: false,
+          error: 'YT_API_KEY not configured',
+          hint: 'Set secret: wrangler secret put YT_API_KEY',
+        }, 503);
+      }
+      const qRaw = url.searchParams.get('q') || '';
+      const q = String(qRaw).trim().slice(0, 200);
+      if (q.length < 2) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing or short q parameter' }, 400);
+      }
+      const apiUrl = 'https://www.googleapis.com/youtube/v3/search?'
+        + new URLSearchParams({
+          part: 'snippet',
+          type: 'video',
+          maxResults: '5',
+          videoEmbeddable: 'true',
+          safeSearch: 'moderate',
+          q,
+          key,
+        }).toString();
+      try {
+        const up = await fetch(apiUrl, {
+          headers: { Accept: 'application/json' },
+        });
+        const text = await up.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = null;
+        }
+        if (!up.ok) {
+          const msg = data && data.error && data.error.message ? String(data.error.message) : text.slice(0, 200);
+          return cloneJsonResponse(origin, { ok: false, error: msg }, up.status >= 400 ? up.status : 502);
+        }
+        const items = data && Array.isArray(data.items) ? data.items : [];
+        const bad = /reaction|reacts|news|podcast|review only|top 10|compilation|full movie|walkthrough/i;
+        let picked = null;
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          const vid = it && it.id && it.id.videoId ? String(it.id.videoId) : '';
+          const title = it && it.snippet && it.snippet.title ? String(it.snippet.title) : '';
+          if (!vid) continue;
+          if (bad.test(title)) continue;
+          picked = vid;
+          break;
+        }
+        if (!picked && items[0] && items[0].id && items[0].id.videoId) {
+          picked = String(items[0].id.videoId);
+        }
+        if (!picked) {
+          return cloneJsonResponse(origin, { ok: false, error: 'No video results' }, 404);
+        }
+        const watchUrl = `https://www.youtube.com/watch?v=${picked}`;
+        return cloneJsonResponse(origin, {
+          ok: true,
+          videoId: picked,
+          watchUrl,
+        });
+      } catch (err) {
+        return cloneJsonResponse(origin, { ok: false, error: 'YouTube search failed: ' + err.message }, 502);
       }
     }
 

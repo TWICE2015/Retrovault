@@ -17,6 +17,12 @@ new_sqlite_classes = ["NetplayCoordinatorDO"]
 # [vars]
 # DEFAULT_NETPLAY_URL = "https://custom.example.com"
 
+# YouTube Data API v3 key (secret) — enables automatic trailer URL discovery during Hasheous scrape.
+# wrangler secret put YT_API_KEY
+# Or for local dev only: uncomment and use a restricted key.
+# [vars]
+# YT_API_KEY = "your-youtube-data-api-key"
+
 [[r2_buckets]]
 binding = "ROM_BUCKET"
 bucket_name = "game-roms"

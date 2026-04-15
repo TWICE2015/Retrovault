@@ -54,6 +54,14 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Added release-notes and GitHub integration status API endpoints.
 - Added route split prep (`/` landing target, `/app` app target) while preserving existing app route behavior.
 
+## 2026-04-16
+
+### Automatic YouTube trailer URLs (optional)
+- After **Hasheous** finds a game title, the app can call **`GET /youtube-search-trailer?q=...`** (Worker proxies **YouTube Data API v3** with a server key).
+- Configure: **`wrangler secret put YT_API_KEY`** (Google Cloud → YouTube Data API v3 → API key; restrict by HTTP referrer or IP as you prefer).
+- **Scraper → Sources → Hasheous**: checkbox **Auto-find YouTube trailer URL when missing** (default on). Saves **`rom.videoUrl`** → syncs via **`r2SaveMeta`** → shows on **Home** (hover cards + hero) like manual trailers.
+- If the key is missing, trailer auto-fill is skipped (no crash).
+
 ## 2026-04-15
 
 ### Profile / Users clicks (fix)
