@@ -200,9 +200,17 @@ const RELEASE_LOG = [
       'Hasheous still does not supply trailers; URLs are manual. COEP-safe for YouTube embeds on the app origin.',
     ],
   },
+  {
+    id: '2026-04-14-o',
+    title: 'Home row: hover trailer preview on cards',
+    details: [
+      'Games with videoUrl show a muted hover preview on Home rows (YouTube iframe or direct mp4/webm).',
+      'Trailers load on hover only (iframe src / video src primed when the pointer enters the card) to avoid mass network use.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-trailer-videoUrl';
+const APP_RELEASE_VERSION = '2026.04.14-home-trailer-hover';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -215,6 +223,7 @@ const CHANGELOG_DATA = {
     'BIOS files served again from R2 at /bios/',
     'GIF/WebP box art uploads and post-sync metadata reconcile for R2 cover URLs',
     'Optional per-ROM trailer URL (YouTube or direct video) with cloud metadata sync',
+    'Home row cards play a muted trailer preview on hover when videoUrl is set',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -400,6 +409,13 @@ function getHTML() {
     const cardActionFix = '<style id="rvCardActionFix">.ga .gfav{left:6px!important;top:6px!important;}.ga .ginfo{left:auto!important;right:6px!important;top:6px!important;}</style>';
     if (html.includes('</head>')) {
       html = html.replace('</head>', `${cardActionFix}\n</head>`);
+    }
+  }
+
+  if (!html.includes('id="rvCardTrailerHover"')) {
+    const cardTrailerHover = '<style id="rvCardTrailerHover">.gc-has-trailer .ga{position:relative!important}.gc-has-trailer .ga>img{position:relative!important;z-index:2!important;transition:opacity .22s ease!important}.gc-has-trailer:hover .ga>img{opacity:0!important}.rv-card-trailer{position:absolute!important;inset:0!important;z-index:1!important;opacity:0!important;transition:opacity .22s ease!important;pointer-events:none!important;background:#000!important;overflow:hidden!important}.gc-has-trailer:hover .rv-card-trailer{opacity:1!important}.gc-has-trailer:hover .gco{z-index:4!important}.gc-has-trailer:hover .ginfo,.gc-has-trailer:hover .gfav{z-index:5!important}.rv-card-trailer-iframe,.rv-card-trailer-vid{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;border:0!important;object-fit:cover!important}</style>';
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', `${cardTrailerHover}\n</head>`);
     }
   }
 
@@ -1716,6 +1732,59 @@ if(document.readyState === 'loading'){
       '<div class="det" id="detPanel">'
     )
     .replace(
+      `function makeCard(rom){
+  const s=getSys(rom.console);
+  const displayName=cleanName(rom.name);
+  const hasArt = !!rom.coverUrl;
+  const imgPart = hasArt
+    ? \`<img src="\${rom.coverUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="\${displayName}">\`
+    : '';
+  const hasCloudUrl = !!rom.romUrl;
+  const isFav = !!rom.favourite;
+  return \`<div class="gc\${hasCloudUrl?' gc-cloud':''}" onclick="launchRomById(\${rom.id})">
+    <div class="ga">
+      \${imgPart}
+      <button class="ginfo" title="Game info" onclick="event.stopPropagation();showDet(\${rom.id})">i</button>
+      <button class="gfav\${isFav?' gfav-on':''}" title="\${isFav?'Remove from My List':'Add to My List'}" onclick="event.stopPropagation();toggleFav(\${rom.id},this)">\${isFav?'❤':'♡'}</button>
+      <div class="gp" style="background:\${s.bg};display:\${hasArt?'none':'flex'}">
+        <div class="gsb" style="background:\${s.color}22;color:\${s.color}">\${s.icon}</div>
+        <div class="gn">\${displayName}</div>
+      </div>
+      <div class="gco"><div class="gcn">\${displayName}</div><div class="gcs">\${s.name}</div></div>
+      \${rom._scraping?'<div class="gc-scraping"></div>':''}
+    </div>
+    <div class="gl">\${displayName}</div>
+  </div>\`;
+}`,
+      `function makeCard(rom){
+  const s=getSys(rom.console);
+  const displayName=cleanName(rom.name);
+  const hasArt = !!rom.coverUrl;
+  const imgPart = hasArt
+    ? \`<img src="\${rom.coverUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="\${displayName}">\`
+    : '';
+  const hasCloudUrl = !!rom.romUrl;
+  const isFav = !!rom.favourite;
+  const trailerBlock = (typeof _rvCardTrailerHtml==='function')?_rvCardTrailerHtml(rom):'';
+  const hasTr = !!trailerBlock;
+  return \`<div class="gc\${hasCloudUrl?' gc-cloud':''}\${hasTr?' gc-has-trailer':''}" onclick="launchRomById(\${rom.id})">
+    <div class="ga">
+      \${imgPart}
+      \${trailerBlock}
+      <button class="ginfo" title="Game info" onclick="event.stopPropagation();showDet(\${rom.id})">i</button>
+      <button class="gfav\${isFav?' gfav-on':''}" title="\${isFav?'Remove from My List':'Add to My List'}" onclick="event.stopPropagation();toggleFav(\${rom.id},this)">\${isFav?'❤':'♡'}</button>
+      <div class="gp" style="background:\${s.bg};display:\${hasArt?'none':'flex'}">
+        <div class="gsb" style="background:\${s.color}22;color:\${s.color}">\${s.icon}</div>
+        <div class="gn">\${displayName}</div>
+      </div>
+      <div class="gco"><div class="gcn">\${displayName}</div><div class="gcs">\${s.name}</div></div>
+      \${rom._scraping?'<div class="gc-scraping"></div>':''}
+    </div>
+    <div class="gl">\${displayName}</div>
+  </div>\`;
+}`
+    )
+    .replace(
       '<div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="romUrlInput" placeholder="ROM cloud URL — Firebase download URL, R2, Drive, etc.…">\n        <button class="bb s" onclick="setRomUrl()">Save</button>\n      </div>\n      <div class="di-acts" style="margin-top:14px;">',
       '<div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="romUrlInput" placeholder="ROM cloud URL — Firebase download URL, R2, Drive, etc.…">\n        <button class="bb s" type="button" onclick="setRomUrl()">Save</button>\n      </div>\n      <div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="videoUrlInput" placeholder="Trailer — YouTube link or direct .mp4/.webm URL (optional)">\n        <button class="bb s" type="button" onclick="setVideoUrl()">Save trailer</button>\n      </div>\n      <div id="detTrailerWrap" style="margin-top:10px;display:none;"></div>\n      <div class="di-acts" style="margin-top:14px;">'
     )
@@ -2005,6 +2074,95 @@ if(document.readyState === 'loading'){
     wrap.innerHTML = '<div style="font-size:12px;color:var(--muted);">Trailer URL not recognized. Use a YouTube link or a direct .mp4 / .webm URL.</div>';
   }
   window._rvRenderTrailerBlock = _rvRenderTrailerBlock;
+
+  function _rvCardTrailerHtml(rom){
+    const raw = rom && rom.videoUrl ? String(rom.videoUrl).trim() : '';
+    if(!raw) return '';
+    const yt = _rvYoutubeEmbedSrcFromUrl(raw);
+    if(yt){
+      const esc = yt.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      return '<div class="rv-card-trailer" data-rv-trailer="yt" data-rv-src="'+esc+'"></div>';
+    }
+    if(_rvIsDirectVideoUrl(raw)){
+      let abs = raw;
+      if(abs.startsWith('//')) abs = 'https:' + abs;
+      const esc = abs.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      return '<div class="rv-card-trailer" data-rv-trailer="vid" data-rv-src="'+esc+'"></div>';
+    }
+    return '';
+  }
+  window._rvCardTrailerHtml = _rvCardTrailerHtml;
+
+  function _rvPrimeCardTrailer(el){
+    if(!el || el.getAttribute('data-rv-primed') === '1') return;
+    const kind = el.getAttribute('data-rv-trailer') || '';
+    const src = el.getAttribute('data-rv-src') || '';
+    if(!src) return;
+    el.setAttribute('data-rv-primed','1');
+    el.innerHTML = '';
+    if(kind === 'yt'){
+      const fr = document.createElement('iframe');
+      fr.className = 'rv-card-trailer-iframe';
+      fr.setAttribute('title','Trailer preview');
+      fr.setAttribute('loading','lazy');
+      fr.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
+      fr.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      fr.setAttribute('src', src + (src.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1&mute=1&playsinline=1');
+      el.appendChild(fr);
+      return;
+    }
+    if(kind === 'vid'){
+      const v = document.createElement('video');
+      v.className = 'rv-card-trailer-vid';
+      v.setAttribute('playsinline','');
+      v.muted = true;
+      v.loop = true;
+      v.preload = 'metadata';
+      v.src = src;
+      try{ v.play().catch(function(){}); }catch(e){}
+      el.appendChild(v);
+    }
+  }
+
+  function _rvTeaseCardTrailer(el){
+    if(!el) return;
+    const v = el.querySelector('video.rv-card-trailer-vid');
+    if(v){
+      try{ v.pause(); }catch(e){}
+    }
+    el.removeAttribute('data-rv-primed');
+    el.innerHTML = '';
+  }
+
+  function _rvInitCardTrailerHover(){
+    if(window.__rvCardTrailerHoverInit) return;
+    window.__rvCardTrailerHoverInit = true;
+    document.addEventListener('mouseover', function(ev){
+      const t = ev.target;
+      if(!t || !t.closest) return;
+      const card = t.closest('.gc-has-trailer');
+      if(!card) return;
+      if(ev.relatedTarget && card.contains(ev.relatedTarget)) return;
+      const slot = card.querySelector('.rv-card-trailer');
+      if(slot) _rvPrimeCardTrailer(slot);
+    });
+    document.addEventListener('mouseout', function(ev){
+      const t = ev.target;
+      if(!t || !t.closest) return;
+      const card = t.closest('.gc-has-trailer');
+      if(!card) return;
+      const to = ev.relatedTarget;
+      if(to && card.contains(to)) return;
+      const slot = card.querySelector('.rv-card-trailer');
+      if(slot) _rvTeaseCardTrailer(slot);
+    });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _rvInitCardTrailerHover);
+  } else {
+    setTimeout(_rvInitCardTrailerHover, 0);
+  }
+  setTimeout(_rvInitCardTrailerHover, 800);
 
   async function _rvMigrateExternalCoverUrlsOnce(){
     const flag = 'rv-cover-proxy-mig-v2';

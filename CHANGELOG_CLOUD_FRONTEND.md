@@ -112,6 +112,7 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Game detail adds an optional **Trailer** field: paste a **YouTube** URL (watch, youtu.be, shorts) or a **direct** `.mp4` / `.webm` link.
 - **Save trailer** stores `rom.videoUrl` in IndexedDB and in the **R2 JSON sidecar** (same path as other metadata); cloud sync restores it like description/year/cover.
 - Preview uses a **youtube-nocookie** embed or a native `<video>` element for direct files. Hasheous does not provide trailer URLs; this remains manual.
+- **Home rows:** games with a trailer show a **muted hover preview** on the card (cover fades; YouTube or direct video plays while the pointer is over the tile). Video loads only when you hover to limit bandwidth.
 
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
