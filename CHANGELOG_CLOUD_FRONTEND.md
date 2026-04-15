@@ -85,6 +85,12 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Pasting a public **R2.dev** image URL and tapping **Set** now stores **`/img-proxy?url=...`** so the cover displays under **Cross-Origin-Embedder-Policy** (raw `r2.dev` responses often omit `Cross-Origin-Resource-Policy` and were blocked).
 - **One-time migration** rewrites existing IndexedDB `coverUrl` rows that still point at raw `*.r2.dev` (or `r2.cloudflarestorage.com`) so old libraries fix themselves on load.
 
+### Home row scroll arrows
+- Arrow buttons are **`type="button"`** with **`preventDefault` / `stopPropagation`** so they don’t act like submit buttons or bubble to parent handlers (avoids navigation / “goes back” when scrolling rows).
+
+### JS: async `setArtUrl` / `setRomUrl`
+- The embedded app used **`await` inside non-`async` functions**, which breaks parsing (`Unexpected token 'try'`) and stops Hasheous / network code from running. A final **`_rvEnsureAsyncDetailSavers`** pass in `getHTML()` forces the correct `async function` declarations.
+
 ### Manual cover R2 layout
 - Uploaded box art is stored under **`meta/<console>/art/`** (e.g. `users/{owner}/meta/nes/art/MyGame-cover.png`) so it lives in the **metadata** area with JSON sidecars, not next to ROM binaries under `nes/`.
 

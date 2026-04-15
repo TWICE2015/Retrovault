@@ -175,9 +175,17 @@ const RELEASE_LOG = [
       'Keeps PNG/JPEG/GIF next to JSON sidecars in the metadata tree; ROM bucket sync still excludes meta/* from ROM listing.',
     ],
   },
+  {
+    id: '2026-04-14-l',
+    title: 'Home row arrows + async setArtUrl/setRomUrl',
+    details: [
+      'Row scroll buttons use type=button and stopPropagation so they do not submit forms or bubble as clicks (fixes “goes back” when using arrows).',
+      'setArtUrl and setRomUrl are async; getHTML() runs a final _rvEnsureAsyncDetailSavers pass so the embedded bundle cannot ship with await-in-sync (fixes Unexpected token try / broken scraper fetch).',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cover-upload-meta-art-path';
+const APP_RELEASE_VERSION = '2026.04.14-scroll-arrows-async-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -632,9 +640,9 @@ body{background:#141414!important;color:#fff!important;}
           '<span style="font-size:11px;color:var(--muted);margin-left:4px;">'+group.games.length+' game'+(group.games.length!==1?'s':'')+'</span>'+
         '</div>'+
         '<div class="row-wrap">'+
-          '<button class="row-arrow arr-l arr-hidden" onclick="rowScroll(\\''+cid+'\\',-1)">&#8249;</button>'+
+          '<button type="button" class="row-arrow arr-l arr-hidden" onclick="event.preventDefault();event.stopPropagation();rowScroll(\\''+cid+'\\',-1)">&#8249;</button>'+
           '<div class="rscroll" id="rscroll-'+cid+'" onscroll="updateRowArrows(\\''+cid+'\\')">'+group.games.map((g)=>makeCard(g)).join('')+'</div>'+
-          '<button class="row-arrow arr-r" onclick="rowScroll(\\''+cid+'\\',1)">&#8250;</button>'+
+          '<button type="button" class="row-arrow arr-r" onclick="event.preventDefault();event.stopPropagation();rowScroll(\\''+cid+'\\',1)">&#8250;</button>'+
         '</div>'+
       '</div>';
     });
@@ -1689,7 +1697,11 @@ if(document.readyState === 'loading'){
     )
     .replace(
       "function setArtUrl(){\n  const url=document.getElementById('artUrlInput').value.trim();\n  if(!url||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=url;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}",
-      "function setArtUrl(){\n  const raw=document.getElementById('artUrlInput').value.trim();\n  if(!raw||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(raw):raw;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}"
+      "async function setArtUrl(){\n  const raw=document.getElementById('artUrlInput').value.trim();\n  if(!raw||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(raw):raw;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}"
+    )
+    .replace(
+      "function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}",
+      "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}"
     )
     .replace(
       "  if(rom.coverUrl){\n    covEl.innerHTML=`<img src=\"${rom.coverUrl}\" style=\"width:100%;height:100%;object-fit:cover;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {",
@@ -3284,8 +3296,21 @@ if(document.readyState === 'loading'){
     html = html.replace('</body>', `${noFirebasePatch}\n</body>`);
   }
 
+  html = _rvEnsureAsyncDetailSavers(html);
+
   _cachedHtml = html;
   return _cachedHtml;
+}
+
+/** Ensures setArtUrl/setRomUrl are async in the embedded bundle (await in non-async breaks the whole script). */
+function _rvEnsureAsyncDetailSavers(html) {
+  const setArtSync = "function setArtUrl(){\n  const url=document.getElementById('artUrlInput').value.trim();\n  if(!url||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=url;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}";
+  const setArtAsync = "async function setArtUrl(){\n  const raw=document.getElementById('artUrlInput').value.trim();\n  if(!raw||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(raw):raw;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}";
+  const setRomSync = "function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}";
+  const setRomAsync = "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}";
+  if (html.includes(setArtSync)) html = html.replace(setArtSync, setArtAsync);
+  if (html.includes(setRomSync)) html = html.replace(setRomSync, setRomAsync);
+  return html;
 }
 
 // ── CORS headers ──────────────────────────────────────────────────────────
