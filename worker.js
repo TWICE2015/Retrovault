@@ -191,9 +191,18 @@ const RELEASE_LOG = [
       'Cover images use object-fit:contain with dark letterboxing; home row cards slightly larger for sharper bitmap display.',
     ],
   },
+  {
+    id: '2026-04-14-n',
+    title: 'Per-game trailer URLs (YouTube or direct video)',
+    details: [
+      'Game detail panel adds trailer preview (YouTube embed via youtube-nocookie, or HTML5 video for .mp4/.webm) plus Save trailer.',
+      'rom.videoUrl is stored in IndexedDB and in R2 JSON sidecars via r2SaveMeta; cloud sync restores it like other metadata.',
+      'Hasheous still does not supply trailers; URLs are manual. COEP-safe for YouTube embeds on the app origin.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cover-contain-async-fix';
+const APP_RELEASE_VERSION = '2026.04.14-trailer-videoUrl';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -205,6 +214,7 @@ const CHANGELOG_DATA = {
     'Worker /hasheous-lookup proxy for CORS-safe API calls',
     'BIOS files served again from R2 at /bios/',
     'GIF/WebP box art uploads and post-sync metadata reconcile for R2 cover URLs',
+    'Optional per-ROM trailer URL (YouTube or direct video) with cloud metadata sync',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -1666,7 +1676,7 @@ if(document.readyState === 'loading'){
       "      const normalizedKey = normalizeCloudKey(obj.key);\n      const existingRom = existingByKey.get(normalizedKey);\n"
     )
     .replace(
-      "      await dbAdd('roms',{\n        name: cleanName(filename),\n        filename,\n        console: consoleId,\n        consoleName: s.name,\n        size: obj.size||0,\n        coverUrl: null, description: null, year: null, rating: null,\n        added: Date.now(),\n        ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n        romUrl: publicUrl,\n        cloudStoragePath: obj.key,\n        data: null,\n      });\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n",
+      "      await dbAdd('roms',{\n        name: cleanName(filename),\n        filename,\n        console: consoleId,\n        consoleName: s.name,\n        size: obj.size||0,\n        coverUrl: null, description: null, year: null, rating: null, videoUrl: null,\n        added: Date.now(),\n        ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n        romUrl: publicUrl,\n        cloudStoragePath: obj.key,\n        data: null,\n      });\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n",
       "      if(existingRom){\n        let changed = false;\n        if(existingRom.cloudStoragePath !== normalizedKey){ existingRom.cloudStoragePath = normalizedKey; changed = true; }\n        if(existingRom.console !== consoleId){ existingRom.console = consoleId; changed = true; }\n        if(existingRom.consoleName !== s.name){ existingRom.consoleName = s.name; changed = true; }\n        if(existingRom.filename !== filename){ existingRom.filename = filename; changed = true; }\n        const cleanedName = cleanName(filename);\n        if(existingRom.name !== cleanedName){ existingRom.name = cleanedName; changed = true; }\n        if(existingRom.romUrl !== publicUrl){ existingRom.romUrl = publicUrl; changed = true; }\n        if(existingRom.ejsSys !== (s.ejsSys||'')){ existingRom.ejsSys = s.ejsSys||''; changed = true; }\n        if(existingRom.ejsCore !== (s.ejsCore||'')){ existingRom.ejsCore = s.ejsCore||''; changed = true; }\n        if(changed){ await dbPut('roms', existingRom); }\n      } else {\n        await dbAdd('roms',{\n          name: cleanName(filename),\n          filename,\n          console: consoleId,\n          consoleName: s.name,\n          size: obj.size||0,\n          coverUrl: null, description: null, year: null, rating: null,\n          added: Date.now(),\n          ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n          romUrl: publicUrl,\n          cloudStoragePath: obj.key,\n          data: null,\n        });\n      }\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n"
     )
     .replace(
@@ -1706,12 +1716,24 @@ if(document.readyState === 'loading'){
       '<div class="det" id="detPanel">'
     )
     .replace(
+      '<div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="romUrlInput" placeholder="ROM cloud URL — Firebase download URL, R2, Drive, etc.…">\n        <button class="bb s" onclick="setRomUrl()">Save</button>\n      </div>\n      <div class="di-acts" style="margin-top:14px;">',
+      '<div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="romUrlInput" placeholder="ROM cloud URL — Firebase download URL, R2, Drive, etc.…">\n        <button class="bb s" type="button" onclick="setRomUrl()">Save</button>\n      </div>\n      <div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="videoUrlInput" placeholder="Trailer — YouTube link or direct .mp4/.webm URL (optional)">\n        <button class="bb s" type="button" onclick="setVideoUrl()">Save trailer</button>\n      </div>\n      <div id="detTrailerWrap" style="margin-top:10px;display:none;"></div>\n      <div class="di-acts" style="margin-top:14px;">'
+    )
+    .replace(
       "function setArtUrl(){\n  const url=document.getElementById('artUrlInput').value.trim();\n  if(!url||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=url;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}",
       "async function setArtUrl(){\n  const raw=document.getElementById('artUrlInput').value.trim();\n  if(!raw||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(raw):raw;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}"
     )
     .replace(
       "function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}",
       "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}"
+    )
+    .replace(
+      "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}\n\nasync function scrapeThisGame(){",
+      "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}\n\nasync function setVideoUrl(){\n  const raw=document.getElementById('videoUrlInput');\n  const url = raw ? String(raw.value||'').trim() : '';\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.videoUrl = url||null;\n  await dbPut('roms',rom);\n  if(typeof r2SaveMeta==='function') await r2SaveMeta(rom);\n  showDet(detRomId);\n  toast(url ? '✓ Trailer URL saved (syncs with metadata)' : 'Trailer cleared');\n}\n\nasync function scrapeThisGame(){"
+    )
+    .replace(
+      "  document.getElementById('artUrlInput').value  = rom.coverUrl||'';\n  document.getElementById('romUrlInput').value  = rom.romUrl||'';\n  // Show cloud badge if ROM has a playable URL",
+      "  document.getElementById('artUrlInput').value  = rom.coverUrl||'';\n  document.getElementById('romUrlInput').value  = rom.romUrl||'';\n  const __vIn=document.getElementById('videoUrlInput'); if(__vIn) __vIn.value = rom.videoUrl||'';\n  if(typeof _rvRenderTrailerBlock==='function'){ _rvRenderTrailerBlock(rom); }\n  // Show cloud badge if ROM has a playable URL"
     )
     .replace(
       "  if(rom.coverUrl){\n    covEl.innerHTML=`<img src=\"${rom.coverUrl}\" style=\"width:100%;height:100%;object-fit:contain;background:#141414;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {",
@@ -1841,6 +1863,7 @@ if(document.readyState === 'loading'){
               if(meta.rating      && !match.rating)      { match.rating      = meta.rating;      changed=true; }
               if(meta.developer   && !match.developer)   { match.developer   = meta.developer;   changed=true; }
               if(meta.genres      && !match.genres)      { match.genres      = meta.genres;      changed=true; }
+              if(meta.videoUrl    && !match.videoUrl)    { match.videoUrl    = meta.videoUrl;    changed=true; }
               if(changed){ await dbPut('roms', match); metaRestored++; }
             }
           }`,
@@ -1918,6 +1941,70 @@ if(document.readyState === 'loading'){
     return window.location.origin + '/img-proxy?url=' + encodeURIComponent(abs);
   }
   window._rvCoverUrlForImg = _rvCoverUrlForImg;
+
+  function _rvYoutubeEmbedSrcFromUrl(raw){
+    const s = String(raw||'').trim();
+    if(!s) return '';
+    let u = s;
+    if(u.startsWith('//')) u = 'https:' + u;
+    try{
+      const p = new URL(u, window.location.href);
+      const host = (p.hostname||'').toLowerCase();
+      if(host === 'youtu.be'){
+        const id = p.pathname.replace(/^[/]+/,'').split('/')[0];
+        return id ? ('https://www.youtube-nocookie.com/embed/' + id + '?rel=0') : '';
+      }
+      if(host.indexOf('youtube.com') >= 0 || host.indexOf('youtube-nocookie.com') >= 0){
+        let id = p.searchParams.get('v');
+        if(!id){
+          const seg = p.pathname.split('/').filter(Boolean);
+          const ei = seg.indexOf('embed');
+          if(ei >= 0 && seg[ei+1]) id = seg[ei+1];
+          else if(seg[0] === 'shorts' && seg[1]) id = seg[1];
+        }
+        return id ? ('https://www.youtube-nocookie.com/embed/' + id + '?rel=0') : '';
+      }
+    }catch(e){}
+    return '';
+  }
+  function _rvIsDirectVideoUrl(raw){
+    const s = String(raw||'').trim();
+    if(!s) return false;
+    let u = s;
+    if(u.startsWith('//')) u = 'https:' + u;
+    if(!/^https?:\/\//i.test(u)) return false;
+    try{
+      const p = new URL(u, window.location.href);
+      const path = (p.pathname||'').toLowerCase();
+      return /\.(mp4|webm|ogv)(\?|$)/i.test(path);
+    }catch(e){ return false; }
+  }
+  function _rvRenderTrailerBlock(rom){
+    const wrap = document.getElementById('detTrailerWrap');
+    if(!wrap) return;
+    const raw = rom && rom.videoUrl ? String(rom.videoUrl).trim() : '';
+    if(!raw){
+      wrap.style.display = 'none';
+      wrap.innerHTML = '';
+      return;
+    }
+    const yt = _rvYoutubeEmbedSrcFromUrl(raw);
+    if(yt){
+      wrap.style.display = 'block';
+      wrap.innerHTML = '<div style="position:relative;width:100%;max-width:560px;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe title="Trailer" src="'+yt.replace(/"/g,'&quot;')+'" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+      return;
+    }
+    if(_rvIsDirectVideoUrl(raw)){
+      let abs = raw;
+      if(abs.startsWith('//')) abs = 'https:' + abs;
+      wrap.style.display = 'block';
+      wrap.innerHTML = '<video controls playsinline preload="metadata" style="width:100%;max-width:560px;border-radius:8px;background:#000;" src="'+abs.replace(/"/g,'&quot;')+'"></video>';
+      return;
+    }
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--muted);">Trailer URL not recognized. Use a YouTube link or a direct .mp4 / .webm URL.</div>';
+  }
+  window._rvRenderTrailerBlock = _rvRenderTrailerBlock;
 
   async function _rvMigrateExternalCoverUrlsOnce(){
     const flag = 'rv-cover-proxy-mig-v2';
@@ -2272,7 +2359,7 @@ if(document.readyState === 'loading'){
     window.__rvOrigR2SaveMeta = r2SaveMeta;
     window.r2SaveMeta = async function(rom){
       if(!rom || !rom.name) return;
-      if(!rom.coverUrl && !rom.description && !rom.year && !rom.rating) return;
+      if(!rom.coverUrl && !rom.description && !rom.year && !rom.rating && !rom.videoUrl) return;
       try{
         const safeFile = (rom.filename||rom.name).replace(/[^a-zA-Z0-9._-]/g,'_');
         const key = 'meta/' + (rom.console||'unknown') + '/' + safeFile + '.json';
@@ -2287,6 +2374,7 @@ if(document.readyState === 'loading'){
           rating: rom.rating||null,
           developer: rom.developer||null,
           genres: rom.genres||null,
+          videoUrl: rom.videoUrl||null,
         };
         const oid = (typeof _rvOwnerId === 'function' ? _rvOwnerId() : '') || localStorage.getItem('rv-owner-id') || '';
         const resp = await fetch(window.location.origin+'/r2-meta-save', {
