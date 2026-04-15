@@ -114,6 +114,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Preview uses a **youtube-nocookie** embed or a native `<video>` element for direct files. Hasheous does not provide trailer URLs; this remains manual.
 - **Home rows:** games with a trailer show a **muted hover preview** on the card (cover fades; YouTube or direct video plays while the pointer is over the tile). Video loads only when you hover to limit bandwidth.
 
+### Online session + EmulatorJS netplay (2-player)
+- **RetroVault “Online Session”** (create/join) is a **lobby** stored in R2; it does **not** run the WebRTC netplay server by itself.
+- **2-player online** uses [EmulatorJS **Netplay**](https://github.com/EmulatorJS/EmulatorJS-Netplay): host that Node server (or use your own URL), then in **Settings → Online Session** paste the **EmulatorJS Netplay server URL** (e.g. `https://your-host:3000/`) and **Save URL**.
+- Create/join session now stores **`memberId`** for the handshake; when you **launch a game** while in a session, the app sets **`EJS_netplayServer`**, **`EJS_gameID`** (same for both players on the same session + ROM), and **STUN** ICE servers so the emulator’s **netplay (globe)** can connect.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.

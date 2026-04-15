@@ -208,9 +208,18 @@ const RELEASE_LOG = [
       'Trailers load on hover only (iframe src / video src primed when the pointer enters the card) to avoid mass network use.',
     ],
   },
+  {
+    id: '2026-04-14-p',
+    title: 'Online session + EmulatorJS netplay wiring',
+    details: [
+      'Create/join now stores memberId for the EmulatorJS netplay handshake.',
+      'Settings include EmulatorJS Netplay server URL (self-hosted EmulatorJS-Netplay); launch sets EJS_netplayServer, EJS_gameID (per ROM+session), and STUN ICE servers.',
+      'Documented that RetroVault session codes are a lobby only — WebRTC netplay requires a separate Node netplay server.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-home-trailer-hover';
+const APP_RELEASE_VERSION = '2026.04.14-netplay-session-wire';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -224,6 +233,7 @@ const CHANGELOG_DATA = {
     'GIF/WebP box art uploads and post-sync metadata reconcile for R2 cover URLs',
     'Optional per-ROM trailer URL (YouTube or direct video) with cloud metadata sync',
     'Home row cards play a muted trailer preview on hover when videoUrl is set',
+    'Online session + EmulatorJS netplay: netplay server URL in settings, EJS vars set on launch when in a session',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -399,9 +409,22 @@ function getHTML() {
 
   if (!html.includes('function _rvSessionPassword(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
-    const sessionHelper = "function _rvNormalizeSessionPassword(v){ return String(v||'').trim().slice(0,64); }\nfunction _rvSessionPassword(){ return _rvNormalizeSessionPassword(localStorage.getItem('rv-session-password')); }\nfunction _rvSetSessionPassword(v){ const clean=_rvNormalizeSessionPassword(v); if(clean.length<4){ return null; } localStorage.setItem('rv-session-password', clean); return clean; }\nfunction _rvSessionStatus(msg, state){ const el=document.getElementById('rvSessionStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }\nasync function _rvCreateSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } try{ const resp=await fetch(window.location.origin+'/session-create',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password, hostName:(typeof _rvOwnerId==='function'?_rvOwnerId():'host') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', data.sessionId); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(data.sessionId).catch(()=>{}); } _rvSessionStatus('Session created: '+data.sessionId+' (copied to clipboard)','ok'); }catch(e){ _rvSessionStatus('Create session failed: '+e.message,'err'); } }\nasync function _rvJoinSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } const prev=localStorage.getItem('rv-last-session-id')||''; const sessionId=String(prompt('Enter session code',prev)||'').trim(); if(!sessionId){ return; } try{ const resp=await fetch(window.location.origin+'/session-join',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ sessionId, password, playerName:(typeof _rvOwnerId==='function'?_rvOwnerId():'player') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', sessionId); _rvSessionStatus('Joined session '+sessionId+' ('+(data.memberCount||0)+' players)','ok'); }catch(e){ _rvSessionStatus('Join failed: '+e.message,'err'); } }\nfunction _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=()=>{ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=_rvCreateSession; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=_rvJoinSession; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Only users with the same session code + password can join.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Set your password, then create or join a private session.'; card.appendChild(title); card.appendChild(row); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitSessionControls); else setTimeout(_rvInitSessionControls,0);\n";
+    const sessionHelper = [
+      "function _rvNormalizeSessionPassword(v){ return String(v||'').trim().slice(0,64); }",
+      "function _rvSessionPassword(){ return _rvNormalizeSessionPassword(localStorage.getItem('rv-session-password')); }",
+      "function _rvSetSessionPassword(v){ const clean=_rvNormalizeSessionPassword(v); if(clean.length<4){ return null; } localStorage.setItem('rv-session-password', clean); return clean; }",
+      "function _rvSessionStatus(msg, state){ const el=document.getElementById('rvSessionStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }",
+      "function _rvNetplayIceServers(){ return [{ urls:'stun:stun.l.google.com:19302' },{ urls:'stun:stun1.l.google.com:19302' }]; }",
+      "function _rvGetNetplayServerUrl(){ return String(localStorage.getItem('rv-netplay-server-url')||'').trim(); }",
+      "function _rvSetNetplayServerUrl(raw){ const u=String(raw||'').trim(); localStorage.setItem('rv-netplay-server-url', u); return u; }",
+      "function _rvApplyEjsNetplayFromSession(rom){ try{ delete window.EJS_netplayServer; delete window.EJS_gameID; delete window.EJS_netplayICEServers; }catch(e){} const sid=localStorage.getItem('rv-last-session-id')||''; const mid=localStorage.getItem('rv-session-member-id')||''; let base=_rvGetNetplayServerUrl(); if(!rom||!sid||!mid){ return; } if(!base){ try{ console.warn('[netplay] In an online session but no EmulatorJS Netplay server URL — set it in Settings → Online Session.'); }catch(e){} return; } if(!/^https?:\\/\\//i.test(base)){ try{ console.warn('[netplay] Netplay server URL must start with http:// or https://'); }catch(e){} return; } if(base.indexOf('#')<0) base=base+'#'; const gameKey=sid+'|'+String(rom.id); let h=5381; for(let i=0;i<gameKey.length;i++){ h=((h<<5)+h)+gameKey.charCodeAt(i); h=h|0; } const gid=(Math.abs(h)%2000000000)||1; window.EJS_netplayServer=base; window.EJS_gameID=gid; window.EJS_netplayICEServers=_rvNetplayIceServers(); }",
+      "async function _rvCreateSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } try{ const resp=await fetch(window.location.origin+'/session-create',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password, hostName:(typeof _rvOwnerId==='function'?_rvOwnerId():'host') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', data.sessionId); if(data.memberId) localStorage.setItem('rv-session-member-id', data.memberId); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(data.sessionId).catch(function(){}); } _rvSessionStatus('Session created: '+data.sessionId+' — use Netplay URL + launch same ROM for 2P.','ok'); }catch(e){ _rvSessionStatus('Create session failed: '+e.message,'err'); } }",
+      "async function _rvJoinSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } const prev=localStorage.getItem('rv-last-session-id')||''; const sessionId=String(prompt('Enter session code',prev)||'').trim(); if(!sessionId){ return; } try{ const resp=await fetch(window.location.origin+'/session-join',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ sessionId, password, playerName:(typeof _rvOwnerId==='function'?_rvOwnerId():'player') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', sessionId); if(data.memberId) localStorage.setItem('rv-session-member-id', data.memberId); _rvSessionStatus('Joined session '+sessionId+' ('+(data.memberCount||0)+' players). Set same Netplay URL as host, then launch the same game.','ok'); }catch(e){ _rvSessionStatus('Join failed: '+e.message,'err'); } }",
+      "function _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=function(){ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const npRow=document.createElement('div'); npRow.style.display='grid'; npRow.style.gridTemplateColumns='minmax(240px,1fr) auto'; npRow.style.gap='8px'; npRow.style.alignItems='center'; npRow.style.marginTop='8px'; const np=document.createElement('input'); np.id='rvNetplayServerInput'; np.type='url'; np.placeholder='EmulatorJS Netplay server — https://your-host:3000/'; np.value=_rvGetNetplayServerUrl(); np.autocomplete='off'; np.style.padding='8px'; np.style.borderRadius='8px'; np.style.border='1px solid var(--line)'; np.style.background='var(--s1)'; np.style.color='var(--text)'; const npBtn=document.createElement('button'); npBtn.type='button'; npBtn.className='bb s'; npBtn.textContent='Save URL'; npBtn.onclick=function(){ _rvSetNetplayServerUrl(np.value); _rvSessionStatus('Netplay server URL saved (required for 2-player).','ok'); }; npRow.appendChild(np); npRow.appendChild(npBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=function(){ _rvCreateSession(); }; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=function(){ _rvJoinSession(); }; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.innerHTML='Session code + password are the <strong>lobby</strong> in R2. For <strong>2-player netplay</strong>, host must run an <a href=\"https://github.com/EmulatorJS/EmulatorJS-Netplay\" target=\"_blank\" rel=\"noopener\">EmulatorJS-Netplay</a> server, both players paste the same <strong>Netplay server URL</strong> above, join this session, then launch the <strong>same ROM</strong> — use the globe in the emulator bar to connect.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Set password, optional netplay URL, then create or join.'; card.appendChild(title); card.appendChild(row); card.appendChild(npRow); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }",
+      "if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitSessionControls); else setTimeout(_rvInitSessionControls,0);",
+    ].join('\n');
     if (html.includes(helperAnchor)) {
-      html = html.replace(helperAnchor, sessionHelper + helperAnchor);
+      html = html.replace(helperAnchor, sessionHelper + '\n' + helperAnchor);
     }
   }
 
@@ -3554,6 +3577,24 @@ if(document.readyState === 'loading'){
 
   html = _rvEnsureAsyncDetailSavers(html);
 
+  const launchRomNetplayInject = `  // Optional settings
+  if(ejsSettings.fullscreen)   window.EJS_fullscreenOnLoaded = true;
+  if(ejsSettings.threads)      window.EJS_threads = true;
+
+  // FIX 8: Inject loader.js AFTER all vars are set and player div exists`;
+  if (html.includes(launchRomNetplayInject)) {
+    html = html.replace(
+      launchRomNetplayInject,
+      `  // Optional settings
+  if(ejsSettings.fullscreen)   window.EJS_fullscreenOnLoaded = true;
+  if(ejsSettings.threads)      window.EJS_threads = true;
+
+  if(typeof _rvApplyEjsNetplayFromSession==='function'){ try{ _rvApplyEjsNetplayFromSession(rom); }catch(e){} }
+
+  // FIX 8: Inject loader.js AFTER all vars are set and player div exists`
+    );
+  }
+
   _cachedHtml = html;
   return _cachedHtml;
 }
@@ -4454,9 +4495,9 @@ export default {
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // ONLINE SESSIONS — private password-protected room metadata
-    // Note: this stores room membership/state only. Netplay transport still
-    // needs to be wired separately in emulator runtime.
+    // ONLINE SESSIONS — private password-protected room metadata (R2)
+    // EmulatorJS netplay uses a separate Node "EmulatorJS-Netplay" server.
+    // The frontend sets EJS_netplayServer / EJS_gameID / ICE when a netplay URL is saved.
     // ════════════════════════════════════════════════════════════════════
     if (path === '/session-create' && method === 'POST') {
       if (!env.ROM_BUCKET) {
