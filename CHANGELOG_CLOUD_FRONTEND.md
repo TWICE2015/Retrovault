@@ -90,6 +90,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 
 ### JS: async `setArtUrl` / `setRomUrl`
 - The embedded app used **`await` inside non-`async` functions**, which breaks parsing (`Unexpected token 'try'`) and stops Hasheous / network code from running. A final **`_rvEnsureAsyncDetailSavers`** pass in `getHTML()` forces the correct `async function` declarations.
+- **Hotfix:** replacing `function setArtUrl(){…}` could also match **inside** `async function setArtUrl(){…}` and yield **`async async function`**. The saver now strips duplicate `async` tokens after replacement.
+
+### Box art: fit (contain) + larger tiles
+- ROM grid and detail cover images use **`object-fit: contain`** with a dark background so full artwork is visible (less zoom/crop than `cover`).
+- Home row cards are slightly **wider/taller** for a sharper on-screen bitmap.
 
 ### Manual cover R2 layout
 - Uploaded box art is stored under **`meta/<console>/art/`** (e.g. `users/{owner}/meta/nes/art/MyGame-cover.png`) so it lives in the **metadata** area with JSON sidecars, not next to ROM binaries under `nes/`.

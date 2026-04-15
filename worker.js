@@ -183,9 +183,17 @@ const RELEASE_LOG = [
       'setArtUrl and setRomUrl are async; getHTML() runs a final _rvEnsureAsyncDetailSavers pass so the embedded bundle cannot ship with await-in-sync (fixes Unexpected token try / broken scraper fetch).',
     ],
   },
+  {
+    id: '2026-04-14-m',
+    title: 'Fix async async parse bug + box art contain + larger cards',
+    details: [
+      '_rvEnsureAsyncDetailSavers no longer matches function setArtUrl inside async function setArtUrl (was producing async async and Unexpected token async).',
+      'Cover images use object-fit:contain with dark letterboxing; home row cards slightly larger for sharper bitmap display.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-scroll-arrows-async-fix';
+const APP_RELEASE_VERSION = '2026.04.14-cover-contain-async-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -459,13 +467,14 @@ body{background:#141414!important;color:#fff!important;}
 .rt{font-size:22px!important;font-weight:700!important;letter-spacing:.2px;}
 .rscroll{padding:6px 48px 16px!important;gap:10px!important;}
 
-.gc{width:176px!important;}
+.gc{width:192px!important;}
 .ga{
-  height:100px!important;
+  height:118px!important;
   border-radius:4px!important;
   box-shadow:0 8px 22px rgba(0,0,0,.35);
-  background:#1c1c1c!important;
+  background:#141414!important;
 }
+.ga img{object-fit:contain!important;object-position:center!important;background:#141414!important;}
 .gc:hover{
   transform:scale(1.22) translateY(-8px)!important;
   z-index:20!important;
@@ -483,7 +492,7 @@ body{background:#141414!important;color:#fff!important;}
   font-size:12px!important;
   color:rgba(255,255,255,.88)!important;
   margin-top:7px!important;
-  max-width:176px;
+  max-width:192px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -924,8 +933,9 @@ body{background:#141414!important;color:#fff!important;}
     const style = document.createElement('style');
     style.id = 'rvHybridUXStyle';
     style.textContent = [
-      '.gc{ width:148px !important; }',
-      '.ga{ height:222px !important; border-radius:6px !important; }',
+      '.gc{ width:172px !important; }',
+      '.ga{ height:258px !important; border-radius:6px !important; }',
+      '.ga img,.dcv img{ object-fit:contain !important; object-position:center !important; background:#141414 !important; }',
       '.gc:hover{ transform:scale(1.14) translateY(-4px) !important; }',
       '#rvBrowseToggleBtn{ margin-right:4px; }',
       '.rv-old-users-compact #rvProfilePicker .rv-wrap{ width:min(760px,94vw) !important; }',
@@ -1704,8 +1714,8 @@ if(document.readyState === 'loading'){
       "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}"
     )
     .replace(
-      "  if(rom.coverUrl){\n    covEl.innerHTML=`<img src=\"${rom.coverUrl}\" style=\"width:100%;height:100%;object-fit:cover;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {",
-      "  if(rom.coverUrl){\n    const __rvCovSrc=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(rom.coverUrl):rom.coverUrl;\n    covEl.innerHTML=`<img src=\"${__rvCovSrc}\" style=\"width:100%;height:100%;object-fit:cover;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {"
+      "  if(rom.coverUrl){\n    covEl.innerHTML=`<img src=\"${rom.coverUrl}\" style=\"width:100%;height:100%;object-fit:contain;background:#141414;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {",
+      "  if(rom.coverUrl){\n    const __rvCovSrc=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(rom.coverUrl):rom.coverUrl;\n    covEl.innerHTML=`<img src=\"${__rvCovSrc}\" style=\"width:100%;height:100%;object-fit:contain;background:#141414;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {"
     )
     .replace(
       "      const publicUrl = r2Base+'/'+obj.key;",
@@ -3304,12 +3314,16 @@ if(document.readyState === 'loading'){
 
 /** Ensures setArtUrl/setRomUrl are async in the embedded bundle (await in non-async breaks the whole script). */
 function _rvEnsureAsyncDetailSavers(html) {
+  html = html.replace(/\basync\s+async\s+function\s+setArtUrl\b/g, 'async function setArtUrl');
+  html = html.replace(/\basync\s+async\s+function\s+setRomUrl\b/g, 'async function setRomUrl');
   const setArtSync = "function setArtUrl(){\n  const url=document.getElementById('artUrlInput').value.trim();\n  if(!url||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=url;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}";
   const setArtAsync = "async function setArtUrl(){\n  const raw=document.getElementById('artUrlInput').value.trim();\n  if(!raw||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(raw):raw;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}";
   const setRomSync = "function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}";
   const setRomAsync = "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}";
   if (html.includes(setArtSync)) html = html.replace(setArtSync, setArtAsync);
   if (html.includes(setRomSync)) html = html.replace(setRomSync, setRomAsync);
+  html = html.replace(/\basync\s+async\s+function\s+setArtUrl\b/g, 'async function setArtUrl');
+  html = html.replace(/\basync\s+async\s+function\s+setRomUrl\b/g, 'async function setRomUrl');
   return html;
 }
 
