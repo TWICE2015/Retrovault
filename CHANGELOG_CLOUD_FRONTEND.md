@@ -115,9 +115,10 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - **Home rows:** games with a trailer show a **muted hover preview** on the card (cover fades; YouTube or direct video plays while the pointer is over the tile). Video loads only when you hover to limit bandwidth.
 
 ### Online session + EmulatorJS netplay (2-player)
-- **RetroVault “Online Session”** (create/join) is a **lobby** stored in R2; it does **not** run the WebRTC netplay server by itself.
-- **2-player online** uses [EmulatorJS **Netplay**](https://github.com/EmulatorJS/EmulatorJS-Netplay): host that Node server (or use your own URL), then in **Settings → Online Session** paste the **EmulatorJS Netplay server URL** (e.g. `https://your-host:3000/`) and **Save URL**.
-- Create/join session now stores **`memberId`** for the handshake; when you **launch a game** while in a session, the app sets **`EJS_netplayServer`**, **`EJS_gameID`** (same for both players on the same session + ROM), and **STUN** ICE servers so the emulator’s **netplay (globe)** can connect.
+- **RetroVault “Online Session”** (create/join) is a **lobby** stored in R2; it does **not** replace **WebRTC signaling** (that is the netplay relay).
+- **Built-in (Cloudflare):** deploy with **`NETPLAY_DO`** (`NetplayCoordinatorDO`). The Worker serves **`/socket.io/*`** (WebSocket) and **`/list`** compatible with [EmulatorJS-Netplay](https://github.com/EmulatorJS/EmulatorJS-Netplay) room events. The app defaults **`window.__RV_DEFAULT_NETPLAY_URL`** to **`window.location.origin`** when unset, so players usually **do not paste a URL**.
+- **External:** you can still run the Node **EmulatorJS-Netplay** server and set **`DEFAULT_NETPLAY_URL`** or paste a URL in **Settings → Online Session**.
+- Create/join session stores **`memberId`**; on launch in a session the app sets **`EJS_netplayUrl`** (what EmulatorJS reads), **`EJS_gameID`** (same for both players on the same session + ROM), and **STUN** ICE servers for the emulator **globe**.
 
 ### Cloud save states (exit backup + resume)
 - On **Exit** from the emulator, if the core **supports save states**, the current state is uploaded to R2 under **`meta/{console}/saves/rom-{id}-...state`** and **`cloudSaveStateUrl` / `cloudSaveStateKey` / `cloudSaveStateRev`** are stored on the ROM row and in the JSON sidecar (syncs across devices like other metadata).
@@ -129,9 +130,9 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Fixed with a negative lookbehind so only the real declaration is prefixed, plus a dedupe pass.
 
 ### Easier netplay UX: site-wide default relay URL
-- **Reality check:** EmulatorJS netplay still needs a **separate** Node **[EmulatorJS-Netplay](https://github.com/EmulatorJS/EmulatorJS-Netplay)** process (WebRTC signaling). A plain Worker cannot replace that without WebSockets / Durable Objects and a full signaling implementation.
-- **What we automated:** If the operator sets **`DEFAULT_NETPLAY_URL`** in the Worker (see commented example in `wrangler.toml`), the app injects **`window.__RV_DEFAULT_NETPLAY_URL`** and uses it whenever the user has **not** saved an override in Settings. Players then only **create/join session** + **launch the same ROM** + use the emulator **globe** — no paste step.
-- Advanced users can still **Save URL** in Settings to override or point at their own relay.
+- **Signaling** must live somewhere with WebSockets (Node **EmulatorJS-Netplay** or this project’s **`NETPLAY_DO`** Durable Object).
+- **Same-origin default:** with **`NETPLAY_DO`** deployed, the HTML inject sets **`__RV_DEFAULT_NETPLAY_URL`** to the Worker origin when **`DEFAULT_NETPLAY_URL`** is unset — no paste for most users.
+- **Override:** set **`DEFAULT_NETPLAY_URL`** in **`wrangler.toml`** or use **Save URL** in Settings for an external relay.
 
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
