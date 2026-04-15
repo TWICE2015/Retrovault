@@ -226,9 +226,17 @@ const RELEASE_LOG = [
       'Requires Shared Sync Owner ID; cores must support save states; closeEmu is async to finish upload before terminate.',
     ],
   },
+  {
+    id: '2026-04-14-r',
+    title: 'Hotfix: async async launchRomById parse error',
+    details: [
+      'getHTML() used a naive replace for function launchRomById which also matched inside async function launchRomById, producing async async and breaking the whole script (sv undefined, Unexpected token async/try).',
+      'Replaced with (?<!async ) lookbehind and a dedupe pass for launchRomById and closeEmu.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cloud-save-state';
+const APP_RELEASE_VERSION = '2026.04.14-cloud-save-state-async-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -3709,10 +3717,9 @@ if(document.readyState === 'loading'){
     );
   }
 
-  html = html.replace(
-    'function launchRomById(id){',
-    'async function launchRomById(id){'
-  );
+  // Must not match inside "async function launchRomById" (would create "async async function").
+  html = html.replace(/(?<!async )function launchRomById\(id\)\{/g, 'async function launchRomById(id){');
+  html = html.replace(/\basync async function launchRomById\b/g, 'async function launchRomById');
 
   html = html.replace(
     `  const ejsGlobals = [
@@ -3759,6 +3766,7 @@ if(document.readyState === 'loading'){
     window.EJS_emulator = null;
   }`
   );
+  html = html.replace(/\basync async function closeEmu\b/g, 'async function closeEmu');
 
   _cachedHtml = html;
   return _cachedHtml;

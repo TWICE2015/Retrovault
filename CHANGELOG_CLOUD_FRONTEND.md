@@ -124,6 +124,10 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - On **next launch**, if that object exists (**`HEAD /r2-rom`**), **`EJS_loadStateURL`** is set so EmulatorJS **downloads and loads** the state after the game starts.
 - Requires a set **Shared Sync Owner ID**; **`GET /r2-rom`** is unchanged; **`HEAD /r2-rom`** was added for lightweight existence checks.
 
+### Hotfix: `async async` broke the whole app script
+- Making `launchRomById` async used a replace that also matched **inside** `async function launchRomById`, producing **`async async function`** → parse errors and **`sv is not defined`** (nav never ran).
+- Fixed with a negative lookbehind so only the real declaration is prefixed, plus a dedupe pass.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.
