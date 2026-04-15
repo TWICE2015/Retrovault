@@ -264,9 +264,17 @@ const RELEASE_LOG = [
       'Short poll + gamepadconnected listener; cleanup on closeEmu. getHTML cache key includes APP_RELEASE_VERSION.',
     ],
   },
+  {
+    id: '2026-04-15-c',
+    title: 'Netflix-style hero background trailer',
+    details: [
+      'Featured home hero (most recently added ROM) plays a muted full-bleed trailer when rom.videoUrl is set (YouTube or direct mp4/webm).',
+      '_rvApplyHeroTrailer / _rvClearHeroTrailer; z-index so text stays readable over gradients.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.15-gamepad-autopick';
+const APP_RELEASE_VERSION = '2026.04.15-hero-trailer';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -285,6 +293,7 @@ const CHANGELOG_DATA = {
     'Optional DEFAULT_NETPLAY_URL worker var for zero-paste netplay relay when operator hosts EmulatorJS-Netplay',
     'Built-in NETPLAY_DO Durable Object for same-origin EmulatorJS netplay signaling (no external Node server)',
     'Physical gamepads auto-mapped to EmulatorJS player slots after load (no manual dropdown each ROM)',
+    'Home hero: Netflix-style muted full-bleed trailer when the featured game has videoUrl',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -540,6 +549,7 @@ body{background:#141414!important;color:#fff!important;}
 }
 
 .hero{
+  position:relative!important;
   min-height:520px!important;
   height:64vh!important;
   padding:0 48px 62px!important;
@@ -552,8 +562,35 @@ body{background:#141414!important;color:#fff!important;}
   left:0;right:0;bottom:0;height:150px;
   background:linear-gradient(to top,#141414,transparent);
   pointer-events:none;
+  z-index:4!important;
 }
-.hc{max-width:740px!important;}
+#rvHeroTrailer{
+  position:absolute!important;
+  inset:0!important;
+  z-index:0!important;
+  opacity:0;
+  transition:opacity .55s ease;
+  pointer-events:none!important;
+  overflow:hidden!important;
+  background:#000!important;
+}
+#rvHeroTrailer.rv-hero-trailer-on{opacity:1!important;}
+#rvHeroTrailer iframe,#rvHeroTrailer video{
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  min-width:102%!important;
+  min-height:102%!important;
+  width:auto!important;
+  height:auto!important;
+  max-width:none!important;
+  transform:translate(-50%,-50%)!important;
+  border:0!important;
+  pointer-events:none!important;
+}
+.hero .hm{z-index:1!important;opacity:.12!important;}
+.hero .hg{z-index:2!important;}
+.hc{max-width:740px!important;z-index:5!important;position:relative!important;}
 .ht{font-size:54px!important;line-height:1.05!important;font-weight:800!important;}
 .hs{font-size:18px!important;color:#d0d0d0!important;line-height:1.42!important;}
 .hbtns{gap:12px!important;}
@@ -736,6 +773,7 @@ body{background:#141414!important;color:#fff!important;}
       hr.innerHTML = '<div class="empty"><div class="empty-icon">🎮</div><div class="empty-title">No games yet</div><div class="empty-sub">Upload your ROM files to start playing</div><button class="bb p" onclick="sv(\\'roms\\',null)">⬆ Upload ROMs</button></div>';
       const hs = document.getElementById('heroStats');
       if(hs) hs.textContent = 'Upload ROMs to get started';
+      if(typeof _rvClearHeroTrailer==='function'){ try{ _rvClearHeroTrailer(); }catch(e){} }
       return;
     }
 
@@ -747,6 +785,7 @@ body{background:#141414!important;color:#fff!important;}
     if(ht && heroRom) ht.textContent = _rvCleanCardName(heroRom.name || heroRom.filename || 'RetroVault');
     const playBtn = document.querySelector('.hbtns .bplay');
     if(playBtn && heroRom) playBtn.onclick = function(){ launchRomById(heroRom.id); };
+    if(typeof _rvApplyHeroTrailer==='function'){ try{ _rvApplyHeroTrailer(heroRom); }catch(e){} }
 
     let out = '';
     groups.forEach((group)=>{
@@ -2329,6 +2368,60 @@ if(document.readyState === 'loading'){
   }
   window._rvCardTrailerHtml = _rvCardTrailerHtml;
 
+  function _rvEnsureHeroTrailerHost(){
+    const hero = document.querySelector('#view-home .hero');
+    if(!hero) return null;
+    let el = document.getElementById('rvHeroTrailer');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'rvHeroTrailer';
+      el.setAttribute('aria-hidden','true');
+      hero.insertBefore(el, hero.firstChild);
+    }
+    return el;
+  }
+  function _rvClearHeroTrailer(){
+    const el = document.getElementById('rvHeroTrailer');
+    if(!el) return;
+    el.classList.remove('rv-hero-trailer-on');
+    el.innerHTML = '';
+  }
+  function _rvApplyHeroTrailer(rom){
+    const host = _rvEnsureHeroTrailerHost();
+    if(!host){ return; }
+    _rvClearHeroTrailer();
+    const raw = rom && rom.videoUrl ? String(rom.videoUrl).trim() : '';
+    if(!raw){ return; }
+    const yt = _rvYoutubeEmbedSrcFromUrl(raw);
+    if(yt){
+      const fr = document.createElement('iframe');
+      fr.setAttribute('title','Hero trailer');
+      fr.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
+      fr.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      const u = yt + (yt.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&iv_load_policy=3';
+      fr.setAttribute('src', u);
+      host.appendChild(fr);
+      host.classList.add('rv-hero-trailer-on');
+      return;
+    }
+    if(_rvIsDirectVideoUrl(raw)){
+      let abs = raw;
+      if(abs.startsWith('//')) abs = 'https:' + abs;
+      const v = document.createElement('video');
+      v.setAttribute('playsinline','');
+      v.muted = true;
+      v.loop = true;
+      v.autoplay = true;
+      v.setAttribute('preload','auto');
+      v.src = abs;
+      host.appendChild(v);
+      host.classList.add('rv-hero-trailer-on');
+      try{ v.play().catch(function(){}); }catch(e){}
+    }
+  }
+  window._rvApplyHeroTrailer = _rvApplyHeroTrailer;
+  window._rvClearHeroTrailer = _rvClearHeroTrailer;
+
   function _rvPrimeCardTrailer(el){
     if(!el || el.getAttribute('data-rv-primed') === '1') return;
     const kind = el.getAttribute('data-rv-trailer') || '';
@@ -3792,6 +3885,29 @@ if(document.readyState === 'loading'){
   }
 
   html = _rvEnsureAsyncDetailSavers(html);
+
+  if (!html.includes('_rvApplyHeroTrailer(heroRom)')) {
+    html = html.replace(
+      `    document.getElementById('heroStats').textContent='Upload ROMs to get started';
+    return;
+  }
+  const grouped={};`,
+      `    document.getElementById('heroStats').textContent='Upload ROMs to get started';
+    if(typeof _rvClearHeroTrailer==='function'){ try{ _rvClearHeroTrailer(); }catch(e){} }
+    return;
+  }
+  const grouped={};`
+    );
+    html = html.replace(
+      `  document.querySelector('.hbtns .bplay').onclick = ()=>launchRomById(heroRom.id);
+  cons.forEach(cid=>updateRowArrows(cid));
+}`,
+      `  document.querySelector('.hbtns .bplay').onclick = ()=>launchRomById(heroRom.id);
+  if(typeof _rvApplyHeroTrailer==='function'){ try{ _rvApplyHeroTrailer(heroRom); }catch(e){} }
+  cons.forEach(cid=>updateRowArrows(cid));
+}`
+    );
+  }
 
   const launchRomNetplayInject = `  // Optional settings
   if(ejsSettings.fullscreen)   window.EJS_fullscreenOnLoaded = true;

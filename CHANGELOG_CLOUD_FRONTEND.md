@@ -56,6 +56,10 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 
 ## 2026-04-15
 
+### Netflix-style hero trailer (home)
+- The **featured title** on Home (most recently added ROM) can show a **full-bleed muted trailer** behind the hero text, similar to Netflix, when that game has **`videoUrl`** set (game detail → **Save trailer**).
+- Uses the same rules as row hover: **YouTube** or direct **.mp4 / .webm**. No trailer URL → hero stays the usual gradient + mosaic.
+
 ### Gamepad auto-detection in the emulator
 - EmulatorJS only auto-fills the **Connected Gamepad** dropdown when a pad connects **after** its internal handler is ready; pads already plugged in often stayed on **Not Connected** until you picked them manually.
 - After **`loader.js`** creates **`window.EJS_emulator`**, the app runs **`_rvHookEjsGamepadAutopick`**: it assigns free physical pads to empty player slots, refreshes the dropdowns, listens for **`gamepadconnected`**, and polls briefly. **`closeEmu`** clears the listener/timer.
