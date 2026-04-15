@@ -97,9 +97,146 @@ const RELEASE_LOG = [
       'GET|HEAD /bios/ was restored so emulator BIOS files still stream from R2 with correct cross-origin headers.',
     ],
   },
+  {
+    id: '2026-04-14-c',
+    title: 'GIF box art + metadata reconcile after R2 sync',
+    details: [
+      'Manual cover uploads (PNG/JPEG/WebP/GIF) keep correct file extensions when the browser omits a filename.',
+      'Bucket sync updates each ROM’s cloudStoragePath when the worker reports a normalized R2 key.',
+      'After sync, metadata sidecars apply R2-hosted box art (including GIF) even when a stale remote cover URL is already set.',
+    ],
+  },
+  {
+    id: '2026-04-14-d',
+    title: 'Fix client SyntaxError from cloud-key normalize regex',
+    details: [
+      'normalizeCloudKey and metadata-restore paths used a broken /^\\/+ regex in the injected bundle (invalid RegExp, cascading parse errors).',
+      'Replaced with /^[/]+/ so leading slashes strip reliably without ambiguous escaping in the served HTML.',
+    ],
+  },
+  {
+    id: '2026-04-14-e',
+    title: 'Cover upload: Upload button + reliable drag on box art',
+    details: [
+      'Game detail adds an Upload button next to Set for picking PNG/JPEG/WebP/GIF without hunting the drop zone.',
+      'Drag-and-drop uses document-level delegation so it still works after the cover innerHTML is replaced by showDet.',
+      'Tooltip and placeholder text explain drop-on-box-art vs URL.',
+    ],
+  },
+  {
+    id: '2026-04-14-f',
+    title: 'Cover drop: full panel target + browser-drag + empty MIME',
+    details: [
+      'Drop works anywhere on the game info panel (#detPanel), not only the small cover tile.',
+      'Coerces image/* file items, data: URLs, and http(s) image URLs when the OS drag payload has no File list.',
+      'Accepts extension-only image filenames when type is empty; paste from clipboard also sets cover.',
+    ],
+  },
+  {
+    id: '2026-04-14-g',
+    title: 'Cover upload: correct /r2-rom key + owner in FormData',
+    details: [
+      'After upload, coverUrl uses the console-relative R2 key (not users/.../ doubled) so GET /r2-rom resolves the same object that was written.',
+      'FormData includes owner for workers that resolve owner from body; require owner before upload with a clear toast.',
+      'GET /r2-rom strips a matching users/{owner}/ prefix from key= for older saved URLs; rejects other users’ prefixes.',
+      'Stable cache-bust via rom.coverRev (&v=) so the img reloads after replace without random query params in sidecars.',
+    ],
+  },
+  {
+    id: '2026-04-14-h',
+    title: 'R2.dev / public URL covers: force /img-proxy for COEP',
+    details: [
+      'Direct https://*.r2.dev/... images return 200 but lack CORP headers; COEP pages block them as <img src>.',
+      'setArtUrl and showDet now run cover URLs through _rvCoverUrlForImg so external art uses same-origin /img-proxy.',
+    ],
+  },
+  {
+    id: '2026-04-14-i',
+    title: 'Migrate stored r2.dev cover URLs + proxy in meta save/restore',
+    details: [
+      'One-time IndexedDB migration rewrites *.r2.dev and r2.cloudflarestorage.com coverUrl values to /img-proxy?url= for COEP.',
+      'Metadata sync restores and r2SaveMeta payloads normalize cover URLs the same way.',
+    ],
+  },
+  {
+    id: '2026-04-14-j',
+    title: 'R2-rom fallback keys + rom-proxy CORP',
+    details: [
+      'GET /r2-rom tries alternate filename spellings when the exact key 404s (double-underscore vs single, underscores vs spaces).',
+      '404 JSON body includes triedKeys and a short hint for debugging.',
+      'GET /rom-proxy responses add Cross-Origin-Resource-Policy: cross-origin for COEP embeds.',
+    ],
+  },
+  {
+    id: '2026-04-14-k',
+    title: 'Manual cover uploads under meta/{console}/art/',
+    details: [
+      'Drag/drop and file-picker box art now uploads to users/{owner}/meta/{console}/art/... instead of beside ROM keys under {console}/art/.',
+      'Keeps PNG/JPEG/GIF next to JSON sidecars in the metadata tree; ROM bucket sync still excludes meta/* from ROM listing.',
+    ],
+  },
+  {
+    id: '2026-04-14-l',
+    title: 'Home row arrows + async setArtUrl/setRomUrl',
+    details: [
+      'Row scroll buttons use type=button and stopPropagation so they do not submit forms or bubble as clicks (fixes “goes back” when using arrows).',
+      'setArtUrl and setRomUrl are async; getHTML() runs a final _rvEnsureAsyncDetailSavers pass so the embedded bundle cannot ship with await-in-sync (fixes Unexpected token try / broken scraper fetch).',
+    ],
+  },
+  {
+    id: '2026-04-14-m',
+    title: 'Fix async async parse bug + box art contain + larger cards',
+    details: [
+      '_rvEnsureAsyncDetailSavers no longer matches function setArtUrl inside async function setArtUrl (was producing async async and Unexpected token async).',
+      'Cover images use object-fit:contain with dark letterboxing; home row cards slightly larger for sharper bitmap display.',
+    ],
+  },
+  {
+    id: '2026-04-14-n',
+    title: 'Per-game trailer URLs (YouTube or direct video)',
+    details: [
+      'Game detail panel adds trailer preview (YouTube embed via youtube-nocookie, or HTML5 video for .mp4/.webm) plus Save trailer.',
+      'rom.videoUrl is stored in IndexedDB and in R2 JSON sidecars via r2SaveMeta; cloud sync restores it like other metadata.',
+      'Hasheous still does not supply trailers; URLs are manual. COEP-safe for YouTube embeds on the app origin.',
+    ],
+  },
+  {
+    id: '2026-04-14-o',
+    title: 'Home row: hover trailer preview on cards',
+    details: [
+      'Games with videoUrl show a muted hover preview on Home rows (YouTube iframe or direct mp4/webm).',
+      'Trailers load on hover only (iframe src / video src primed when the pointer enters the card) to avoid mass network use.',
+    ],
+  },
+  {
+    id: '2026-04-14-p',
+    title: 'Online session + EmulatorJS netplay wiring',
+    details: [
+      'Create/join now stores memberId for the EmulatorJS netplay handshake.',
+      'Settings include EmulatorJS Netplay server URL (self-hosted EmulatorJS-Netplay); launch sets EJS_netplayServer, EJS_gameID (per ROM+session), and STUN ICE servers.',
+      'Documented that RetroVault session codes are a lobby only — WebRTC netplay requires a separate Node netplay server.',
+    ],
+  },
+  {
+    id: '2026-04-14-q',
+    title: 'Cloud save-state backup on exit + auto-load on launch',
+    details: [
+      'Exiting the emulator uploads EmulatorJS save state bytes to R2 under meta/{console}/saves/ and stores cloudSaveStateUrl/key/rev on the ROM + JSON sidecar.',
+      'Launch uses EJS_loadStateURL when a cloud state exists (HEAD check) so the core loads the backup after start.',
+      'Requires Shared Sync Owner ID; cores must support save states; closeEmu is async to finish upload before terminate.',
+    ],
+  },
+  {
+    id: '2026-04-14-r',
+    title: 'Hotfix: async async launchRomById parse error',
+    details: [
+      'getHTML() used a naive replace for function launchRomById which also matched inside async function launchRomById, producing async async and breaking the whole script (sv undefined, Unexpected token async/try).',
+      'Replaced with (?<!async ) lookbehind and a dedupe pass for launchRomById and closeEmu.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-hasheous-only-metadata';
+const APP_RELEASE_VERSION = '2026.04.14-cloud-save-state-async-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -110,6 +247,11 @@ const CHANGELOG_DATA = {
     'Broken-cover recovery and card fallback fixes',
     'Worker /hasheous-lookup proxy for CORS-safe API calls',
     'BIOS files served again from R2 at /bios/',
+    'GIF/WebP box art uploads and post-sync metadata reconcile for R2 cover URLs',
+    'Optional per-ROM trailer URL (YouTube or direct video) with cloud metadata sync',
+    'Home row cards play a muted trailer preview on hover when videoUrl is set',
+    'Online session + EmulatorJS netplay: netplay server URL in settings, EJS vars set on launch when in a session',
+    'Cloud backup of EmulatorJS save state on exit; auto-load via EJS_loadStateURL on next launch when present',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -285,9 +427,22 @@ function getHTML() {
 
   if (!html.includes('function _rvSessionPassword(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
-    const sessionHelper = "function _rvNormalizeSessionPassword(v){ return String(v||'').trim().slice(0,64); }\nfunction _rvSessionPassword(){ return _rvNormalizeSessionPassword(localStorage.getItem('rv-session-password')); }\nfunction _rvSetSessionPassword(v){ const clean=_rvNormalizeSessionPassword(v); if(clean.length<4){ return null; } localStorage.setItem('rv-session-password', clean); return clean; }\nfunction _rvSessionStatus(msg, state){ const el=document.getElementById('rvSessionStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }\nasync function _rvCreateSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } try{ const resp=await fetch(window.location.origin+'/session-create',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password, hostName:(typeof _rvOwnerId==='function'?_rvOwnerId():'host') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', data.sessionId); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(data.sessionId).catch(()=>{}); } _rvSessionStatus('Session created: '+data.sessionId+' (copied to clipboard)','ok'); }catch(e){ _rvSessionStatus('Create session failed: '+e.message,'err'); } }\nasync function _rvJoinSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } const prev=localStorage.getItem('rv-last-session-id')||''; const sessionId=String(prompt('Enter session code',prev)||'').trim(); if(!sessionId){ return; } try{ const resp=await fetch(window.location.origin+'/session-join',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ sessionId, password, playerName:(typeof _rvOwnerId==='function'?_rvOwnerId():'player') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', sessionId); _rvSessionStatus('Joined session '+sessionId+' ('+(data.memberCount||0)+' players)','ok'); }catch(e){ _rvSessionStatus('Join failed: '+e.message,'err'); } }\nfunction _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=()=>{ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=_rvCreateSession; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=_rvJoinSession; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Only users with the same session code + password can join.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Set your password, then create or join a private session.'; card.appendChild(title); card.appendChild(row); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitSessionControls); else setTimeout(_rvInitSessionControls,0);\n";
+    const sessionHelper = [
+      "function _rvNormalizeSessionPassword(v){ return String(v||'').trim().slice(0,64); }",
+      "function _rvSessionPassword(){ return _rvNormalizeSessionPassword(localStorage.getItem('rv-session-password')); }",
+      "function _rvSetSessionPassword(v){ const clean=_rvNormalizeSessionPassword(v); if(clean.length<4){ return null; } localStorage.setItem('rv-session-password', clean); return clean; }",
+      "function _rvSessionStatus(msg, state){ const el=document.getElementById('rvSessionStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }",
+      "function _rvNetplayIceServers(){ return [{ urls:'stun:stun.l.google.com:19302' },{ urls:'stun:stun1.l.google.com:19302' }]; }",
+      "function _rvGetNetplayServerUrl(){ return String(localStorage.getItem('rv-netplay-server-url')||'').trim(); }",
+      "function _rvSetNetplayServerUrl(raw){ const u=String(raw||'').trim(); localStorage.setItem('rv-netplay-server-url', u); return u; }",
+      "function _rvApplyEjsNetplayFromSession(rom){ try{ delete window.EJS_netplayServer; delete window.EJS_gameID; delete window.EJS_netplayICEServers; }catch(e){} const sid=localStorage.getItem('rv-last-session-id')||''; const mid=localStorage.getItem('rv-session-member-id')||''; let base=_rvGetNetplayServerUrl(); if(!rom||!sid||!mid){ return; } if(!base){ try{ console.warn('[netplay] In an online session but no EmulatorJS Netplay server URL — set it in Settings → Online Session.'); }catch(e){} return; } if(!/^https?:\\/\\//i.test(base)){ try{ console.warn('[netplay] Netplay server URL must start with http:// or https://'); }catch(e){} return; } if(base.indexOf('#')<0) base=base+'#'; const gameKey=sid+'|'+String(rom.id); let h=5381; for(let i=0;i<gameKey.length;i++){ h=((h<<5)+h)+gameKey.charCodeAt(i); h=h|0; } const gid=(Math.abs(h)%2000000000)||1; window.EJS_netplayServer=base; window.EJS_gameID=gid; window.EJS_netplayICEServers=_rvNetplayIceServers(); }",
+      "async function _rvCreateSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } try{ const resp=await fetch(window.location.origin+'/session-create',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password, hostName:(typeof _rvOwnerId==='function'?_rvOwnerId():'host') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', data.sessionId); if(data.memberId) localStorage.setItem('rv-session-member-id', data.memberId); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(data.sessionId).catch(function(){}); } _rvSessionStatus('Session created: '+data.sessionId+' — use Netplay URL + launch same ROM for 2P.','ok'); }catch(e){ _rvSessionStatus('Create session failed: '+e.message,'err'); } }",
+      "async function _rvJoinSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } const prev=localStorage.getItem('rv-last-session-id')||''; const sessionId=String(prompt('Enter session code',prev)||'').trim(); if(!sessionId){ return; } try{ const resp=await fetch(window.location.origin+'/session-join',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ sessionId, password, playerName:(typeof _rvOwnerId==='function'?_rvOwnerId():'player') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', sessionId); if(data.memberId) localStorage.setItem('rv-session-member-id', data.memberId); _rvSessionStatus('Joined session '+sessionId+' ('+(data.memberCount||0)+' players). Set same Netplay URL as host, then launch the same game.','ok'); }catch(e){ _rvSessionStatus('Join failed: '+e.message,'err'); } }",
+      "function _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=function(){ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const npRow=document.createElement('div'); npRow.style.display='grid'; npRow.style.gridTemplateColumns='minmax(240px,1fr) auto'; npRow.style.gap='8px'; npRow.style.alignItems='center'; npRow.style.marginTop='8px'; const np=document.createElement('input'); np.id='rvNetplayServerInput'; np.type='url'; np.placeholder='EmulatorJS Netplay server — https://your-host:3000/'; np.value=_rvGetNetplayServerUrl(); np.autocomplete='off'; np.style.padding='8px'; np.style.borderRadius='8px'; np.style.border='1px solid var(--line)'; np.style.background='var(--s1)'; np.style.color='var(--text)'; const npBtn=document.createElement('button'); npBtn.type='button'; npBtn.className='bb s'; npBtn.textContent='Save URL'; npBtn.onclick=function(){ _rvSetNetplayServerUrl(np.value); _rvSessionStatus('Netplay server URL saved (required for 2-player).','ok'); }; npRow.appendChild(np); npRow.appendChild(npBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=function(){ _rvCreateSession(); }; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=function(){ _rvJoinSession(); }; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.innerHTML='Session code + password are the <strong>lobby</strong> in R2. For <strong>2-player netplay</strong>, host must run an <a href=\"https://github.com/EmulatorJS/EmulatorJS-Netplay\" target=\"_blank\" rel=\"noopener\">EmulatorJS-Netplay</a> server, both players paste the same <strong>Netplay server URL</strong> above, join this session, then launch the <strong>same ROM</strong> — use the globe in the emulator bar to connect.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Set password, optional netplay URL, then create or join.'; card.appendChild(title); card.appendChild(row); card.appendChild(npRow); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }",
+      "if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitSessionControls); else setTimeout(_rvInitSessionControls,0);",
+    ].join('\n');
     if (html.includes(helperAnchor)) {
-      html = html.replace(helperAnchor, sessionHelper + helperAnchor);
+      html = html.replace(helperAnchor, sessionHelper + '\n' + helperAnchor);
     }
   }
 
@@ -295,6 +450,13 @@ function getHTML() {
     const cardActionFix = '<style id="rvCardActionFix">.ga .gfav{left:6px!important;top:6px!important;}.ga .ginfo{left:auto!important;right:6px!important;top:6px!important;}</style>';
     if (html.includes('</head>')) {
       html = html.replace('</head>', `${cardActionFix}\n</head>`);
+    }
+  }
+
+  if (!html.includes('id="rvCardTrailerHover"')) {
+    const cardTrailerHover = '<style id="rvCardTrailerHover">.gc-has-trailer .ga{position:relative!important}.gc-has-trailer .ga>img{position:relative!important;z-index:2!important;transition:opacity .22s ease!important}.gc-has-trailer:hover .ga>img{opacity:0!important}.rv-card-trailer{position:absolute!important;inset:0!important;z-index:1!important;opacity:0!important;transition:opacity .22s ease!important;pointer-events:none!important;background:#000!important;overflow:hidden!important}.gc-has-trailer:hover .rv-card-trailer{opacity:1!important}.gc-has-trailer:hover .gco{z-index:4!important}.gc-has-trailer:hover .ginfo,.gc-has-trailer:hover .gfav{z-index:5!important}.rv-card-trailer-iframe,.rv-card-trailer-vid{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;border:0!important;object-fit:cover!important}</style>';
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', `${cardTrailerHover}\n</head>`);
     }
   }
 
@@ -372,13 +534,14 @@ body{background:#141414!important;color:#fff!important;}
 .rt{font-size:22px!important;font-weight:700!important;letter-spacing:.2px;}
 .rscroll{padding:6px 48px 16px!important;gap:10px!important;}
 
-.gc{width:176px!important;}
+.gc{width:192px!important;}
 .ga{
-  height:100px!important;
+  height:118px!important;
   border-radius:4px!important;
   box-shadow:0 8px 22px rgba(0,0,0,.35);
-  background:#1c1c1c!important;
+  background:#141414!important;
 }
+.ga img{object-fit:contain!important;object-position:center!important;background:#141414!important;}
 .gc:hover{
   transform:scale(1.22) translateY(-8px)!important;
   z-index:20!important;
@@ -396,7 +559,7 @@ body{background:#141414!important;color:#fff!important;}
   font-size:12px!important;
   color:rgba(255,255,255,.88)!important;
   margin-top:7px!important;
-  max-width:176px;
+  max-width:192px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -553,9 +716,9 @@ body{background:#141414!important;color:#fff!important;}
           '<span style="font-size:11px;color:var(--muted);margin-left:4px;">'+group.games.length+' game'+(group.games.length!==1?'s':'')+'</span>'+
         '</div>'+
         '<div class="row-wrap">'+
-          '<button class="row-arrow arr-l arr-hidden" onclick="rowScroll(\\''+cid+'\\',-1)">&#8249;</button>'+
+          '<button type="button" class="row-arrow arr-l arr-hidden" onclick="event.preventDefault();event.stopPropagation();rowScroll(\\''+cid+'\\',-1)">&#8249;</button>'+
           '<div class="rscroll" id="rscroll-'+cid+'" onscroll="updateRowArrows(\\''+cid+'\\')">'+group.games.map((g)=>makeCard(g)).join('')+'</div>'+
-          '<button class="row-arrow arr-r" onclick="rowScroll(\\''+cid+'\\',1)">&#8250;</button>'+
+          '<button type="button" class="row-arrow arr-r" onclick="event.preventDefault();event.stopPropagation();rowScroll(\\''+cid+'\\',1)">&#8250;</button>'+
         '</div>'+
       '</div>';
     });
@@ -837,8 +1000,9 @@ body{background:#141414!important;color:#fff!important;}
     const style = document.createElement('style');
     style.id = 'rvHybridUXStyle';
     style.textContent = [
-      '.gc{ width:148px !important; }',
-      '.ga{ height:222px !important; border-radius:6px !important; }',
+      '.gc{ width:172px !important; }',
+      '.ga{ height:258px !important; border-radius:6px !important; }',
+      '.ga img,.dcv img{ object-fit:contain !important; object-position:center !important; background:#141414 !important; }',
       '.gc:hover{ transform:scale(1.14) translateY(-4px) !important; }',
       '#rvBrowseToggleBtn{ margin-right:4px; }',
       '.rv-old-users-compact #rvProfilePicker .rv-wrap{ width:min(760px,94vw) !important; }',
@@ -1480,7 +1644,7 @@ function _rvInitHasheousControls(){
     + '<strong style="color:var(--text);">Hasheous (built in):</strong> hash match, no API key, good when your ROM matches a known dump. Misses hacks, overdumps, or unlisted files.<br/>'
     + '<strong style="color:var(--text);">ScreenScraper:</strong> huge art set but needs an account; not wired in this build.<br/>'
     + '<strong style="color:var(--text);">Skraper / LaunchBox (desktop):</strong> strongest for full media libraries offline, then you sync files yourself.<br/>'
-    + '<strong style="color:var(--text);">Manual:</strong> open a game, then drag a PNG or JPG onto the cover, or paste a URL and tap Set. Covers upload to your R2 path under <code>.../art/</code> and metadata sidecars update for sync.'
+    + '<strong style="color:var(--text);">Manual:</strong> open a game, then drag a PNG, JPG, WebP, or GIF onto the cover, or paste a URL and tap Set. Covers upload under <code>meta/&lt;console&gt;/art/</code> (next to JSON sidecars), not beside ROM binaries.'
     + '</div></details>';
 
   host.appendChild(card);
@@ -1558,7 +1722,7 @@ if(document.readyState === 'loading'){
     )
     .replace(
       "    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[r.cloudStoragePath,r]));\n",
-      "    const normalizeCloudKey = k => String(k||'').replace(/%2F/gi,'/').replace(/^\\/+/, '');\n    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[normalizeCloudKey(r.cloudStoragePath),r]));\n"
+      "    const normalizeCloudKey = k => String(k||'').replace(/%2F/gi,'/').replace(/^[/]+/, '');\n    const existing = await dbGetAll('roms');\n    const existingByKey = new Map(existing.filter(r=>r&&r.cloudStoragePath).map(r=>[normalizeCloudKey(r.cloudStoragePath),r]));\n"
     )
     .replace(
       "      if(existingKeys.has(obj.key)) continue;\n",
@@ -1569,8 +1733,8 @@ if(document.readyState === 'loading'){
       "      const normalizedKey = normalizeCloudKey(obj.key);\n      const existingRom = existingByKey.get(normalizedKey);\n"
     )
     .replace(
-      "      await dbAdd('roms',{\n        name: cleanName(filename),\n        filename,\n        console: consoleId,\n        consoleName: s.name,\n        size: obj.size||0,\n        coverUrl: null, description: null, year: null, rating: null,\n        added: Date.now(),\n        ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n        romUrl: publicUrl,\n        cloudStoragePath: obj.key,\n        data: null,\n      });\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n",
-      "      if(existingRom){\n        let changed = false;\n        if(existingRom.console !== consoleId){ existingRom.console = consoleId; changed = true; }\n        if(existingRom.consoleName !== s.name){ existingRom.consoleName = s.name; changed = true; }\n        if(existingRom.filename !== filename){ existingRom.filename = filename; changed = true; }\n        const cleanedName = cleanName(filename);\n        if(existingRom.name !== cleanedName){ existingRom.name = cleanedName; changed = true; }\n        if(existingRom.romUrl !== publicUrl){ existingRom.romUrl = publicUrl; changed = true; }\n        if(existingRom.ejsSys !== (s.ejsSys||'')){ existingRom.ejsSys = s.ejsSys||''; changed = true; }\n        if(existingRom.ejsCore !== (s.ejsCore||'')){ existingRom.ejsCore = s.ejsCore||''; changed = true; }\n        if(changed){ await dbPut('roms', existingRom); }\n      } else {\n        await dbAdd('roms',{\n          name: cleanName(filename),\n          filename,\n          console: consoleId,\n          consoleName: s.name,\n          size: obj.size||0,\n          coverUrl: null, description: null, year: null, rating: null,\n          added: Date.now(),\n          ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n          romUrl: publicUrl,\n          cloudStoragePath: obj.key,\n          data: null,\n        });\n      }\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n"
+      "      await dbAdd('roms',{\n        name: cleanName(filename),\n        filename,\n        console: consoleId,\n        consoleName: s.name,\n        size: obj.size||0,\n        coverUrl: null, description: null, year: null, rating: null, videoUrl: null,\n        added: Date.now(),\n        ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n        romUrl: publicUrl,\n        cloudStoragePath: obj.key,\n        data: null,\n      });\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n",
+      "      if(existingRom){\n        let changed = false;\n        if(existingRom.cloudStoragePath !== normalizedKey){ existingRom.cloudStoragePath = normalizedKey; changed = true; }\n        if(existingRom.console !== consoleId){ existingRom.console = consoleId; changed = true; }\n        if(existingRom.consoleName !== s.name){ existingRom.consoleName = s.name; changed = true; }\n        if(existingRom.filename !== filename){ existingRom.filename = filename; changed = true; }\n        const cleanedName = cleanName(filename);\n        if(existingRom.name !== cleanedName){ existingRom.name = cleanedName; changed = true; }\n        if(existingRom.romUrl !== publicUrl){ existingRom.romUrl = publicUrl; changed = true; }\n        if(existingRom.ejsSys !== (s.ejsSys||'')){ existingRom.ejsSys = s.ejsSys||''; changed = true; }\n        if(existingRom.ejsCore !== (s.ejsCore||'')){ existingRom.ejsCore = s.ejsCore||''; changed = true; }\n        if(changed){ await dbPut('roms', existingRom); }\n      } else {\n        await dbAdd('roms',{\n          name: cleanName(filename),\n          filename,\n          console: consoleId,\n          consoleName: s.name,\n          size: obj.size||0,\n          coverUrl: null, description: null, year: null, rating: null,\n          added: Date.now(),\n          ejsSys: s.ejsSys||'', ejsCore: s.ejsCore||'',\n          romUrl: publicUrl,\n          cloudStoragePath: obj.key,\n          data: null,\n        });\n      }\n      added++;\n      logScrape('[r2-sync] + '+obj.key);\n"
     )
     .replace(
       "return { publicUrl, fullPath: key };",
@@ -1595,6 +1759,95 @@ if(document.readyState === 'loading'){
     .replace(
       "  if(name==='settings'){ buildCoreMapList(); buildThemeGrid(); updateAbout(); buildBiosRows(); }\n}",
       "  if(name==='settings'){ buildCoreMapList(); buildThemeGrid(); updateAbout(); buildBiosRows(); }\n  if(name==='home'){ buildHome(); }\n}"
+    )
+    .replace(
+      '<input type="text" id="artUrlInput" placeholder="Cover art URL (auto-filled by scraper)…">',
+      '<input type="text" id="artUrlInput" placeholder="Cover URL — or Upload / drop image anywhere on this panel">'
+    )
+    .replace(
+      '<button class="bb s" onclick="setArtUrl()">Set</button>',
+      '<button class="bb s" type="button" id="rvCoverUploadBtn" onclick="if(window._rvPickCoverFile){window._rvPickCoverFile();}else{document.getElementById(\'rvCoverFileInput\')?.click();}">Upload</button>\n        <button class="bb s" onclick="setArtUrl()">Set</button>'
+    )
+    .replace(
+      '<div class="det">',
+      '<div class="det" id="detPanel">'
+    )
+    .replace(
+      `function makeCard(rom){
+  const s=getSys(rom.console);
+  const displayName=cleanName(rom.name);
+  const hasArt = !!rom.coverUrl;
+  const imgPart = hasArt
+    ? \`<img src="\${rom.coverUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="\${displayName}">\`
+    : '';
+  const hasCloudUrl = !!rom.romUrl;
+  const isFav = !!rom.favourite;
+  return \`<div class="gc\${hasCloudUrl?' gc-cloud':''}" onclick="launchRomById(\${rom.id})">
+    <div class="ga">
+      \${imgPart}
+      <button class="ginfo" title="Game info" onclick="event.stopPropagation();showDet(\${rom.id})">i</button>
+      <button class="gfav\${isFav?' gfav-on':''}" title="\${isFav?'Remove from My List':'Add to My List'}" onclick="event.stopPropagation();toggleFav(\${rom.id},this)">\${isFav?'❤':'♡'}</button>
+      <div class="gp" style="background:\${s.bg};display:\${hasArt?'none':'flex'}">
+        <div class="gsb" style="background:\${s.color}22;color:\${s.color}">\${s.icon}</div>
+        <div class="gn">\${displayName}</div>
+      </div>
+      <div class="gco"><div class="gcn">\${displayName}</div><div class="gcs">\${s.name}</div></div>
+      \${rom._scraping?'<div class="gc-scraping"></div>':''}
+    </div>
+    <div class="gl">\${displayName}</div>
+  </div>\`;
+}`,
+      `function makeCard(rom){
+  const s=getSys(rom.console);
+  const displayName=cleanName(rom.name);
+  const hasArt = !!rom.coverUrl;
+  const imgPart = hasArt
+    ? \`<img src="\${rom.coverUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="\${displayName}">\`
+    : '';
+  const hasCloudUrl = !!rom.romUrl;
+  const isFav = !!rom.favourite;
+  const trailerBlock = (typeof _rvCardTrailerHtml==='function')?_rvCardTrailerHtml(rom):'';
+  const hasTr = !!trailerBlock;
+  return \`<div class="gc\${hasCloudUrl?' gc-cloud':''}\${hasTr?' gc-has-trailer':''}" onclick="launchRomById(\${rom.id})">
+    <div class="ga">
+      \${imgPart}
+      \${trailerBlock}
+      <button class="ginfo" title="Game info" onclick="event.stopPropagation();showDet(\${rom.id})">i</button>
+      <button class="gfav\${isFav?' gfav-on':''}" title="\${isFav?'Remove from My List':'Add to My List'}" onclick="event.stopPropagation();toggleFav(\${rom.id},this)">\${isFav?'❤':'♡'}</button>
+      <div class="gp" style="background:\${s.bg};display:\${hasArt?'none':'flex'}">
+        <div class="gsb" style="background:\${s.color}22;color:\${s.color}">\${s.icon}</div>
+        <div class="gn">\${displayName}</div>
+      </div>
+      <div class="gco"><div class="gcn">\${displayName}</div><div class="gcs">\${s.name}</div></div>
+      \${rom._scraping?'<div class="gc-scraping"></div>':''}
+    </div>
+    <div class="gl">\${displayName}</div>
+  </div>\`;
+}`
+    )
+    .replace(
+      '<div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="romUrlInput" placeholder="ROM cloud URL — Firebase download URL, R2, Drive, etc.…">\n        <button class="bb s" onclick="setRomUrl()">Save</button>\n      </div>\n      <div class="di-acts" style="margin-top:14px;">',
+      '<div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="romUrlInput" placeholder="ROM cloud URL — Firebase download URL, R2, Drive, etc.…">\n        <button class="bb s" type="button" onclick="setRomUrl()">Save</button>\n      </div>\n      <div class="art-url-row" style="margin-top:8px;">\n        <input type="text" id="videoUrlInput" placeholder="Trailer — YouTube link or direct .mp4/.webm URL (optional)">\n        <button class="bb s" type="button" onclick="setVideoUrl()">Save trailer</button>\n      </div>\n      <div id="detTrailerWrap" style="margin-top:10px;display:none;"></div>\n      <div class="di-acts" style="margin-top:14px;">'
+    )
+    .replace(
+      "function setArtUrl(){\n  const url=document.getElementById('artUrlInput').value.trim();\n  if(!url||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=url;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}",
+      "async function setArtUrl(){\n  const raw=document.getElementById('artUrlInput').value.trim();\n  if(!raw||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(raw):raw;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}"
+    )
+    .replace(
+      "function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}",
+      "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}"
+    )
+    .replace(
+      "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}\n\nasync function scrapeThisGame(){",
+      "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}\n\nasync function setVideoUrl(){\n  const raw=document.getElementById('videoUrlInput');\n  const url = raw ? String(raw.value||'').trim() : '';\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.videoUrl = url||null;\n  await dbPut('roms',rom);\n  if(typeof r2SaveMeta==='function') await r2SaveMeta(rom);\n  showDet(detRomId);\n  toast(url ? '✓ Trailer URL saved (syncs with metadata)' : 'Trailer cleared');\n}\n\nasync function scrapeThisGame(){"
+    )
+    .replace(
+      "  document.getElementById('artUrlInput').value  = rom.coverUrl||'';\n  document.getElementById('romUrlInput').value  = rom.romUrl||'';\n  // Show cloud badge if ROM has a playable URL",
+      "  document.getElementById('artUrlInput').value  = rom.coverUrl||'';\n  document.getElementById('romUrlInput').value  = rom.romUrl||'';\n  const __vIn=document.getElementById('videoUrlInput'); if(__vIn) __vIn.value = rom.videoUrl||'';\n  if(typeof _rvRenderTrailerBlock==='function'){ _rvRenderTrailerBlock(rom); }\n  // Show cloud badge if ROM has a playable URL"
+    )
+    .replace(
+      "  if(rom.coverUrl){\n    covEl.innerHTML=`<img src=\"${rom.coverUrl}\" style=\"width:100%;height:100%;object-fit:contain;background:#141414;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {",
+      "  if(rom.coverUrl){\n    const __rvCovSrc=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(rom.coverUrl):rom.coverUrl;\n    covEl.innerHTML=`<img src=\"${__rvCovSrc}\" style=\"width:100%;height:100%;object-fit:contain;background:#141414;border-radius:7px;\" onerror=\"this.style.display='none'\">`;\n  } else {"
     )
     .replace(
       "      const publicUrl = r2Base+'/'+obj.key;",
@@ -1705,6 +1958,84 @@ if(document.readyState === 'loading'){
       "dot.classList.toggle('show', false);"
     );
 
+  html = html.replace(
+    `          for(const meta of metaData.metas){
+            const match = allRoms.find(r =>
+              (r.cloudStoragePath && meta.cloudStoragePath && r.cloudStoragePath === meta.cloudStoragePath) ||
+              (r.filename === meta.filename && r.console === meta.console) ||
+              (r.name === meta.name && r.console === meta.console)
+            );
+            if(match){
+              let changed = false;
+              if(meta.coverUrl    && !match.coverUrl)    { match.coverUrl    = meta.coverUrl;    changed=true; }
+              if(meta.description && !match.description) { match.description = meta.description; changed=true; }
+              if(meta.year        && !match.year)        { match.year        = meta.year;        changed=true; }
+              if(meta.rating      && !match.rating)      { match.rating      = meta.rating;      changed=true; }
+              if(meta.developer   && !match.developer)   { match.developer   = meta.developer;   changed=true; }
+              if(meta.genres      && !match.genres)      { match.genres      = meta.genres;      changed=true; }
+              if(meta.videoUrl    && !match.videoUrl)    { match.videoUrl    = meta.videoUrl;    changed=true; }
+              if(changed){ await dbPut('roms', match); metaRestored++; }
+            }
+          }`,
+    `          for(const meta of metaData.metas){
+            const ck = meta && meta.cloudStoragePath ? String(meta.cloudStoragePath).replace(/%2F/gi,'/').replace(/^[/]+/,'') : '';
+            const match = allRoms.find(r => {
+              if(!r) return false;
+              const rk = r.cloudStoragePath ? String(r.cloudStoragePath).replace(/%2F/gi,'/').replace(/^[/]+/,'') : '';
+              if(rk && ck && rk === ck) return true;
+              if(r.filename === meta.filename && r.console === meta.console) return true;
+              if(r.name === meta.name && r.console === meta.console) return true;
+              return false;
+            });
+            if(match){
+              let changed = false;
+              function wantsCoverFromMeta(url){
+                const u = String(url||'').trim();
+                if(!u) return false;
+                const cur = String(match.coverUrl||'').trim();
+                if(!cur) return true;
+                try{
+                  const mp = new URL(u, window.location.href).pathname||'';
+                  if(mp === '/r2-rom' || mp === '/img-proxy' || u.indexOf('/r2-rom?') >= 0) return true;
+                  const cp = new URL(cur, window.location.href).pathname||'';
+                  if(cp === '/r2-rom' || cp === '/img-proxy' || cur.indexOf('/r2-rom?') >= 0) return false;
+                }catch(e){}
+                return true;
+              }
+              if(meta.coverUrl && wantsCoverFromMeta(meta.coverUrl)){
+                match.coverUrl = (typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(meta.coverUrl):meta.coverUrl;
+                changed=true;
+              }
+              if(meta.description && !match.description) { match.description = meta.description; changed=true; }
+              if(meta.year        && !match.year)        { match.year        = meta.year;        changed=true; }
+              if(meta.rating      && !match.rating)      { match.rating      = meta.rating;      changed=true; }
+              if(meta.developer   && !match.developer)   { match.developer   = meta.developer;   changed=true; }
+              if(meta.genres      && !match.genres)      { match.genres      = meta.genres;      changed=true; }
+              if(meta.videoUrl    && !match.videoUrl)    { match.videoUrl    = meta.videoUrl;    changed=true; }
+              const __mSv = String(meta.cloudSaveStateUrl||'').trim();
+              const __mSk = String(meta.cloudSaveStateKey||'').trim();
+              const __mSr = Number(meta.cloudSaveStateRev)||0;
+              if(__mSv || __mSk){
+                const __cSv = String(match.cloudSaveStateUrl||'').trim();
+                const __cSk = String(match.cloudSaveStateKey||'').trim();
+                const __cSr = Number(match.cloudSaveStateRev)||0;
+                if(!__cSv && !__cSk){
+                  if(__mSv) match.cloudSaveStateUrl = __mSv;
+                  if(__mSk) match.cloudSaveStateKey = __mSk;
+                  if(__mSr) match.cloudSaveStateRev = __mSr;
+                  changed = true;
+                } else if(__mSr > __cSr){
+                  if(__mSv) match.cloudSaveStateUrl = __mSv;
+                  if(__mSk) match.cloudSaveStateKey = __mSk;
+                  match.cloudSaveStateRev = __mSr;
+                  changed = true;
+                }
+              }
+              if(changed){ await dbPut('roms', match); metaRestored++; }
+            }
+          }`
+  );
+
   if (!html.includes('window.__rvNoFirebaseMode=true')) {
     const noFirebasePatch = `<script>
 (function(){
@@ -1741,6 +2072,268 @@ if(document.readyState === 'loading'){
   }
   window._rvCoverUrlForImg = _rvCoverUrlForImg;
 
+  function _rvCloudSaveStateKeyForRom(rom){
+    if(!rom || !rom.id) return '';
+    const cid = String(rom.console||'unknown');
+    const base = String(rom.filename||rom.name||'game').replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,96)||'game';
+    return 'meta/' + cid + '/saves/rom-' + String(rom.id) + '-' + base + '.state';
+  }
+  async function _rvHeadOk(url){
+    try{
+      const r = await fetch(url, { method:'HEAD' });
+      return r.ok;
+    }catch(e){ return false; }
+  }
+  async function _rvBackupEmuStateToCloud(){
+    const ejs = window.EJS_emulator;
+    const rid = typeof lastRomId !== 'undefined' ? lastRomId : null;
+    if(!ejs || !rid || typeof dbGet !== 'function' || typeof dbPut !== 'function') return;
+    let rom = null;
+    try{ rom = await dbGet('roms', rid); }catch(e){ return; }
+    if(!rom) return;
+    const gm = ejs.gameManager;
+    if(!gm || typeof gm.supportsStates !== 'function' || !gm.supportsStates()) return;
+    if(typeof gm.getState !== 'function') return;
+    let buf = null;
+    try{ buf = gm.getState(); }catch(e){ return; }
+    if(!buf || !(buf instanceof Uint8Array) || buf.byteLength < 64) return;
+    const oid = (typeof ownerId === 'function' ? ownerId() : '') || (typeof _rvOwnerId === 'function' ? _rvOwnerId() : '') || localStorage.getItem('rv-owner-id') || '';
+    if(!oid){
+      if(typeof toast === 'function') toast('Set Shared Sync Owner ID to back up save states to cloud','warn');
+      return;
+    }
+    const key = _rvCloudSaveStateKeyForRom(rom);
+    const blob = new Blob([buf], { type:'application/octet-stream' });
+    const form = new FormData();
+    form.append('file', blob, key.split('/').pop()||'save.state');
+    form.append('key', key);
+    form.append('owner', oid);
+    const resp = await fetch(window.location.origin + '/r2-upload', { method:'POST', body: form, headers: { 'X-Retrovault-Owner': oid } });
+    const data = await resp.json().catch(function(){ return {}; });
+    if(!resp.ok || !data.ok){
+      if(typeof toast === 'function') toast('Cloud save-state backup failed','err');
+      return;
+    }
+    let streamKey = key;
+    const k = data.key || '';
+    if(k){
+      const pref = 'users/' + oid + '/';
+      if(k.indexOf(pref) === 0) streamKey = k.slice(pref.length);
+      else if(k.indexOf('users/') !== 0) streamKey = k;
+    }
+    const rev = Date.now();
+    rom.cloudSaveStateKey = streamKey;
+    rom.cloudSaveStateUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(streamKey) + '&owner=' + encodeURIComponent(oid) + '&v=' + rev;
+    rom.cloudSaveStateRev = rev;
+    try{ await dbPut('roms', rom); }catch(e){}
+    if(typeof r2SaveMeta === 'function'){
+      try{ await r2SaveMeta(rom); }catch(e){}
+    }
+    if(typeof toast === 'function') toast('Save state backed up to cloud');
+  }
+  window._rvBackupEmuStateToCloud = _rvBackupEmuStateToCloud;
+
+  async function _rvApplyCloudSaveStateOnLaunch(rom){
+    try{ delete window.EJS_loadStateURL; }catch(e){}
+    if(!rom) return;
+    let url = String(rom.cloudSaveStateUrl||'').trim();
+    const oid = (typeof ownerId === 'function' ? ownerId() : '') || (typeof _rvOwnerId === 'function' ? _rvOwnerId() : '') || localStorage.getItem('rv-owner-id') || '';
+    if(!url && rom.cloudSaveStateKey && oid){
+      url = window.location.origin + '/r2-rom?key=' + encodeURIComponent(String(rom.cloudSaveStateKey)) + '&owner=' + encodeURIComponent(oid) + '&v=' + encodeURIComponent(String(rom.cloudSaveStateRev||0));
+    }
+    if(!url) return;
+    try{
+      const p = new URL(url, window.location.href);
+      if(p.origin !== window.location.origin || p.pathname !== '/r2-rom') return;
+    }catch(e){ return; }
+    if(!await _rvHeadOk(url)) return;
+    window.EJS_loadStateURL = url;
+    if(typeof logScrape === 'function') logScrape('[launch] Cloud save state will load on start: '+url.slice(0,72)+'…');
+  }
+  window._rvApplyCloudSaveStateOnLaunch = _rvApplyCloudSaveStateOnLaunch;
+
+  function _rvYoutubeEmbedSrcFromUrl(raw){
+    const s = String(raw||'').trim();
+    if(!s) return '';
+    let u = s;
+    if(u.startsWith('//')) u = 'https:' + u;
+    try{
+      const p = new URL(u, window.location.href);
+      const host = (p.hostname||'').toLowerCase();
+      if(host === 'youtu.be'){
+        const id = p.pathname.replace(/^[/]+/,'').split('/')[0];
+        return id ? ('https://www.youtube-nocookie.com/embed/' + id + '?rel=0') : '';
+      }
+      if(host.indexOf('youtube.com') >= 0 || host.indexOf('youtube-nocookie.com') >= 0){
+        let id = p.searchParams.get('v');
+        if(!id){
+          const seg = p.pathname.split('/').filter(Boolean);
+          const ei = seg.indexOf('embed');
+          if(ei >= 0 && seg[ei+1]) id = seg[ei+1];
+          else if(seg[0] === 'shorts' && seg[1]) id = seg[1];
+        }
+        return id ? ('https://www.youtube-nocookie.com/embed/' + id + '?rel=0') : '';
+      }
+    }catch(e){}
+    return '';
+  }
+  function _rvIsDirectVideoUrl(raw){
+    const s = String(raw||'').trim();
+    if(!s) return false;
+    let u = s;
+    if(u.startsWith('//')) u = 'https:' + u;
+    if(!/^https?:\/\//i.test(u)) return false;
+    try{
+      const p = new URL(u, window.location.href);
+      const path = (p.pathname||'').toLowerCase();
+      return /\.(mp4|webm|ogv)(\?|$)/i.test(path);
+    }catch(e){ return false; }
+  }
+  function _rvRenderTrailerBlock(rom){
+    const wrap = document.getElementById('detTrailerWrap');
+    if(!wrap) return;
+    const raw = rom && rom.videoUrl ? String(rom.videoUrl).trim() : '';
+    if(!raw){
+      wrap.style.display = 'none';
+      wrap.innerHTML = '';
+      return;
+    }
+    const yt = _rvYoutubeEmbedSrcFromUrl(raw);
+    if(yt){
+      wrap.style.display = 'block';
+      wrap.innerHTML = '<div style="position:relative;width:100%;max-width:560px;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe title="Trailer" src="'+yt.replace(/"/g,'&quot;')+'" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+      return;
+    }
+    if(_rvIsDirectVideoUrl(raw)){
+      let abs = raw;
+      if(abs.startsWith('//')) abs = 'https:' + abs;
+      wrap.style.display = 'block';
+      wrap.innerHTML = '<video controls playsinline preload="metadata" style="width:100%;max-width:560px;border-radius:8px;background:#000;" src="'+abs.replace(/"/g,'&quot;')+'"></video>';
+      return;
+    }
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--muted);">Trailer URL not recognized. Use a YouTube link or a direct .mp4 / .webm URL.</div>';
+  }
+  window._rvRenderTrailerBlock = _rvRenderTrailerBlock;
+
+  function _rvCardTrailerHtml(rom){
+    const raw = rom && rom.videoUrl ? String(rom.videoUrl).trim() : '';
+    if(!raw) return '';
+    const yt = _rvYoutubeEmbedSrcFromUrl(raw);
+    if(yt){
+      const esc = yt.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      return '<div class="rv-card-trailer" data-rv-trailer="yt" data-rv-src="'+esc+'"></div>';
+    }
+    if(_rvIsDirectVideoUrl(raw)){
+      let abs = raw;
+      if(abs.startsWith('//')) abs = 'https:' + abs;
+      const esc = abs.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      return '<div class="rv-card-trailer" data-rv-trailer="vid" data-rv-src="'+esc+'"></div>';
+    }
+    return '';
+  }
+  window._rvCardTrailerHtml = _rvCardTrailerHtml;
+
+  function _rvPrimeCardTrailer(el){
+    if(!el || el.getAttribute('data-rv-primed') === '1') return;
+    const kind = el.getAttribute('data-rv-trailer') || '';
+    const src = el.getAttribute('data-rv-src') || '';
+    if(!src) return;
+    el.setAttribute('data-rv-primed','1');
+    el.innerHTML = '';
+    if(kind === 'yt'){
+      const fr = document.createElement('iframe');
+      fr.className = 'rv-card-trailer-iframe';
+      fr.setAttribute('title','Trailer preview');
+      fr.setAttribute('loading','lazy');
+      fr.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
+      fr.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      fr.setAttribute('src', src + (src.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1&mute=1&playsinline=1');
+      el.appendChild(fr);
+      return;
+    }
+    if(kind === 'vid'){
+      const v = document.createElement('video');
+      v.className = 'rv-card-trailer-vid';
+      v.setAttribute('playsinline','');
+      v.muted = true;
+      v.loop = true;
+      v.preload = 'metadata';
+      v.src = src;
+      try{ v.play().catch(function(){}); }catch(e){}
+      el.appendChild(v);
+    }
+  }
+
+  function _rvTeaseCardTrailer(el){
+    if(!el) return;
+    const v = el.querySelector('video.rv-card-trailer-vid');
+    if(v){
+      try{ v.pause(); }catch(e){}
+    }
+    el.removeAttribute('data-rv-primed');
+    el.innerHTML = '';
+  }
+
+  function _rvInitCardTrailerHover(){
+    if(window.__rvCardTrailerHoverInit) return;
+    window.__rvCardTrailerHoverInit = true;
+    document.addEventListener('mouseover', function(ev){
+      const t = ev.target;
+      if(!t || !t.closest) return;
+      const card = t.closest('.gc-has-trailer');
+      if(!card) return;
+      if(ev.relatedTarget && card.contains(ev.relatedTarget)) return;
+      const slot = card.querySelector('.rv-card-trailer');
+      if(slot) _rvPrimeCardTrailer(slot);
+    });
+    document.addEventListener('mouseout', function(ev){
+      const t = ev.target;
+      if(!t || !t.closest) return;
+      const card = t.closest('.gc-has-trailer');
+      if(!card) return;
+      const to = ev.relatedTarget;
+      if(to && card.contains(to)) return;
+      const slot = card.querySelector('.rv-card-trailer');
+      if(slot) _rvTeaseCardTrailer(slot);
+    });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _rvInitCardTrailerHover);
+  } else {
+    setTimeout(_rvInitCardTrailerHover, 0);
+  }
+  setTimeout(_rvInitCardTrailerHover, 800);
+
+  async function _rvMigrateExternalCoverUrlsOnce(){
+    const flag = 'rv-cover-proxy-mig-v2';
+    try{
+      if(localStorage.getItem(flag) === '1') return;
+      if(typeof dbGetAll !== 'function' || typeof dbPut !== 'function') return;
+      const roms = await dbGetAll('roms');
+      let n = 0;
+      for(let i = 0; i < (roms || []).length; i++){
+        const r = roms[i];
+        if(!r || !r.coverUrl) continue;
+        const u = String(r.coverUrl).trim();
+        if(!u || u.indexOf('/img-proxy') >= 0) continue;
+        if(!/^https?:\/\//i.test(u)) continue;
+        try{
+          const host = new URL(u, window.location.href).hostname || '';
+          if(host.indexOf('.r2.dev') < 0 && host.indexOf('r2.cloudflarestorage.com') < 0) continue;
+        }catch(e){ continue; }
+        const fixed = _rvCoverUrlForImg(u);
+        if(fixed && fixed !== u){
+          r.coverUrl = fixed;
+          await dbPut('roms', r);
+          n++;
+        }
+      }
+      if(n > 0 && typeof logScrape === 'function') logScrape('[cover-mig] Rewrote '+n+' cover URL(s) for COEP /img-proxy');
+      localStorage.setItem(flag, '1');
+    }catch(e){}
+  }
+
   function _rvPatchCoverRendering(){
     if(window.__rvCoverRenderPatched) return;
     window.__rvCoverRenderPatched = true;
@@ -1764,6 +2357,7 @@ if(document.readyState === 'loading'){
           const fixed = _rvCoverUrlForImg(cur);
           if(fixed && fixed !== cur) img.setAttribute('src', fixed);
           if(typeof _rvInitManualCoverTools === 'function') _rvInitManualCoverTools();
+          if(typeof _rvRefreshCoverDropHint === 'function') _rvRefreshCoverDropHint();
         }catch(e){}
       };
     }
@@ -1782,15 +2376,49 @@ if(document.readyState === 'loading'){
     }
   }
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', function(){ _rvPatchCoverRendering(); });
+    document.addEventListener('DOMContentLoaded', function(){ _rvMigrateExternalCoverUrlsOnce().catch(function(){}); _rvPatchCoverRendering(); });
   } else {
+    setTimeout(function(){ _rvMigrateExternalCoverUrlsOnce().catch(function(){}); }, 0);
     setTimeout(_rvPatchCoverRendering, 0);
   }
+  setTimeout(function(){ _rvMigrateExternalCoverUrlsOnce().catch(function(){}); }, 400);
   setTimeout(_rvPatchCoverRendering, 800);
 
+  function _rvLooksLikeImageFile(file){
+    if(!file) return false;
+    const t = String(file.type || '').toLowerCase();
+    if(/^image\//.test(t)) return true;
+    const n = String(file.name || '').toLowerCase();
+    return /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(n);
+  }
+
+  function _rvMimeFromFilename(name){
+    const n = String(name || '').toLowerCase();
+    if(n.endsWith('.png')) return 'image/png';
+    if(n.endsWith('.webp')) return 'image/webp';
+    if(n.endsWith('.gif')) return 'image/gif';
+    if(n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg';
+    if(n.endsWith('.bmp')) return 'image/bmp';
+    if(n.endsWith('.avif')) return 'image/avif';
+    return '';
+  }
+
   async function _rvApplyCoverImageFile(file){
-    if(!file || !/^image\//.test(file.type || '')){
+    if(!file || !_rvLooksLikeImageFile(file)){
       if(typeof toast === 'function') toast('Use a PNG, JPG, WebP, or GIF image', 'warn');
+      return;
+    }
+    if(!file.type || !/^image\//.test(file.type)){
+      const guess = _rvMimeFromFilename(file.name);
+      if(guess){
+        try{
+          const buf = await file.arrayBuffer();
+          file = new File([buf], file.name || 'cover.png', { type: guess });
+        }catch(e){}
+      }
+    }
+    if(!file.type || !/^image\//.test(file.type)){
+      if(typeof toast === 'function') toast('Could not read image type — rename the file with .png / .jpg / .gif', 'warn');
       return;
     }
     if(!detRomId){
@@ -1803,17 +2431,22 @@ if(document.readyState === 'loading'){
       return;
     }
     const oid = ownerId();
+    if(!oid){
+      if(typeof toast === 'function') toast('Set Shared Sync Owner ID (ROMs → Cloud Sync) before uploading covers', 'err');
+      return;
+    }
     const cid = String(rom.console || 'nes');
     const base = String(rom.filename || rom.name || 'cover')
       .replace(/\.(zip|7z|rar|rom|nes|smc|sfc|gba|z64|n64|iso|bin)$/i, '')
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .slice(0, 96) || 'cover';
     const extMatch = String(file.name || '').match(/\.([a-z0-9]+)$/i);
-    const ext = extMatch ? extMatch[1].toLowerCase() : (file.type.indexOf('png') >= 0 ? 'png' : file.type.indexOf('webp') >= 0 ? 'webp' : 'jpg');
-    const artKey = cid + '/art/' + base + '-cover.' + ext;
+    const ext = extMatch ? extMatch[1].toLowerCase() : (file.type.indexOf('png') >= 0 ? 'png' : file.type.indexOf('webp') >= 0 ? 'webp' : file.type.indexOf('gif') >= 0 ? 'gif' : 'jpg');
+    const artKeyRel = 'meta/' + cid + '/art/' + base + '-cover.' + ext;
     const form = new FormData();
     form.append('file', file);
-    form.append('key', artKey);
+    form.append('key', artKeyRel);
+    if(oid) form.append('owner', oid);
     if(typeof toast === 'function') toast('Uploading cover to cloud…', 'warn');
     const resp = await fetch(window.location.origin + '/r2-upload', {
       method: 'POST',
@@ -1822,8 +2455,21 @@ if(document.readyState === 'loading'){
     });
     const data = await resp.json().catch(function(){ return {}; });
     if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP ' + resp.status));
-    const fullKey = data.key || artKey;
-    rom.coverUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(fullKey) + (oid ? ('&owner=' + encodeURIComponent(oid)) : '');
+    let streamKey = artKeyRel;
+    const k = data.key || '';
+    if(k){
+      const pref = 'users/' + oid + '/';
+      if(k.indexOf(pref) === 0){
+        streamKey = k.slice(pref.length);
+      } else if(k.indexOf('users/') !== 0){
+        streamKey = k;
+      } else {
+        streamKey = artKeyRel;
+      }
+    }
+    const rev = (Number(rom.coverRev) || 0) + 1;
+    rom.coverRev = rev;
+    rom.coverUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(streamKey) + '&owner=' + encodeURIComponent(oid) + '&v=' + rev;
     await dbPut('roms', rom);
     if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
     await showDet(detRomId);
@@ -1846,38 +2492,149 @@ if(document.readyState === 'loading'){
     document.body.appendChild(hid);
   }
 
+  function _rvDetailOverlayOpen(){
+    const ov = document.getElementById('detOverlay');
+    return !!(ov && ov.classList && ov.classList.contains('on'));
+  }
+
+  function _rvPickCoverFile(){
+    _rvEnsureCoverFileInput();
+    const inp = document.getElementById('rvCoverFileInput');
+    if(inp) inp.click();
+  }
+  window._rvPickCoverFile = _rvPickCoverFile;
+
+  async function _rvCoerceCoverDropToFile(dt){
+    if(!dt) return null;
+    if(dt.files && dt.files.length){
+      for(let i = 0; i < dt.files.length; i++){
+        const f = dt.files[i];
+        if(_rvLooksLikeImageFile(f)) return f;
+      }
+    }
+    if(dt.items && dt.items.length){
+      for(let j = 0; j < dt.items.length; j++){
+        const it = dt.items[j];
+        if(it.kind === 'file'){
+          const f = typeof it.getAsFile === 'function' ? it.getAsFile() : null;
+          if(f && _rvLooksLikeImageFile(f)) return f;
+        }
+      }
+    }
+    let uri = '';
+    try{
+      uri = dt.getData('text/uri-list') || dt.getData('text/plain') || '';
+    }catch(e){}
+    const first = String(uri || '').split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean)[0] || '';
+    if(first.indexOf('data:image/') === 0){
+      try{
+        const res = await fetch(first);
+        const blob = await res.blob();
+        const ext = (blob.type && blob.type.split('/')[1]) ? blob.type.split('/')[1].replace('jpeg','jpg') : 'png';
+        return new File([blob], 'pasted-cover.' + ext, { type: blob.type || 'image/png' });
+      }catch(e){}
+    }
+    if(/^https?:\/\//i.test(first) || first.indexOf('blob:') === 0){
+      try{
+        const res = await fetch(first, { mode: 'cors', credentials: 'omit' });
+        if(!res.ok) return null;
+        const blob = await res.blob();
+        let name = 'cover.jpg';
+        try{
+          const u = new URL(first, window.location.href);
+          const seg = (u.pathname.split('/').pop() || '').split('?')[0];
+          if(seg && /\.(png|jpe?g|gif|webp)$/i.test(seg)) name = seg;
+        }catch(e2){}
+        const mime = blob.type && /^image\//.test(blob.type) ? blob.type : _rvMimeFromFilename(name);
+        if(!mime) return null;
+        const typed = new Blob([await blob.arrayBuffer()], { type: mime });
+        return new File([typed], name, { type: mime });
+      }catch(e){}
+    }
+    return null;
+  }
+
   function _rvInitCoverDropZone(){
     _rvEnsureCoverFileInput();
-    const cov = document.getElementById('detCov');
-    if(!cov || cov.dataset.rvDropInit === '1') return;
-    cov.dataset.rvDropInit = '1';
-    cov.style.position = cov.style.position || 'relative';
-    cov.title = (cov.title || '') + ' — Drop an image here or click to pick a file (saved to R2)';
-    ['dragenter', 'dragover'].forEach(function(evName){
-      cov.addEventListener(evName, function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        cov.style.boxShadow = '0 0 0 2px var(--accent)';
+    if(window.__rvCoverDropDelegated) return;
+    window.__rvCoverDropDelegated = true;
+    document.addEventListener('dragover', function(e){
+      if(!_rvDetailOverlayOpen()) return;
+      const panel = e.target && e.target.closest ? e.target.closest('#detPanel') : null;
+      if(!panel) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const cov = document.getElementById('detCov');
+      if(cov) cov.style.boxShadow = '0 0 0 2px var(--accent)';
+    }, true);
+    document.addEventListener('dragleave', function(e){
+      const panel = e.target && e.target.closest ? e.target.closest('#detPanel') : null;
+      if(!panel) return;
+      try{
+        const rt = e.relatedTarget;
+        const det = document.getElementById('detPanel');
+        if(!det || !rt || !det.contains(rt)){
+          const cov = document.getElementById('detCov');
+          if(cov) cov.style.boxShadow = '';
+        }
+      }catch(err){
+        const cov = document.getElementById('detCov');
+        if(cov) cov.style.boxShadow = '';
+      }
+    }, true);
+    document.addEventListener('drop', function(e){
+      if(!_rvDetailOverlayOpen()) return;
+      const panel = e.target && e.target.closest ? e.target.closest('#detPanel') : null;
+      if(!panel) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const cov = document.getElementById('detCov');
+      if(cov) cov.style.boxShadow = '';
+      const dt = e.dataTransfer;
+      _rvCoerceCoverDropToFile(dt).then(function(f){
+        if(f) return _rvApplyCoverImageFile(f);
+        if(typeof toast === 'function'){
+          toast('Drag a saved image from your PC (Downloads/Pictures), not from a browser tab — or tap Upload', 'warn');
+        }
+      }).catch(function(err){
+        if(typeof toast==='function') toast('Cover upload failed: ' + (err && err.message ? err.message : err), 'err');
       });
-    });
-    ['dragleave', 'drop'].forEach(function(evName){
-      cov.addEventListener(evName, function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        if(evName !== 'drop') cov.style.boxShadow = '';
-      });
-    });
-    cov.addEventListener('drop', function(e){
-      cov.style.boxShadow = '';
-      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if(f) _rvApplyCoverImageFile(f).catch(function(err){ if(typeof toast==='function') toast('Cover upload failed: ' + err.message, 'err'); });
-    });
-    cov.addEventListener('click', function(e){
+    }, true);
+    document.addEventListener('click', function(e){
+      if(!_rvDetailOverlayOpen()) return;
+      const cov = e.target && e.target.closest ? e.target.closest('#detCov') : null;
+      if(!cov) return;
       if(e.target && e.target.closest && e.target.closest('button')) return;
-      const inp = document.getElementById('rvCoverFileInput');
-      if(inp) inp.click();
-    });
+      if(e.target && e.target.closest && e.target.closest('a')) return;
+      if(e.target && e.target.closest && e.target.closest('input,textarea,select')) return;
+      _rvPickCoverFile();
+    }, true);
+    document.addEventListener('paste', function(e){
+      if(!_rvDetailOverlayOpen()) return;
+      const cd = e.clipboardData;
+      if(!cd || !cd.files || !cd.files.length) return;
+      for(let k = 0; k < cd.files.length; k++){
+        const f = cd.files[k];
+        if(_rvLooksLikeImageFile(f)){
+          e.preventDefault();
+          _rvApplyCoverImageFile(f).catch(function(err){ if(typeof toast==='function') toast('Cover paste failed: ' + err.message, 'err'); });
+          return;
+        }
+      }
+    }, true);
   }
+
+  function _rvRefreshCoverDropHint(){
+    const cov = document.getElementById('detCov');
+    if(!cov) return;
+    cov.style.position = cov.style.position || 'relative';
+    cov.style.cursor = 'pointer';
+    const hint = 'Drop image on this panel or click cover — PNG, JPG, WebP, GIF (uploads to R2)';
+    if(!cov.title || cov.title.indexOf('uploads to R2') === -1){
+      cov.title = hint;
+    }
+  }
+  window._rvRefreshCoverDropHint = _rvRefreshCoverDropHint;
 
   function _rvWrapSetArtUrlForMetaBackup(){
     if(window.__rvSetArtUrlWrapped) return;
@@ -1901,7 +2658,7 @@ if(document.readyState === 'loading'){
     window.__rvOrigR2SaveMeta = r2SaveMeta;
     window.r2SaveMeta = async function(rom){
       if(!rom || !rom.name) return;
-      if(!rom.coverUrl && !rom.description && !rom.year && !rom.rating) return;
+      if(!rom.coverUrl && !rom.description && !rom.year && !rom.rating && !rom.videoUrl && !rom.cloudSaveStateUrl && !rom.cloudSaveStateKey) return;
       try{
         const safeFile = (rom.filename||rom.name).replace(/[^a-zA-Z0-9._-]/g,'_');
         const key = 'meta/' + (rom.console||'unknown') + '/' + safeFile + '.json';
@@ -1910,12 +2667,16 @@ if(document.readyState === 'loading'){
           filename: rom.filename||rom.name,
           console: rom.console,
           cloudStoragePath: rom.cloudStoragePath||null,
-          coverUrl: rom.coverUrl||null,
+          coverUrl: (typeof _rvCoverUrlForImg==='function' && rom.coverUrl)?_rvCoverUrlForImg(rom.coverUrl):(rom.coverUrl||null),
           description: rom.description||null,
           year: rom.year||null,
           rating: rom.rating||null,
           developer: rom.developer||null,
           genres: rom.genres||null,
+          videoUrl: rom.videoUrl||null,
+          cloudSaveStateUrl: rom.cloudSaveStateUrl||null,
+          cloudSaveStateKey: rom.cloudSaveStateKey||null,
+          cloudSaveStateRev: rom.cloudSaveStateRev||null,
         };
         const oid = (typeof _rvOwnerId === 'function' ? _rvOwnerId() : '') || localStorage.getItem('rv-owner-id') || '';
         const resp = await fetch(window.location.origin+'/r2-meta-save', {
@@ -2935,8 +3696,95 @@ if(document.readyState === 'loading'){
     html = html.replace('</body>', `${noFirebasePatch}\n</body>`);
   }
 
+  html = _rvEnsureAsyncDetailSavers(html);
+
+  const launchRomNetplayInject = `  // Optional settings
+  if(ejsSettings.fullscreen)   window.EJS_fullscreenOnLoaded = true;
+  if(ejsSettings.threads)      window.EJS_threads = true;
+
+  // FIX 8: Inject loader.js AFTER all vars are set and player div exists`;
+  if (html.includes(launchRomNetplayInject)) {
+    html = html.replace(
+      launchRomNetplayInject,
+      `  // Optional settings
+  if(ejsSettings.fullscreen)   window.EJS_fullscreenOnLoaded = true;
+  if(ejsSettings.threads)      window.EJS_threads = true;
+
+  if(typeof _rvApplyEjsNetplayFromSession==='function'){ try{ _rvApplyEjsNetplayFromSession(rom); }catch(e){} }
+  if(typeof _rvApplyCloudSaveStateOnLaunch==='function'){ try{ await _rvApplyCloudSaveStateOnLaunch(rom); }catch(e){} }
+
+  // FIX 8: Inject loader.js AFTER all vars are set and player div exists`
+    );
+  }
+
+  // Must not match inside "async function launchRomById" (would create "async async function").
+  html = html.replace(/(?<!async )function launchRomById\(id\)\{/g, 'async function launchRomById(id){');
+  html = html.replace(/\basync async function launchRomById\b/g, 'async function launchRomById');
+
+  html = html.replace(
+    `  const ejsGlobals = [
+    'EJS_player','EJS_core','EJS_gameUrl','EJS_gameName','EJS_pathtodata',
+    'EJS_color','EJS_startOnLoaded','EJS_backgroundColor','EJS_backgroundBlur',
+    'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',
+    'Module','EJS_Buttons','EJS_defaultOptions',
+  ];`,
+    `  const ejsGlobals = [
+    'EJS_player','EJS_core','EJS_gameUrl','EJS_gameName','EJS_pathtodata',
+    'EJS_color','EJS_startOnLoaded','EJS_backgroundColor','EJS_backgroundBlur',
+    'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',
+    'EJS_loadStateURL','EJS_netplayServer','EJS_gameID','EJS_netplayICEServers',
+    'Module','EJS_Buttons','EJS_defaultOptions',
+  ];`
+  );
+
+  html = html.replace(
+    `function closeEmu(){
+  // 1. Hide the overlay immediately so UI feels responsive
+  _stopHudAutoHide();
+  document.getElementById('emuOverlay').classList.remove('on');
+
+  // 2. Terminate the EJS emulator instance — stops the game loop
+  if(window.EJS_emulator){
+    try{ window.EJS_emulator.terminate(); }catch(e){}
+    try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}
+    window.EJS_emulator = null;
+  }`,
+    `async function closeEmu(){
+  // 1. Hide the overlay immediately so UI feels responsive
+  _stopHudAutoHide();
+  document.getElementById('emuOverlay').classList.remove('on');
+
+  // 1b. Cloud backup of EmulatorJS save state before teardown
+  if(typeof _rvBackupEmuStateToCloud==='function'){
+    try{ await _rvBackupEmuStateToCloud(); }catch(e){}
+  }
+
+  // 2. Terminate the EJS emulator instance — stops the game loop
+  if(window.EJS_emulator){
+    try{ window.EJS_emulator.terminate(); }catch(e){}
+    try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}
+    window.EJS_emulator = null;
+  }`
+  );
+  html = html.replace(/\basync async function closeEmu\b/g, 'async function closeEmu');
+
   _cachedHtml = html;
   return _cachedHtml;
+}
+
+/** Ensures setArtUrl/setRomUrl are async in the embedded bundle (await in non-async breaks the whole script). */
+function _rvEnsureAsyncDetailSavers(html) {
+  html = html.replace(/\basync\s+async\s+function\s+setArtUrl\b/g, 'async function setArtUrl');
+  html = html.replace(/\basync\s+async\s+function\s+setRomUrl\b/g, 'async function setRomUrl');
+  const setArtSync = "function setArtUrl(){\n  const url=document.getElementById('artUrlInput').value.trim();\n  if(!url||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=url;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}";
+  const setArtAsync = "async function setArtUrl(){\n  const raw=document.getElementById('artUrlInput').value.trim();\n  if(!raw||!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.coverUrl=(typeof _rvCoverUrlForImg==='function')?_rvCoverUrlForImg(raw):raw;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  await refreshAll();\n  toast('✓ Cover art URL saved');\n}";
+  const setRomSync = "function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}";
+  const setRomAsync = "async function setRomUrl(){\n  const url=document.getElementById('romUrlInput').value.trim();\n  if(!detRomId) return;\n  const rom=await dbGet('roms',detRomId);\n  if(!rom) return;\n  rom.romUrl = url||null;\n  await dbPut('roms',rom);\n  showDet(detRomId);\n  toast(url ? '✓ ROM cloud URL saved — game can now play on any device' : 'ROM URL cleared');\n}";
+  if (html.includes(setArtSync)) html = html.replace(setArtSync, setArtAsync);
+  if (html.includes(setRomSync)) html = html.replace(setRomSync, setRomAsync);
+  html = html.replace(/\basync\s+async\s+function\s+setArtUrl\b/g, 'async function setArtUrl');
+  html = html.replace(/\basync\s+async\s+function\s+setRomUrl\b/g, 'async function setRomUrl');
+  return html;
 }
 
 // ── CORS headers ──────────────────────────────────────────────────────────
@@ -3820,9 +4668,9 @@ export default {
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // ONLINE SESSIONS — private password-protected room metadata
-    // Note: this stores room membership/state only. Netplay transport still
-    // needs to be wired separately in emulator runtime.
+    // ONLINE SESSIONS — private password-protected room metadata (R2)
+    // EmulatorJS netplay uses a separate Node "EmulatorJS-Netplay" server.
+    // The frontend sets EJS_netplayServer / EJS_gameID / ICE when a netplay URL is saved.
     // ════════════════════════════════════════════════════════════════════
     if (path === '/session-create' && method === 'POST') {
       if (!env.ROM_BUCKET) {
@@ -4220,6 +5068,7 @@ export default {
           ...corsHeaders(origin),
           'Content-Type': upstream.headers.get('Content-Type') || 'application/octet-stream',
           'Cache-Control': 'public, max-age=86400',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
         };
         const cl = upstream.headers.get('Content-Length');
         if (cl) responseHeaders['Content-Length'] = cl;
@@ -4234,7 +5083,7 @@ export default {
     // Serves owner-scoped ROM objects directly from R2 without needing
     // public bucket URLs; validates owner scope before reading.
     // ════════════════════════════════════════════════════════════════════
-    if (path === '/r2-rom' && method === 'GET') {
+    if (path === '/r2-rom' && (method === 'GET' || method === 'HEAD')) {
       if (!env.ROM_BUCKET) {
         return new Response('ROM_BUCKET not configured', { status: 503, headers: corsHeaders(origin) });
       }
@@ -4245,21 +5094,89 @@ export default {
             status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
-        const rawKey = normalizeR2Key(url.searchParams.get('key') || '');
+        let rawKey = normalizeR2Key(url.searchParams.get('key') || '');
         if (!rawKey) {
           return new Response(JSON.stringify({ ok: false, error: 'Missing key' }), {
             status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
-        const key = toOwnedKey(rawKey, ownerId);
-        if (!key) {
+        const scoped = ownerPrefix(ownerId);
+        if (rawKey.startsWith(scoped)) {
+          rawKey = rawKey.slice(scoped.length);
+        } else if (rawKey.startsWith('users/') && !rawKey.startsWith(scoped)) {
           return new Response(JSON.stringify({ ok: false, error: 'Key is outside your owner scope' }), {
             status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
           });
         }
-        const obj = await env.ROM_BUCKET.get(key);
+        const tryKeys = [];
+        const pushTry = (rel) => {
+          const k = toOwnedKey(rel, ownerId);
+          if (k && !tryKeys.includes(k)) tryKeys.push(k);
+        };
+        pushTry(rawKey);
+        const parts = rawKey.split('/').filter(Boolean);
+        if (parts.length >= 2) {
+          const base = parts[parts.length - 1];
+          const dir = parts.slice(0, -1).join('/');
+          if (base.includes('__')) {
+            pushTry(`${dir}/${base.replace(/__+/g, '_')}`);
+            pushTry(`${dir}/${base.replace(/__+/g, ' ')}`);
+          }
+          if (base.includes('_') && !base.includes('__')) {
+            pushTry(`${dir}/${base.replace(/_+/g, ' ')}`);
+          }
+        }
+        let usedKey = null;
+        if (method === 'HEAD') {
+          let headObj = null;
+          for (let ti = 0; ti < tryKeys.length; ti++) {
+            const candidate = tryKeys[ti];
+            const h = await env.ROM_BUCKET.head(candidate);
+            if (h) {
+              headObj = h;
+              usedKey = candidate;
+              break;
+            }
+          }
+          if (!headObj) {
+            return new Response(JSON.stringify({
+              ok: false,
+              error: 'ROM not found',
+              triedKeys: tryKeys,
+              hint: 'Sync from bucket or re-upload; filename in the app must match the object key under users/{owner}/',
+            }), { status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+          }
+          const ct = headObj.httpMetadata?.contentType || 'application/octet-stream';
+          const len = String(headObj.size ?? '');
+          return new Response(null, {
+            status: 200,
+            headers: {
+              ...corsHeaders(origin),
+              'Content-Type': ct,
+              'Content-Length': len,
+              'Cache-Control': 'public, max-age=86400',
+              'Cross-Origin-Resource-Policy': 'cross-origin',
+              'X-Retrovault-R2-Key': usedKey || '',
+            },
+          });
+        }
+        let obj = null;
+        for (let ti = 0; ti < tryKeys.length; ti++) {
+          const candidate = tryKeys[ti];
+          const got = await env.ROM_BUCKET.get(candidate);
+          if (got) {
+            obj = got;
+            usedKey = candidate;
+            break;
+          }
+        }
         if (!obj) {
-          return new Response('ROM not found', { status: 404, headers: corsHeaders(origin) });
+          return new Response(JSON.stringify({
+            ok: false,
+            error: 'ROM not found',
+            triedKeys: tryKeys,
+            hint: 'Sync from bucket or re-upload; filename in the app must match the object key under users/{owner}/',
+          }), { status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
         }
         return new Response(obj.body, {
           status: 200,
@@ -4268,6 +5185,7 @@ export default {
             'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
             'Cache-Control': 'public, max-age=86400',
             'Cross-Origin-Resource-Policy': 'cross-origin',
+            'X-Retrovault-R2-Key': usedKey || '',
           },
         });
       } catch (err) {
