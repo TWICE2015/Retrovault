@@ -56,6 +56,10 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 
 ## 2026-04-15
 
+### Trailer hover on home row cards (fix)
+- **Placeholder cover (`.gp`)** was painted above the trailer layer, so hover showed a black/empty tile for games without box art.
+- Trailer slot **z-index** raised; on hover **`.gp` hides**. YouTube preview iframes use **`credentialless`** where supported (COEP / cross-origin isolation).
+
 ### Netflix-style hero trailer (home)
 - The **featured title** on Home (most recently added ROM) can show a **full-bleed muted trailer** behind the hero text, similar to Netflix, when that game has **`videoUrl`** set (game detail → **Save trailer**).
 - Uses the same rules as row hover: **YouTube** or direct **.mp4 / .webm**. No trailer URL → hero stays the usual gradient + mosaic.

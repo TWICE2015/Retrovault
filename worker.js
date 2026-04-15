@@ -272,9 +272,17 @@ const RELEASE_LOG = [
       '_rvApplyHeroTrailer / _rvClearHeroTrailer; z-index so text stays readable over gradients.',
     ],
   },
+  {
+    id: '2026-04-15-d',
+    title: 'Home row trailer hover: stacking + YouTube COEP',
+    details: [
+      'Raised .rv-card-trailer z-index and hide .gp on hover so placeholder tiles do not cover the preview.',
+      'credentialless on YouTube iframes (card hover, detail panel, hero); m.youtube.com and live/ paths in URL parser.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.15-hero-trailer';
+const APP_RELEASE_VERSION = '2026.04.15-trailer-hover-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -294,6 +302,7 @@ const CHANGELOG_DATA = {
     'Built-in NETPLAY_DO Durable Object for same-origin EmulatorJS netplay signaling (no external Node server)',
     'Physical gamepads auto-mapped to EmulatorJS player slots after load (no manual dropdown each ROM)',
     'Home hero: Netflix-style muted full-bleed trailer when the featured game has videoUrl',
+    'Card trailer hover: z-index vs placeholder art + credentialless YouTube iframes (COEP)',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -505,7 +514,7 @@ function getHTML(env) {
   }
 
   if (!html.includes('id="rvCardTrailerHover"')) {
-    const cardTrailerHover = '<style id="rvCardTrailerHover">.gc-has-trailer .ga{position:relative!important}.gc-has-trailer .ga>img{position:relative!important;z-index:2!important;transition:opacity .22s ease!important}.gc-has-trailer:hover .ga>img{opacity:0!important}.rv-card-trailer{position:absolute!important;inset:0!important;z-index:1!important;opacity:0!important;transition:opacity .22s ease!important;pointer-events:none!important;background:#000!important;overflow:hidden!important}.gc-has-trailer:hover .rv-card-trailer{opacity:1!important}.gc-has-trailer:hover .gco{z-index:4!important}.gc-has-trailer:hover .ginfo,.gc-has-trailer:hover .gfav{z-index:5!important}.rv-card-trailer-iframe,.rv-card-trailer-vid{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;border:0!important;object-fit:cover!important}</style>';
+    const cardTrailerHover = '<style id="rvCardTrailerHover">.gc-has-trailer .ga{position:relative!important}.gc-has-trailer .ga>img{position:relative!important;z-index:2!important;transition:opacity .22s ease!important}.gc-has-trailer:hover .ga>img{opacity:0!important}.rv-card-trailer{position:absolute!important;inset:0!important;z-index:3!important;opacity:0!important;transition:opacity .22s ease!important;pointer-events:none!important;background:#000!important;overflow:hidden!important}.gc-has-trailer:hover .rv-card-trailer{opacity:1!important}.gc-has-trailer:hover .gp{opacity:0!important;visibility:hidden!important;pointer-events:none!important}.gc-has-trailer:hover .gco{z-index:4!important}.gc-has-trailer:hover .ginfo,.gc-has-trailer:hover .gfav{z-index:5!important}.rv-card-trailer-iframe,.rv-card-trailer-vid{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;border:0!important;object-fit:cover!important}</style>';
     if (html.includes('</head>')) {
       html = html.replace('</head>', `${cardTrailerHover}\n</head>`);
     }
@@ -2293,18 +2302,20 @@ if(document.readyState === 'loading'){
     if(u.startsWith('//')) u = 'https:' + u;
     try{
       const p = new URL(u, window.location.href);
-      const host = (p.hostname||'').toLowerCase();
+      let host = (p.hostname||'').toLowerCase();
+      if(host.startsWith('www.')) host = host.slice(4);
       if(host === 'youtu.be'){
         const id = p.pathname.replace(/^[/]+/,'').split('/')[0];
         return id ? ('https://www.youtube-nocookie.com/embed/' + id + '?rel=0') : '';
       }
-      if(host.indexOf('youtube.com') >= 0 || host.indexOf('youtube-nocookie.com') >= 0){
+      if(host === 'youtube.com' || host === 'youtube-nocookie.com' || host === 'm.youtube.com' || host === 'music.youtube.com'){
         let id = p.searchParams.get('v');
         if(!id){
           const seg = p.pathname.split('/').filter(Boolean);
           const ei = seg.indexOf('embed');
           if(ei >= 0 && seg[ei+1]) id = seg[ei+1];
           else if(seg[0] === 'shorts' && seg[1]) id = seg[1];
+          else if(seg[0] === 'live' && seg[1]) id = seg[1];
         }
         return id ? ('https://www.youtube-nocookie.com/embed/' + id + '?rel=0') : '';
       }
@@ -2335,7 +2346,7 @@ if(document.readyState === 'loading'){
     const yt = _rvYoutubeEmbedSrcFromUrl(raw);
     if(yt){
       wrap.style.display = 'block';
-      wrap.innerHTML = '<div style="position:relative;width:100%;max-width:560px;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe title="Trailer" src="'+yt.replace(/"/g,'&quot;')+'" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+      wrap.innerHTML = '<div style="position:relative;width:100%;max-width:560px;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe title="Trailer" credentialless src="'+yt.replace(/"/g,'&quot;')+'" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
       return;
     }
     if(_rvIsDirectVideoUrl(raw)){
@@ -2398,6 +2409,7 @@ if(document.readyState === 'loading'){
       fr.setAttribute('title','Hero trailer');
       fr.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
       fr.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      try{ fr.setAttribute('credentialless',''); }catch(e){}
       const u = yt + (yt.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&iv_load_policy=3';
       fr.setAttribute('src', u);
       host.appendChild(fr);
@@ -2436,6 +2448,7 @@ if(document.readyState === 'loading'){
       fr.setAttribute('loading','lazy');
       fr.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
       fr.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      try{ fr.setAttribute('credentialless',''); }catch(e){}
       fr.setAttribute('src', src + (src.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1&mute=1&playsinline=1');
       el.appendChild(fr);
       return;
