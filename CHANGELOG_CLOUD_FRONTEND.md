@@ -56,6 +56,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 
 ## 2026-04-15
 
+### Profile / Users clicks (fix)
+- **Users** and the **avatar chip** now open the profile picker with **`force`** so it is not immediately hidden when `rv-profile-picker-dismissed` was set from a previous close.
+- **Explicit open** clears that dismiss flag so the overlay stays visible after load.
+- Profile tiles no longer nest a **`<button>` inside a `<button>`** (invalid HTML); **Edit** is a `<span role="button">` so choosing a profile works reliably in strict browsers.
+
 ### Trailer hover on home row cards (fix)
 - **Placeholder cover (`.gp`)** was painted above the trailer layer, so hover showed a black/empty tile for games without box art.
 - Trailer slot **z-index** raised; on hover **`.gp` hides**. YouTube preview iframes use **`credentialless`** where supported (COEP / cross-origin isolation).

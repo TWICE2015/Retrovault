@@ -280,9 +280,17 @@ const RELEASE_LOG = [
       'credentialless on YouTube iframes (card hover, detail panel, hero); m.youtube.com and live/ paths in URL parser.',
     ],
   },
+  {
+    id: '2026-04-15-e',
+    title: 'Profile picker: Users button and tile clicks',
+    details: [
+      'Open picker with force=true from Users nav and avatar chip; clear rv-profile-picker-dismissed on explicit open so overlay is not auto-hidden.',
+      'Replace nested button Edit control inside profile tile with span+role=button (valid HTML; fixes broken tile clicks).',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.15-trailer-hover-fix';
+const APP_RELEASE_VERSION = '2026.04.15-profile-picker-click-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -303,6 +311,7 @@ const CHANGELOG_DATA = {
     'Physical gamepads auto-mapped to EmulatorJS player slots after load (no manual dropdown each ROM)',
     'Home hero: Netflix-style muted full-bleed trailer when the featured game has videoUrl',
     'Card trailer hover: z-index vs placeholder art + credentialless YouTube iframes (COEP)',
+    'Profile picker: Users / avatar chip always opens overlay; fix nested Edit button in tiles',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -1985,7 +1994,7 @@ if(document.readyState === 'loading'){
     )
     .replace(
       "<button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>",
-      "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" id=\"rvUsersNavBtn\" onclick=\"window._rvOpenProfilePicker&&window._rvOpenProfilePicker()\">👥 Users</button>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
+      "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" id=\"rvUsersNavBtn\" onclick=\"window._rvOpenProfilePicker&&window._rvOpenProfilePicker(true)\">👥 Users</button>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
     )
     .replace(
       "function cloudAppReady(){ return _rvFbInited && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0; }\nfunction cloudSignedIn(){ return cloudAppReady() && firebase.auth().currentUser; }",
@@ -2961,7 +2970,7 @@ if(document.readyState === 'loading'){
     btn.className = 'nb';
     btn.type = 'button';
     btn.textContent = '👥 Users';
-    btn.onclick = function(){ _rvOpenProfilePicker(); };
+    btn.onclick = function(){ _rvOpenProfilePicker(true); };
     if(whatsNew && whatsNew.parentElement){
       whatsNew.insertAdjacentElement('afterend', btn);
     } else {
@@ -2998,7 +3007,7 @@ if(document.readyState === 'loading'){
       '#rvProfilePicker .rv-tile-add .rv-avatar-add{width:120px;height:120px;margin:0 auto 10px;border-radius:6px;background:rgba(255,255,255,.06);border:2px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;}',
       '#rvProfilePicker .rv-tile-add .rv-plus{font-size:56px;font-weight:300;color:#b3b3b3;line-height:1;}',
       '#rvProfilePicker .rv-name{font-size:13px;color:#b3b3b3;text-align:center;max-width:140px;margin:0 auto 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-      '#rvProfilePicker .rv-edit-btn{display:inline-block;font-size:12px;padding:4px 12px;border-radius:4px;border:1px solid rgba(255,255,255,.22);background:transparent;color:#e5e5e5;cursor:pointer;}',
+      '#rvProfilePicker .rv-edit-btn{display:inline-block;font-size:12px;padding:4px 12px;border-radius:4px;border:1px solid rgba(255,255,255,.22);background:transparent;color:#e5e5e5;cursor:pointer;user-select:none;}',
       '#rvProfilePicker .rv-edit-btn:hover{border-color:#fff;color:#fff;}',
       '#rvProfilePicker .rv-actions{margin-top:12px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;}',
       '#rvProfilePicker .rv-btn{padding:10px 18px;font-size:13px;color:#fff;background:transparent;border:1px solid #444;cursor:pointer;border-radius:4px;min-width:160px;}',
@@ -3207,11 +3216,12 @@ if(document.readyState === 'loading'){
       tile.dataset.profileId = id;
       const avatar = '<div class="rv-avatar">'+_rvProfileAvatarHtml(slot)+'</div>';
       const name = '<div class="rv-name">'+_rvEscapeHtml(slot.displayName || id)+'</div>';
-      const edit = '<button type="button" class="rv-edit-btn" data-edit="1">Edit</button>';
+      const edit = '<span class="rv-edit-btn" role="button" tabindex="0" data-edit="1">Edit</span>';
       tile.innerHTML = avatar + name + edit;
       tile.onclick = function(ev){
         const t = ev && ev.target;
-        if(t && t.dataset && t.dataset.edit === '1'){
+        if(t && t.closest && t.closest('[data-edit="1"]')){
+          ev.preventDefault();
           ev.stopPropagation();
           _rvOpenProfileEditor(slot);
           return;
@@ -3437,7 +3447,9 @@ if(document.readyState === 'loading'){
       _rvSetPickerStatus('Loading\u2026', false);
       await _rvReloadProfilePickerData(baseOwner);
       _rvSetPickerStatus('', false);
-      if(force !== true){
+      if(force === true){
+        try{ localStorage.removeItem('rv-profile-picker-dismissed'); }catch(e){}
+      } else {
         const skip = localStorage.getItem('rv-profile-picker-dismissed') === '1';
         if(skip) root.classList.remove('show');
       }
@@ -3515,24 +3527,10 @@ if(document.readyState === 'loading'){
       chip.style.textOverflow = 'ellipsis';
       chip.style.whiteSpace = 'nowrap';
       chip.style.padding = '4px 8px';
-      chip.onclick = async function(){
-        const current = (window.__rvProfile && window.__rvProfile.displayName) || ownerId();
-        const next = String(prompt('Profile display name', current) || '').trim();
-        if(!next) return;
-        try{
-          const oid = ownerId();
-          const resp = await fetch('/profile-save?owner='+encodeURIComponent(oid), {
-            method:'POST',
-            headers:{'Content-Type':'application/json','X-Retrovault-Owner':oid},
-            body: JSON.stringify({ displayName: next })
-          });
-          const data = await resp.json().catch(()=>({}));
-          if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
-          window.__rvProfile = data.profile || null;
-          upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'preset', preset:'neon' } });
-          if(typeof toast==='function') toast('Profile updated');
-        }catch(e){
-          if(typeof toast==='function') toast('Profile save failed: '+e.message, 'err');
+      chip.onclick = function(){
+        if(typeof _rvOpenProfilePicker === 'function'){
+          _rvOpenProfilePicker(true);
+          return;
         }
       };
       const avatarNode = document.createElement('span');
