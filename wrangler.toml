@@ -10,7 +10,8 @@ class_name = "NetplayCoordinatorDO"
 
 [[migrations]]
 tag = "v1-netplay-do"
-new_classes = ["NetplayCoordinatorDO"]
+# Workers Free plan: Durable Objects must use the SQLite-backed class migration.
+new_sqlite_classes = ["NetplayCoordinatorDO"]
 
 # Optional: override netplay base URL (https, no trailing slash required). If unset, the app uses window.location.origin.
 # [vars]
