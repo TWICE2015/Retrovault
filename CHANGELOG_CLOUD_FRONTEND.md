@@ -128,6 +128,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Making `launchRomById` async used a replace that also matched **inside** `async function launchRomById`, producing **`async async function`** → parse errors and **`sv is not defined`** (nav never ran).
 - Fixed with a negative lookbehind so only the real declaration is prefixed, plus a dedupe pass.
 
+### Easier netplay UX: site-wide default relay URL
+- **Reality check:** EmulatorJS netplay still needs a **separate** Node **[EmulatorJS-Netplay](https://github.com/EmulatorJS/EmulatorJS-Netplay)** process (WebRTC signaling). A plain Worker cannot replace that without WebSockets / Durable Objects and a full signaling implementation.
+- **What we automated:** If the operator sets **`DEFAULT_NETPLAY_URL`** in the Worker (see commented example in `wrangler.toml`), the app injects **`window.__RV_DEFAULT_NETPLAY_URL`** and uses it whenever the user has **not** saved an override in Settings. Players then only **create/join session** + **launch the same ROM** + use the emulator **globe** — no paste step.
+- Advanced users can still **Save URL** in Settings to override or point at their own relay.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.

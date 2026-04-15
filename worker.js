@@ -41,6 +41,7 @@ const CHUNKS = [
 
 // ── HTML cache ────────────────────────────────────────────────────────────
 let _cachedHtml = null;
+let _cachedHtmlNetplayKey = '';
 let _cachedLandingHtml = null;
 
 const RELEASE_LOG = [
@@ -234,9 +235,18 @@ const RELEASE_LOG = [
       'Replaced with (?<!async ) lookbehind and a dedupe pass for launchRomById and closeEmu.',
     ],
   },
+  {
+    id: '2026-04-14-s',
+    title: 'Optional host-configured netplay relay (DEFAULT_NETPLAY_URL)',
+    details: [
+      'Worker env DEFAULT_NETPLAY_URL injects window.__RV_DEFAULT_NETPLAY_URL; _rvGetNetplayServerUrl falls back to it when localStorage is empty.',
+      'Easier UX: site operator hosts EmulatorJS-Netplay once; players only create/join session + launch ROM. Users can still override in Settings.',
+      'getHTML(env) cache key includes netplay default so changing the var rebuilds HTML.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cloud-save-state-async-fix';
+const APP_RELEASE_VERSION = '2026.04.14-default-netplay-url';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -252,6 +262,7 @@ const CHANGELOG_DATA = {
     'Home row cards play a muted trailer preview on hover when videoUrl is set',
     'Online session + EmulatorJS netplay: netplay server URL in settings, EJS vars set on launch when in a session',
     'Cloud backup of EmulatorJS save state on exit; auto-load via EJS_loadStateURL on next launch when present',
+    'Optional DEFAULT_NETPLAY_URL worker var for zero-paste netplay relay when operator hosts EmulatorJS-Netplay',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -399,13 +410,21 @@ function getReleaseNotesHTML() {
 </html>`;
 }
 
-function getHTML() {
-  if (_cachedHtml) return _cachedHtml;
+function getHTML(env) {
+  const netplayDefaultKey = env && typeof env.DEFAULT_NETPLAY_URL === 'string'
+    ? String(env.DEFAULT_NETPLAY_URL).trim()
+    : '';
+  if (_cachedHtml && _cachedHtmlNetplayKey === netplayDefaultKey) return _cachedHtml;
   const b64 = CHUNKS.join('');
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   let html = new TextDecoder('utf-8').decode(bytes);
+
+  if (netplayDefaultKey && html.includes('</head>')) {
+    const inject = `<script>window.__RV_DEFAULT_NETPLAY_URL=${JSON.stringify(netplayDefaultKey)};<\/script>`;
+    html = html.replace('</head>', `${inject}\n</head>`);
+  }
 
   // Inject owner-scoped sync calls into the embedded app so every browser
   // gets an isolated R2 namespace without requiring a separate frontend build.
@@ -433,12 +452,12 @@ function getHTML() {
       "function _rvSetSessionPassword(v){ const clean=_rvNormalizeSessionPassword(v); if(clean.length<4){ return null; } localStorage.setItem('rv-session-password', clean); return clean; }",
       "function _rvSessionStatus(msg, state){ const el=document.getElementById('rvSessionStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }",
       "function _rvNetplayIceServers(){ return [{ urls:'stun:stun.l.google.com:19302' },{ urls:'stun:stun1.l.google.com:19302' }]; }",
-      "function _rvGetNetplayServerUrl(){ return String(localStorage.getItem('rv-netplay-server-url')||'').trim(); }",
+      "function _rvGetNetplayServerUrl(){ const stored=String(localStorage.getItem('rv-netplay-server-url')||'').trim(); if(stored) return stored; const d=(typeof window.__RV_DEFAULT_NETPLAY_URL==='string'?window.__RV_DEFAULT_NETPLAY_URL:'').trim(); return d||''; }",
       "function _rvSetNetplayServerUrl(raw){ const u=String(raw||'').trim(); localStorage.setItem('rv-netplay-server-url', u); return u; }",
       "function _rvApplyEjsNetplayFromSession(rom){ try{ delete window.EJS_netplayServer; delete window.EJS_gameID; delete window.EJS_netplayICEServers; }catch(e){} const sid=localStorage.getItem('rv-last-session-id')||''; const mid=localStorage.getItem('rv-session-member-id')||''; let base=_rvGetNetplayServerUrl(); if(!rom||!sid||!mid){ return; } if(!base){ try{ console.warn('[netplay] In an online session but no EmulatorJS Netplay server URL — set it in Settings → Online Session.'); }catch(e){} return; } if(!/^https?:\\/\\//i.test(base)){ try{ console.warn('[netplay] Netplay server URL must start with http:// or https://'); }catch(e){} return; } if(base.indexOf('#')<0) base=base+'#'; const gameKey=sid+'|'+String(rom.id); let h=5381; for(let i=0;i<gameKey.length;i++){ h=((h<<5)+h)+gameKey.charCodeAt(i); h=h|0; } const gid=(Math.abs(h)%2000000000)||1; window.EJS_netplayServer=base; window.EJS_gameID=gid; window.EJS_netplayICEServers=_rvNetplayIceServers(); }",
       "async function _rvCreateSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } try{ const resp=await fetch(window.location.origin+'/session-create',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password, hostName:(typeof _rvOwnerId==='function'?_rvOwnerId():'host') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', data.sessionId); if(data.memberId) localStorage.setItem('rv-session-member-id', data.memberId); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(data.sessionId).catch(function(){}); } _rvSessionStatus('Session created: '+data.sessionId+' — use Netplay URL + launch same ROM for 2P.','ok'); }catch(e){ _rvSessionStatus('Create session failed: '+e.message,'err'); } }",
       "async function _rvJoinSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } const prev=localStorage.getItem('rv-last-session-id')||''; const sessionId=String(prompt('Enter session code',prev)||'').trim(); if(!sessionId){ return; } try{ const resp=await fetch(window.location.origin+'/session-join',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ sessionId, password, playerName:(typeof _rvOwnerId==='function'?_rvOwnerId():'player') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', sessionId); if(data.memberId) localStorage.setItem('rv-session-member-id', data.memberId); _rvSessionStatus('Joined session '+sessionId+' ('+(data.memberCount||0)+' players). Set same Netplay URL as host, then launch the same game.','ok'); }catch(e){ _rvSessionStatus('Join failed: '+e.message,'err'); } }",
-      "function _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=function(){ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const npRow=document.createElement('div'); npRow.style.display='grid'; npRow.style.gridTemplateColumns='minmax(240px,1fr) auto'; npRow.style.gap='8px'; npRow.style.alignItems='center'; npRow.style.marginTop='8px'; const np=document.createElement('input'); np.id='rvNetplayServerInput'; np.type='url'; np.placeholder='EmulatorJS Netplay server — https://your-host:3000/'; np.value=_rvGetNetplayServerUrl(); np.autocomplete='off'; np.style.padding='8px'; np.style.borderRadius='8px'; np.style.border='1px solid var(--line)'; np.style.background='var(--s1)'; np.style.color='var(--text)'; const npBtn=document.createElement('button'); npBtn.type='button'; npBtn.className='bb s'; npBtn.textContent='Save URL'; npBtn.onclick=function(){ _rvSetNetplayServerUrl(np.value); _rvSessionStatus('Netplay server URL saved (required for 2-player).','ok'); }; npRow.appendChild(np); npRow.appendChild(npBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=function(){ _rvCreateSession(); }; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=function(){ _rvJoinSession(); }; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.innerHTML='Session code + password are the <strong>lobby</strong> in R2. For <strong>2-player netplay</strong>, host must run an <a href=\"https://github.com/EmulatorJS/EmulatorJS-Netplay\" target=\"_blank\" rel=\"noopener\">EmulatorJS-Netplay</a> server, both players paste the same <strong>Netplay server URL</strong> above, join this session, then launch the <strong>same ROM</strong> — use the globe in the emulator bar to connect.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Set password, optional netplay URL, then create or join.'; card.appendChild(title); card.appendChild(row); card.appendChild(npRow); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }",
+      "function _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=function(){ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const npRow=document.createElement('div'); npRow.style.display='grid'; npRow.style.gridTemplateColumns='minmax(240px,1fr) auto'; npRow.style.gap='8px'; npRow.style.alignItems='center'; npRow.style.marginTop='8px'; const np=document.createElement('input'); np.id='rvNetplayServerInput'; np.type='url'; np.placeholder=(typeof window.__RV_DEFAULT_NETPLAY_URL==='string'&&window.__RV_DEFAULT_NETPLAY_URL)?'Optional override — site default is set':'EmulatorJS Netplay relay URL (https://…) — or site owner sets default'; np.value=String(localStorage.getItem('rv-netplay-server-url')||'').trim(); np.autocomplete='off'; np.style.padding='8px'; np.style.borderRadius='8px'; np.style.border='1px solid var(--line)'; np.style.background='var(--s1)'; np.style.color='var(--text)'; const npBtn=document.createElement('button'); npBtn.type='button'; npBtn.className='bb s'; npBtn.textContent='Save URL'; npBtn.onclick=function(){ _rvSetNetplayServerUrl(np.value); _rvSessionStatus('Netplay URL saved (blank = use site default if any).','ok'); }; npRow.appendChild(np); npRow.appendChild(npBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=function(){ _rvCreateSession(); }; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=function(){ _rvJoinSession(); }; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.innerHTML='Session code + password are the <strong>lobby</strong> in R2. <strong>2-player</strong> uses WebRTC and needs an <a href=\"https://github.com/EmulatorJS/EmulatorJS-Netplay\" target=\"_blank\" rel=\"noopener\">EmulatorJS-Netplay</a> <em>relay</em> (hosted by this site or you). If a default relay is configured, leave Netplay URL blank. Otherwise paste the same HTTPS URL on both devices, join this session, launch the <strong>same ROM</strong>, then use the globe in the emulator bar.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent=(typeof window.__RV_DEFAULT_NETPLAY_URL==='string'&&window.__RV_DEFAULT_NETPLAY_URL)?'Password → create/join. Netplay relay is pre-configured; override above only if needed.':'Set password and netplay relay URL (or ask the site owner to set a default), then create or join.'; card.appendChild(title); card.appendChild(row); card.appendChild(npRow); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }",
       "if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitSessionControls); else setTimeout(_rvInitSessionControls,0);",
     ].join('\n');
     if (html.includes(helperAnchor)) {
@@ -3769,6 +3788,7 @@ if(document.readyState === 'loading'){
   html = html.replace(/\basync async function closeEmu\b/g, 'async function closeEmu');
 
   _cachedHtml = html;
+  _cachedHtmlNetplayKey = netplayDefaultKey;
   return _cachedHtml;
 }
 
@@ -6225,7 +6245,7 @@ export default {
     }
 
     if (path === '/app') {
-      const html = getHTML();
+      const html = getHTML(env);
       return new Response(html, {
         headers: {
           'Content-Type': 'text/html; charset=UTF-8',
@@ -6242,7 +6262,7 @@ export default {
     // ════════════════════════════════════════════════════════════════════
     // DEFAULT — Serve the app HTML
     // ════════════════════════════════════════════════════════════════════
-    const html = getHTML();
+    const html = getHTML(env);
     return new Response(html, {
       headers: {
         'Content-Type': 'text/html; charset=UTF-8',

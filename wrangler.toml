@@ -2,6 +2,12 @@ name = "retrovault"
 main = "worker.js"
 compatibility_date = "2026-04-12"
 
+# Optional: EmulatorJS-Netplay relay URL (https, trailing slash ok). When set, browsers get
+# window.__RV_DEFAULT_NETPLAY_URL and users do not need to paste a netplay URL in Settings.
+# Host the relay separately (Node + socket.io); Workers cannot replace it without WebSockets/DO.
+# [vars]
+# DEFAULT_NETPLAY_URL = "https://netplay.yourdomain.com/"
+
 [[r2_buckets]]
 binding = "ROM_BUCKET"
 bucket_name = "game-roms"
