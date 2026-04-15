@@ -256,9 +256,17 @@ const RELEASE_LOG = [
       'Client patches io() to transports:[websocket] only; EJS_netplayUrl is set (EmulatorJS reads netplayUrl, not EJS_netplayServer).',
     ],
   },
+  {
+    id: '2026-04-15-b',
+    title: 'Auto-assign physical gamepads in EmulatorJS',
+    details: [
+      'After loader.js creates EJS_emulator, _rvHookEjsGamepadAutopick fills empty gamepadSelection slots from connected pads (pads connected before the control menu existed stayed on Not Connected).',
+      'Short poll + gamepadconnected listener; cleanup on closeEmu. getHTML cache key includes APP_RELEASE_VERSION.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.15-cloudflare-netplay-do';
+const APP_RELEASE_VERSION = '2026.04.15-gamepad-autopick';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -276,6 +284,7 @@ const CHANGELOG_DATA = {
     'Cloud backup of EmulatorJS save state on exit; auto-load via EJS_loadStateURL on next launch when present',
     'Optional DEFAULT_NETPLAY_URL worker var for zero-paste netplay relay when operator hosts EmulatorJS-Netplay',
     'Built-in NETPLAY_DO Durable Object for same-origin EmulatorJS netplay signaling (no external Node server)',
+    'Physical gamepads auto-mapped to EmulatorJS player slots after load (no manual dropdown each ROM)',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -427,7 +436,8 @@ function getHTML(env) {
   const netplayDefaultKey = env && typeof env.DEFAULT_NETPLAY_URL === 'string'
     ? String(env.DEFAULT_NETPLAY_URL).trim()
     : '';
-  if (_cachedHtml && _cachedHtmlNetplayKey === netplayDefaultKey) return _cachedHtml;
+  const htmlCacheKey = `${netplayDefaultKey}\0${APP_RELEASE_VERSION}`;
+  if (_cachedHtml && _cachedHtmlNetplayKey === htmlCacheKey) return _cachedHtml;
   const b64 = CHUNKS.join('');
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
@@ -2184,6 +2194,59 @@ if(document.readyState === 'loading'){
   }
   window._rvApplyCloudSaveStateOnLaunch = _rvApplyCloudSaveStateOnLaunch;
 
+  /** Assign physical gamepads to EmulatorJS player slots (fixes "Not Connected" when pad was plugged in before the control menu existed). */
+  function _rvHookEjsGamepadAutopick(){
+    const sync = { poller: null, onConn: null };
+    try{ if(window._rvEjsGamepadSync && window._rvEjsGamepadSync.poller) clearInterval(window._rvEjsGamepadSync.poller); }catch(e){}
+    try{ if(window._rvEjsGamepadSync && window._rvEjsGamepadSync.onConn) window.removeEventListener('gamepadconnected', window._rvEjsGamepadSync.onConn); }catch(e){}
+    window._rvEjsGamepadSync = sync;
+    function applyPads(){
+      const ejs = window.EJS_emulator;
+      if(!ejs || !Array.isArray(ejs.gamepadSelection) || !ejs.gamepad || !Array.isArray(ejs.gamepad.gamepads)) return false;
+      const pads = ejs.gamepad.gamepads;
+      if(!pads.length) return false;
+      let changed = false;
+      for(let pi = 0; pi < ejs.gamepadSelection.length; pi++){
+        if(ejs.gamepadSelection[pi]) continue;
+        for(let j = 0; j < pads.length; j++){
+          const g = pads[j];
+          if(!g) continue;
+          const id = g.id + '_' + g.index;
+          let taken = false;
+          for(let k = 0; k < ejs.gamepadSelection.length; k++){
+            if(ejs.gamepadSelection[k] === id){ taken = true; break; }
+          }
+          if(taken) continue;
+          ejs.gamepadSelection[pi] = id;
+          changed = true;
+          break;
+        }
+      }
+      if(changed && typeof ejs.updateGamepadLabels === 'function'){
+        try{ ejs.updateGamepadLabels(); }catch(e){}
+      }
+      return changed;
+    }
+    function tick(){
+      applyPads();
+      const ejs = window.EJS_emulator;
+      if(!ejs || !Array.isArray(ejs.gamepadSelection)) return;
+      let all = true;
+      for(let i = 0; i < ejs.gamepadSelection.length; i++){
+        if(!ejs.gamepadSelection[i]){ all = false; break; }
+      }
+      if(all && sync.poller){ clearInterval(sync.poller); sync.poller = null; }
+    }
+    sync.onConn = function(){ tick(); };
+    window.addEventListener('gamepadconnected', sync.onConn);
+    tick();
+    sync.poller = setInterval(tick, 250);
+    setTimeout(function(){
+      if(sync.poller){ clearInterval(sync.poller); sync.poller = null; }
+    }, 8000);
+  }
+  window._rvHookEjsGamepadAutopick = _rvHookEjsGamepadAutopick;
+
   function _rvYoutubeEmbedSrcFromUrl(raw){
     const s = String(raw||'').trim();
     if(!s) return '';
@@ -3796,12 +3859,36 @@ if(document.readyState === 'loading'){
     try{ window.EJS_emulator.terminate(); }catch(e){}
     try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}
     window.EJS_emulator = null;
+  }
+  if(window._rvEjsGamepadSync){
+    try{
+      if(window._rvEjsGamepadSync.poller) clearInterval(window._rvEjsGamepadSync.poller);
+      if(window._rvEjsGamepadSync.onConn) window.removeEventListener('gamepadconnected', window._rvEjsGamepadSync.onConn);
+    }catch(e){}
+    window._rvEjsGamepadSync = null;
   }`
   );
   html = html.replace(/\basync async function closeEmu\b/g, 'async function closeEmu');
 
+  if (!html.includes('_rvHookEjsGamepadAutopick') && html.includes('document.head.appendChild(loader);')) {
+    html = html.replace(
+      'document.head.appendChild(loader);',
+      `document.head.appendChild(loader);
+  if(typeof _rvHookEjsGamepadAutopick==='function'){
+    const _rvPrevOnload = loader.onload;
+    loader.onload = function(){
+      try{ if(typeof _rvPrevOnload==='function') _rvPrevOnload.apply(this, arguments); }catch(e){}
+      function arm(){ if(window.EJS_emulator && typeof _rvHookEjsGamepadAutopick==='function'){ _rvHookEjsGamepadAutopick(); return true; } return false; }
+      if(arm()) return;
+      let n = 0;
+      const t = setInterval(function(){ if(arm() || (++n > 120)) clearInterval(t); }, 50);
+    };
+  }`
+    );
+  }
+
   _cachedHtml = html;
-  _cachedHtmlNetplayKey = netplayDefaultKey;
+  _cachedHtmlNetplayKey = htmlCacheKey;
   return _cachedHtml;
 }
 

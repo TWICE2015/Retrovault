@@ -54,6 +54,12 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Added release-notes and GitHub integration status API endpoints.
 - Added route split prep (`/` landing target, `/app` app target) while preserving existing app route behavior.
 
+## 2026-04-15
+
+### Gamepad auto-detection in the emulator
+- EmulatorJS only auto-fills the **Connected Gamepad** dropdown when a pad connects **after** its internal handler is ready; pads already plugged in often stayed on **Not Connected** until you picked them manually.
+- After **`loader.js`** creates **`window.EJS_emulator`**, the app runs **`_rvHookEjsGamepadAutopick`**: it assigns free physical pads to empty player slots, refreshes the dropdowns, listens for **`gamepadconnected`**, and polls briefly. **`closeEmu`** clears the listener/timer.
+
 ## 2026-04-14
 
 ### Metadata: Hasheous only
