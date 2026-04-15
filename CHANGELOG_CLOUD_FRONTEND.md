@@ -119,6 +119,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - **2-player online** uses [EmulatorJS **Netplay**](https://github.com/EmulatorJS/EmulatorJS-Netplay): host that Node server (or use your own URL), then in **Settings → Online Session** paste the **EmulatorJS Netplay server URL** (e.g. `https://your-host:3000/`) and **Save URL**.
 - Create/join session now stores **`memberId`** for the handshake; when you **launch a game** while in a session, the app sets **`EJS_netplayServer`**, **`EJS_gameID`** (same for both players on the same session + ROM), and **STUN** ICE servers so the emulator’s **netplay (globe)** can connect.
 
+### Cloud save states (exit backup + resume)
+- On **Exit** from the emulator, if the core **supports save states**, the current state is uploaded to R2 under **`meta/{console}/saves/rom-{id}-...state`** and **`cloudSaveStateUrl` / `cloudSaveStateKey` / `cloudSaveStateRev`** are stored on the ROM row and in the JSON sidecar (syncs across devices like other metadata).
+- On **next launch**, if that object exists (**`HEAD /r2-rom`**), **`EJS_loadStateURL`** is set so EmulatorJS **downloads and loads** the state after the game starts.
+- Requires a set **Shared Sync Owner ID**; **`GET /r2-rom`** is unchanged; **`HEAD /r2-rom`** was added for lightweight existence checks.
+
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).
 - Auth: email + Google.

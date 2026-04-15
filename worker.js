@@ -217,9 +217,18 @@ const RELEASE_LOG = [
       'Documented that RetroVault session codes are a lobby only — WebRTC netplay requires a separate Node netplay server.',
     ],
   },
+  {
+    id: '2026-04-14-q',
+    title: 'Cloud save-state backup on exit + auto-load on launch',
+    details: [
+      'Exiting the emulator uploads EmulatorJS save state bytes to R2 under meta/{console}/saves/ and stores cloudSaveStateUrl/key/rev on the ROM + JSON sidecar.',
+      'Launch uses EJS_loadStateURL when a cloud state exists (HEAD check) so the core loads the backup after start.',
+      'Requires Shared Sync Owner ID; cores must support save states; closeEmu is async to finish upload before terminate.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-netplay-session-wire';
+const APP_RELEASE_VERSION = '2026.04.14-cloud-save-state';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -234,6 +243,7 @@ const CHANGELOG_DATA = {
     'Optional per-ROM trailer URL (YouTube or direct video) with cloud metadata sync',
     'Home row cards play a muted trailer preview on hover when videoUrl is set',
     'Online session + EmulatorJS netplay: netplay server URL in settings, EJS vars set on launch when in a session',
+    'Cloud backup of EmulatorJS save state on exit; auto-load via EJS_loadStateURL on next launch when present',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -1993,6 +2003,26 @@ if(document.readyState === 'loading'){
               if(meta.rating      && !match.rating)      { match.rating      = meta.rating;      changed=true; }
               if(meta.developer   && !match.developer)   { match.developer   = meta.developer;   changed=true; }
               if(meta.genres      && !match.genres)      { match.genres      = meta.genres;      changed=true; }
+              if(meta.videoUrl    && !match.videoUrl)    { match.videoUrl    = meta.videoUrl;    changed=true; }
+              const __mSv = String(meta.cloudSaveStateUrl||'').trim();
+              const __mSk = String(meta.cloudSaveStateKey||'').trim();
+              const __mSr = Number(meta.cloudSaveStateRev)||0;
+              if(__mSv || __mSk){
+                const __cSv = String(match.cloudSaveStateUrl||'').trim();
+                const __cSk = String(match.cloudSaveStateKey||'').trim();
+                const __cSr = Number(match.cloudSaveStateRev)||0;
+                if(!__cSv && !__cSk){
+                  if(__mSv) match.cloudSaveStateUrl = __mSv;
+                  if(__mSk) match.cloudSaveStateKey = __mSk;
+                  if(__mSr) match.cloudSaveStateRev = __mSr;
+                  changed = true;
+                } else if(__mSr > __cSr){
+                  if(__mSv) match.cloudSaveStateUrl = __mSv;
+                  if(__mSk) match.cloudSaveStateKey = __mSk;
+                  match.cloudSaveStateRev = __mSr;
+                  changed = true;
+                }
+              }
               if(changed){ await dbPut('roms', match); metaRestored++; }
             }
           }`
@@ -2033,6 +2063,86 @@ if(document.readyState === 'loading'){
     return window.location.origin + '/img-proxy?url=' + encodeURIComponent(abs);
   }
   window._rvCoverUrlForImg = _rvCoverUrlForImg;
+
+  function _rvCloudSaveStateKeyForRom(rom){
+    if(!rom || !rom.id) return '';
+    const cid = String(rom.console||'unknown');
+    const base = String(rom.filename||rom.name||'game').replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,96)||'game';
+    return 'meta/' + cid + '/saves/rom-' + String(rom.id) + '-' + base + '.state';
+  }
+  async function _rvHeadOk(url){
+    try{
+      const r = await fetch(url, { method:'HEAD' });
+      return r.ok;
+    }catch(e){ return false; }
+  }
+  async function _rvBackupEmuStateToCloud(){
+    const ejs = window.EJS_emulator;
+    const rid = typeof lastRomId !== 'undefined' ? lastRomId : null;
+    if(!ejs || !rid || typeof dbGet !== 'function' || typeof dbPut !== 'function') return;
+    let rom = null;
+    try{ rom = await dbGet('roms', rid); }catch(e){ return; }
+    if(!rom) return;
+    const gm = ejs.gameManager;
+    if(!gm || typeof gm.supportsStates !== 'function' || !gm.supportsStates()) return;
+    if(typeof gm.getState !== 'function') return;
+    let buf = null;
+    try{ buf = gm.getState(); }catch(e){ return; }
+    if(!buf || !(buf instanceof Uint8Array) || buf.byteLength < 64) return;
+    const oid = (typeof ownerId === 'function' ? ownerId() : '') || (typeof _rvOwnerId === 'function' ? _rvOwnerId() : '') || localStorage.getItem('rv-owner-id') || '';
+    if(!oid){
+      if(typeof toast === 'function') toast('Set Shared Sync Owner ID to back up save states to cloud','warn');
+      return;
+    }
+    const key = _rvCloudSaveStateKeyForRom(rom);
+    const blob = new Blob([buf], { type:'application/octet-stream' });
+    const form = new FormData();
+    form.append('file', blob, key.split('/').pop()||'save.state');
+    form.append('key', key);
+    form.append('owner', oid);
+    const resp = await fetch(window.location.origin + '/r2-upload', { method:'POST', body: form, headers: { 'X-Retrovault-Owner': oid } });
+    const data = await resp.json().catch(function(){ return {}; });
+    if(!resp.ok || !data.ok){
+      if(typeof toast === 'function') toast('Cloud save-state backup failed','err');
+      return;
+    }
+    let streamKey = key;
+    const k = data.key || '';
+    if(k){
+      const pref = 'users/' + oid + '/';
+      if(k.indexOf(pref) === 0) streamKey = k.slice(pref.length);
+      else if(k.indexOf('users/') !== 0) streamKey = k;
+    }
+    const rev = Date.now();
+    rom.cloudSaveStateKey = streamKey;
+    rom.cloudSaveStateUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(streamKey) + '&owner=' + encodeURIComponent(oid) + '&v=' + rev;
+    rom.cloudSaveStateRev = rev;
+    try{ await dbPut('roms', rom); }catch(e){}
+    if(typeof r2SaveMeta === 'function'){
+      try{ await r2SaveMeta(rom); }catch(e){}
+    }
+    if(typeof toast === 'function') toast('Save state backed up to cloud');
+  }
+  window._rvBackupEmuStateToCloud = _rvBackupEmuStateToCloud;
+
+  async function _rvApplyCloudSaveStateOnLaunch(rom){
+    try{ delete window.EJS_loadStateURL; }catch(e){}
+    if(!rom) return;
+    let url = String(rom.cloudSaveStateUrl||'').trim();
+    const oid = (typeof ownerId === 'function' ? ownerId() : '') || (typeof _rvOwnerId === 'function' ? _rvOwnerId() : '') || localStorage.getItem('rv-owner-id') || '';
+    if(!url && rom.cloudSaveStateKey && oid){
+      url = window.location.origin + '/r2-rom?key=' + encodeURIComponent(String(rom.cloudSaveStateKey)) + '&owner=' + encodeURIComponent(oid) + '&v=' + encodeURIComponent(String(rom.cloudSaveStateRev||0));
+    }
+    if(!url) return;
+    try{
+      const p = new URL(url, window.location.href);
+      if(p.origin !== window.location.origin || p.pathname !== '/r2-rom') return;
+    }catch(e){ return; }
+    if(!await _rvHeadOk(url)) return;
+    window.EJS_loadStateURL = url;
+    if(typeof logScrape === 'function') logScrape('[launch] Cloud save state will load on start: '+url.slice(0,72)+'…');
+  }
+  window._rvApplyCloudSaveStateOnLaunch = _rvApplyCloudSaveStateOnLaunch;
 
   function _rvYoutubeEmbedSrcFromUrl(raw){
     const s = String(raw||'').trim();
@@ -2540,7 +2650,7 @@ if(document.readyState === 'loading'){
     window.__rvOrigR2SaveMeta = r2SaveMeta;
     window.r2SaveMeta = async function(rom){
       if(!rom || !rom.name) return;
-      if(!rom.coverUrl && !rom.description && !rom.year && !rom.rating && !rom.videoUrl) return;
+      if(!rom.coverUrl && !rom.description && !rom.year && !rom.rating && !rom.videoUrl && !rom.cloudSaveStateUrl && !rom.cloudSaveStateKey) return;
       try{
         const safeFile = (rom.filename||rom.name).replace(/[^a-zA-Z0-9._-]/g,'_');
         const key = 'meta/' + (rom.console||'unknown') + '/' + safeFile + '.json';
@@ -2556,6 +2666,9 @@ if(document.readyState === 'loading'){
           developer: rom.developer||null,
           genres: rom.genres||null,
           videoUrl: rom.videoUrl||null,
+          cloudSaveStateUrl: rom.cloudSaveStateUrl||null,
+          cloudSaveStateKey: rom.cloudSaveStateKey||null,
+          cloudSaveStateRev: rom.cloudSaveStateRev||null,
         };
         const oid = (typeof _rvOwnerId === 'function' ? _rvOwnerId() : '') || localStorage.getItem('rv-owner-id') || '';
         const resp = await fetch(window.location.origin+'/r2-meta-save', {
@@ -3590,10 +3703,62 @@ if(document.readyState === 'loading'){
   if(ejsSettings.threads)      window.EJS_threads = true;
 
   if(typeof _rvApplyEjsNetplayFromSession==='function'){ try{ _rvApplyEjsNetplayFromSession(rom); }catch(e){} }
+  if(typeof _rvApplyCloudSaveStateOnLaunch==='function'){ try{ await _rvApplyCloudSaveStateOnLaunch(rom); }catch(e){} }
 
   // FIX 8: Inject loader.js AFTER all vars are set and player div exists`
     );
   }
+
+  html = html.replace(
+    'function launchRomById(id){',
+    'async function launchRomById(id){'
+  );
+
+  html = html.replace(
+    `  const ejsGlobals = [
+    'EJS_player','EJS_core','EJS_gameUrl','EJS_gameName','EJS_pathtodata',
+    'EJS_color','EJS_startOnLoaded','EJS_backgroundColor','EJS_backgroundBlur',
+    'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',
+    'Module','EJS_Buttons','EJS_defaultOptions',
+  ];`,
+    `  const ejsGlobals = [
+    'EJS_player','EJS_core','EJS_gameUrl','EJS_gameName','EJS_pathtodata',
+    'EJS_color','EJS_startOnLoaded','EJS_backgroundColor','EJS_backgroundBlur',
+    'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',
+    'EJS_loadStateURL','EJS_netplayServer','EJS_gameID','EJS_netplayICEServers',
+    'Module','EJS_Buttons','EJS_defaultOptions',
+  ];`
+  );
+
+  html = html.replace(
+    `function closeEmu(){
+  // 1. Hide the overlay immediately so UI feels responsive
+  _stopHudAutoHide();
+  document.getElementById('emuOverlay').classList.remove('on');
+
+  // 2. Terminate the EJS emulator instance — stops the game loop
+  if(window.EJS_emulator){
+    try{ window.EJS_emulator.terminate(); }catch(e){}
+    try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}
+    window.EJS_emulator = null;
+  }`,
+    `async function closeEmu(){
+  // 1. Hide the overlay immediately so UI feels responsive
+  _stopHudAutoHide();
+  document.getElementById('emuOverlay').classList.remove('on');
+
+  // 1b. Cloud backup of EmulatorJS save state before teardown
+  if(typeof _rvBackupEmuStateToCloud==='function'){
+    try{ await _rvBackupEmuStateToCloud(); }catch(e){}
+  }
+
+  // 2. Terminate the EJS emulator instance — stops the game loop
+  if(window.EJS_emulator){
+    try{ window.EJS_emulator.terminate(); }catch(e){}
+    try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}
+    window.EJS_emulator = null;
+  }`
+  );
 
   _cachedHtml = html;
   return _cachedHtml;
@@ -4910,7 +5075,7 @@ export default {
     // Serves owner-scoped ROM objects directly from R2 without needing
     // public bucket URLs; validates owner scope before reading.
     // ════════════════════════════════════════════════════════════════════
-    if (path === '/r2-rom' && method === 'GET') {
+    if (path === '/r2-rom' && (method === 'GET' || method === 'HEAD')) {
       if (!env.ROM_BUCKET) {
         return new Response('ROM_BUCKET not configured', { status: 503, headers: corsHeaders(origin) });
       }
@@ -4953,8 +5118,41 @@ export default {
             pushTry(`${dir}/${base.replace(/_+/g, ' ')}`);
           }
         }
-        let obj = null;
         let usedKey = null;
+        if (method === 'HEAD') {
+          let headObj = null;
+          for (let ti = 0; ti < tryKeys.length; ti++) {
+            const candidate = tryKeys[ti];
+            const h = await env.ROM_BUCKET.head(candidate);
+            if (h) {
+              headObj = h;
+              usedKey = candidate;
+              break;
+            }
+          }
+          if (!headObj) {
+            return new Response(JSON.stringify({
+              ok: false,
+              error: 'ROM not found',
+              triedKeys: tryKeys,
+              hint: 'Sync from bucket or re-upload; filename in the app must match the object key under users/{owner}/',
+            }), { status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+          }
+          const ct = headObj.httpMetadata?.contentType || 'application/octet-stream';
+          const len = String(headObj.size ?? '');
+          return new Response(null, {
+            status: 200,
+            headers: {
+              ...corsHeaders(origin),
+              'Content-Type': ct,
+              'Content-Length': len,
+              'Cache-Control': 'public, max-age=86400',
+              'Cross-Origin-Resource-Policy': 'cross-origin',
+              'X-Retrovault-R2-Key': usedKey || '',
+            },
+          });
+        }
+        let obj = null;
         for (let ti = 0; ti < tryKeys.length; ti++) {
           const candidate = tryKeys[ti];
           const got = await env.ROM_BUCKET.get(candidate);
