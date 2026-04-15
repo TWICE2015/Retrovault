@@ -56,6 +56,12 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 
 ## 2026-04-16
 
+### RetroAchievements (RetroArch)
+- **Settings** adds a **RetroAchievements** card: enable, **username**, **API key** (from [retroachievements.org](https://retroachievements.org/) → My Pages → Settings → Keys), optional **hardcore** and **verbose** logging.
+- Credentials stay in **localStorage** on this browser only (not sent to RetroVault R2).
+- On each ROM launch, **`EJS_defaultOptions`** is merged with RetroArch **`cheevos_*`** keys (`cheevos_enable`, `cheevos_username`, `cheevos_token`, etc.) so EmulatorJS can pass them into **`retroarch.cfg`** for cores that support achievements.
+- Achievement UI and behavior depend on the **loaded core**; some cores may not surface cheevos fully in the web build.
+
 ### Automatic YouTube trailer URLs (optional)
 - After **Hasheous** finds a game title, the app can call **`GET /youtube-search-trailer?q=...`** (Worker proxies **YouTube Data API v3** with a server key).
 - Configure: **`wrangler secret put YT_API_KEY`** (Google Cloud → YouTube Data API v3 → API key; restrict by HTTP referrer or IP as you prefer).

@@ -297,9 +297,18 @@ const RELEASE_LOG = [
       'Home row hover + hero use existing videoUrl; user must wrangler secret put YT_API_KEY.',
     ],
   },
+  {
+    id: '2026-04-16-b',
+    title: 'RetroAchievements (RetroArch cheevos options)',
+    details: [
+      'Settings → RetroAchievements: username + API key (retroachievements.org Keys), optional hardcore + verbose; stored in localStorage only.',
+      'On ROM launch, EJS_defaultOptions merges cheevos_enable, cheevos_username, cheevos_token, cheevos_hardcore_mode_enable for cores that support achievements.',
+      'Not every EmulatorJS core exposes the full RetroArch cheevos UI; unsupported cores ignore these options.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-youtube-trailer-scrape';
+const APP_RELEASE_VERSION = '2026.04.16-retroachievements';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -322,6 +331,7 @@ const CHANGELOG_DATA = {
     'Card trailer hover: z-index vs placeholder art + credentialless YouTube iframes (COEP)',
     'Profile picker: Users / avatar chip always opens overlay; fix nested Edit button in tiles',
     'Optional auto YouTube trailer URL during Hasheous scrape (YT_API_KEY secret)',
+    'RetroAchievements: Settings card + EJS_defaultOptions cheevos_* merged at launch (username + API key in localStorage)',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -2362,6 +2372,100 @@ if(document.readyState === 'loading'){
   }
   window._rvHookEjsGamepadAutopick = _rvHookEjsGamepadAutopick;
 
+  function _rvRaDefaultsFromStorage(){
+    try{
+      if(localStorage.getItem('rv-ra-enabled') !== '1'){
+        return { cheevos_enable: false };
+      }
+      const u = String(localStorage.getItem('rv-ra-username')||'').trim();
+      const t = String(localStorage.getItem('rv-ra-token')||'').trim();
+      if(!u || !t){
+        return { cheevos_enable: false };
+      }
+      const o = {
+        cheevos_enable: true,
+        cheevos_username: u,
+        cheevos_token: t,
+        cheevos_hardcore_mode_enable: localStorage.getItem('rv-ra-hardcore') === '1'
+      };
+      if(localStorage.getItem('rv-ra-verbose') === '1'){
+        o.cheevos_verbose_enable = true;
+      }
+      return o;
+    }catch(e){
+      return { cheevos_enable: false };
+    }
+  }
+
+  function _rvApplyRetroAchievementsToWindow(){
+    const base = (window.EJS_defaultOptions && typeof window.EJS_defaultOptions === 'object')
+      ? Object.assign({}, window.EJS_defaultOptions) : {};
+    ['cheevos_enable','cheevos_username','cheevos_password','cheevos_token','cheevos_hardcore_mode_enable','cheevos_verbose_enable'].forEach(function(k){
+      try{ delete base[k]; }catch(e){}
+    });
+    const ra = _rvRaDefaultsFromStorage();
+    window.EJS_defaultOptions = Object.assign(base, ra);
+  }
+  window._rvApplyRetroAchievementsToWindow = _rvApplyRetroAchievementsToWindow;
+
+  function _rvInitRetroAchievementsSettings(){
+    const host = document.getElementById('st-gen') || document.getElementById('view-settings');
+    if(!host || document.getElementById('rvRaCard')) return;
+    const card = document.createElement('div');
+    card.id = 'rvRaCard';
+    card.style.cssText = 'background:var(--s2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px;';
+    card.innerHTML = ''
+      + '<div style="font-weight:700;margin-bottom:8px;">RetroAchievements</div>'
+      + '<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px;">'
+      + 'When enabled, EmulatorJS passes <code style="font-size:10px;">cheevos_*</code> options to RetroArch cores that support achievements. '
+      + 'Create an account at <a href="https://retroachievements.org/" target="_blank" rel="noopener">retroachievements.org</a> and use your username plus API key from <strong>My Pages → Settings → Keys</strong>. '
+      + 'Credentials stay in this browser only (localStorage).</div>'
+      + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;"><input type="checkbox" id="rvRaEnable"/> Enable achievements</label>'
+      + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;"><input type="checkbox" id="rvRaHardcore"/> Hardcore mode (no save states / cheats per RA rules)</label>'
+      + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;"><input type="checkbox" id="rvRaVerbose"/> Verbose logging (debug)</label>'
+      + '<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px;">'
+      + '<input type="text" id="rvRaUser" placeholder="RetroAchievements username" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
+      + '<input type="password" id="rvRaToken" placeholder="API key (from retroachievements.org)" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
+      + '</div>'
+      + '<button type="button" class="bb p" id="rvRaSave">Save RetroAchievements</button>'
+      + '<div id="rvRaNote" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>';
+
+    const en = card.querySelector('#rvRaEnable');
+    const hc = card.querySelector('#rvRaHardcore');
+    const vb = card.querySelector('#rvRaVerbose');
+    const uEl = card.querySelector('#rvRaUser');
+    const tEl = card.querySelector('#rvRaToken');
+    try{
+      en.checked = localStorage.getItem('rv-ra-enabled') === '1';
+      hc.checked = localStorage.getItem('rv-ra-hardcore') === '1';
+      vb.checked = localStorage.getItem('rv-ra-verbose') === '1';
+      uEl.value = localStorage.getItem('rv-ra-username') || '';
+      tEl.value = localStorage.getItem('rv-ra-token') || '';
+      tEl.placeholder = (tEl.value ? '•••••••• (saved — leave blank to keep)' : 'API key (from retroachievements.org)');
+    }catch(e){}
+
+    card.querySelector('#rvRaSave').onclick = function(){
+      try{
+        localStorage.setItem('rv-ra-enabled', en.checked ? '1' : '0');
+        localStorage.setItem('rv-ra-hardcore', hc.checked ? '1' : '0');
+        localStorage.setItem('rv-ra-verbose', vb.checked ? '1' : '0');
+        localStorage.setItem('rv-ra-username', String(uEl.value||'').trim());
+        const tokIn = String(tEl.value||'').trim();
+        if(tokIn) localStorage.setItem('rv-ra-token', tokIn);
+        else if(!localStorage.getItem('rv-ra-token')){ /* keep empty */ }
+        const note = card.querySelector('#rvRaNote');
+        if(note) note.textContent = en.checked && (!String(uEl.value||'').trim() || (!tokIn && !localStorage.getItem('rv-ra-token')))
+          ? 'Enter username and API key for achievements to activate.'
+          : 'Saved. Launch a game to apply (F1 → Achievements in RetroArch when supported).';
+        if(typeof toast==='function') toast('RetroAchievements settings saved');
+      }catch(e){
+        if(typeof toast==='function') toast('Save failed','err');
+      }
+    };
+    host.appendChild(card);
+  }
+  window._rvInitRetroAchievementsSettings = _rvInitRetroAchievementsSettings;
+
   function _rvYoutubeEmbedSrcFromUrl(raw){
     const s = String(raw||'').trim();
     if(!s) return '';
@@ -3924,7 +4028,7 @@ if(document.readyState === 'loading'){
   window._rvCloudCheckBackupFile = _rvCloudCheckBackupFile;
   window._rvCloudRestoreBackup = _rvCloudRestoreBackup;
 
-  const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); };
+  const boot = function(){ patchText(); loadProfile().catch(()=>{}); if(window._rvInitOwnerCloudTools) window._rvInitOwnerCloudTools(); if(window._rvInitRetroAchievementsSettings) window._rvInitRetroAchievementsSettings(); };
   const boot2 = function(){
     _rvEnsureUsersNavButton();
     let netflixUsers = false;
@@ -3992,6 +4096,7 @@ if(document.readyState === 'loading'){
 
   if(typeof _rvApplyEjsNetplayFromSession==='function'){ try{ _rvApplyEjsNetplayFromSession(rom); }catch(e){} }
   if(typeof _rvApplyCloudSaveStateOnLaunch==='function'){ try{ await _rvApplyCloudSaveStateOnLaunch(rom); }catch(e){} }
+  if(typeof _rvApplyRetroAchievementsToWindow==='function'){ try{ _rvApplyRetroAchievementsToWindow(); }catch(e){} }
 
   // FIX 8: Inject loader.js AFTER all vars are set and player div exists`
     );
