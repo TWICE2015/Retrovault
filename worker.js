@@ -308,7 +308,7 @@ const RELEASE_LOG = [
   },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-retroachievements';
+const APP_RELEASE_VERSION = '2026.04.16-screenscraper';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -500,7 +500,46 @@ function getHTML(env) {
   // gets an isolated R2 namespace without requiring a separate frontend build.
   if (!html.includes('function _rvOwnerId(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
-    const ownerHelper = "function _rvNormalizeOwner(v){ return String(v||'').trim().replace(/[^a-zA-Z0-9._-]/g,'').slice(0,128); }\nfunction _rvOwnerId(){ const k='rv-owner-id'; let v=_rvNormalizeOwner(localStorage.getItem(k)); if(!v){ v='u_'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem(k,v); } return v; }\nfunction _rvSetOwnerId(v){ const id=_rvNormalizeOwner(v); if(!id) return null; localStorage.setItem('rv-owner-id',id); return id; }\nfunction _rvMakeCard(title){ const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='10px'; const h=document.createElement('div'); h.style.fontWeight='700'; h.style.marginBottom='8px'; h.textContent=title; card.appendChild(h); return card; }\nfunction _rvInitOwnerControls(){ const r2Input=document.getElementById('r2UrlInput'); if(!r2Input||document.getElementById('rvOwnerInput')) return; const host=r2Input.closest('#rt-cloud')||r2Input.parentElement||r2Input; const card=_rvMakeCard('Shared Sync Owner'); const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvOwnerInput'; input.type='text'; input.placeholder='owner id (e.g. main)'; input.value=_rvOwnerId(); input.autocomplete='off'; input.spellcheck=false; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const btn=document.createElement('button'); btn.type='button'; btn.className='bb s'; btn.textContent='Save Owner'; btn.onclick=()=>{ const saved=_rvSetOwnerId(input.value); if(!saved){ toast('Enter a valid Owner ID (letters, numbers, . _ -)','err'); return; } input.value=saved; toast('Owner ID saved: '+saved); }; row.appendChild(input); row.appendChild(btn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; card.appendChild(row); card.appendChild(note); host.appendChild(card); }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitOwnerControls); else setTimeout(_rvInitOwnerControls,0);\n";
+    const ownerHelper = "function _rvNormalizeOwner(v){ return String(v||'').trim().replace(/[^a-zA-Z0-9._-]/g,'').slice(0,128); }\nfunction _rvOwnerId(){ const k='rv-owner-id'; let v=_rvNormalizeOwner(localStorage.getItem(k)); if(!v){ v='u_'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem(k,v); } return v; }\nfunction _rvSetOwnerId(v){ const id=_rvNormalizeOwner(v); if(!id) return null; localStorage.setItem('rv-owner-id',id); return id; }\nfunction _rvMakeCard(title){ const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='10px'; const h=document.createElement('div'); h.style.fontWeight='700'; h.style.marginBottom='8px'; h.textContent=title; card.appendChild(h); return card; }\nfunction _rvInitOwnerControls(){ const r2Input=document.getElementById('r2UrlInput'); if(!r2Input||document.getElementById('rvOwnerInput')) return; const host=r2Input.closest('#rt-cloud')||r2Input.parentElement||r2Input; const card=_rvMakeCard('Shared Sync Owner'); const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvOwnerInput'; input.type='text'; input.placeholder='owner id (e.g. main)'; input.value=_rvOwnerId(); input.autocomplete='off'; input.spellcheck=false; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const btn=document.createElement('button'); btn.type='button'; btn.className='bb s'; btn.textContent='Save Owner'; btn.onclick=()=>{ const saved=_rvSetOwnerId(input.value); if(!saved){ toast('Enter a valid Owner ID (letters, numbers, . _ -)','err'); return; } input.value=saved; toast('Owner ID saved: '+saved); }; row.appendChild(input); row.appendChild(btn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; card.appendChild(row); card.appendChild(note); host.appendChild(card);
+  // ScreenScraper settings
+  try{
+    const ssEn=document.getElementById('rvSsEnable');
+    const ssDevId=document.getElementById('rvSsDevId');
+    const ssDevPw=document.getElementById('rvSsDevPw');
+    const ssUser=document.getElementById('rvSsUser');
+    const ssPass=document.getElementById('rvSsPass');
+    const ssSt=document.getElementById('rvSsStatus');
+    if(ssEn){ ssEn.checked = localStorage.getItem('rv-ss-enabled')==='1'; ssEn.onchange=function(){ try{ localStorage.setItem('rv-ss-enabled', ssEn.checked?'1':'0'); if(ssSt) ssSt.textContent = ssEn.checked ? 'Enabled.' : 'Disabled.'; }catch(e){} }; }
+    if(ssDevId) ssDevId.value = localStorage.getItem('rv-ss-devid')||'';
+    if(ssDevPw) ssDevPw.value = localStorage.getItem('rv-ss-devpassword')||'';
+    if(ssUser) ssUser.value = localStorage.getItem('rv-ss-ssid')||'';
+    if(ssPass) ssPass.value = localStorage.getItem('rv-ss-sspassword')||'';
+    const saveBtn=document.getElementById('rvSsSave');
+    if(saveBtn) saveBtn.onclick=function(){
+      try{
+        localStorage.setItem('rv-ss-devid', String(ssDevId&&ssDevId.value||'').trim());
+        localStorage.setItem('rv-ss-devpassword', String(ssDevPw&&ssDevPw.value||'').trim());
+        localStorage.setItem('rv-ss-ssid', String(ssUser&&ssUser.value||'').trim());
+        localStorage.setItem('rv-ss-sspassword', String(ssPass&&ssPass.value||'').trim());
+        if(ssSt) ssSt.textContent='Saved.';
+        if(typeof toast==='function') toast('ScreenScraper settings saved');
+      }catch(e){ if(typeof toast==='function') toast('Save failed','err'); }
+    };
+    const clrBtn=document.getElementById('rvSsClear');
+    if(clrBtn) clrBtn.onclick=function(){
+      try{
+        ['rv-ss-enabled','rv-ss-devid','rv-ss-devpassword','rv-ss-ssid','rv-ss-sspassword'].forEach(function(k){ localStorage.removeItem(k); });
+        if(ssEn) ssEn.checked=false;
+        if(ssDevId) ssDevId.value='';
+        if(ssDevPw) ssDevPw.value='';
+        if(ssUser) ssUser.value='';
+        if(ssPass) ssPass.value='';
+        if(ssSt) ssSt.textContent='Cleared.';
+        if(typeof toast==='function') toast('ScreenScraper cleared');
+      }catch(e){}
+    };
+  }catch(e){}
+ }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitOwnerControls); else setTimeout(_rvInitOwnerControls,0);\n";
     if (html.includes(helperAnchor)) {
       html = html.replace(helperAnchor, ownerHelper + helperAnchor);
     }
@@ -1614,6 +1653,159 @@ async function _rvHasheousFetchLookup(hashes){
   return data;
 }
 
+
+
+function _rvSsEnabled(){
+  try{ return localStorage.getItem('rv-ss-enabled') === '1'; }catch(e){ return false; }
+}
+
+function _rvSsCreds(){
+  try{
+    if(!_rvSsEnabled()) return null;
+    const devid = String(localStorage.getItem('rv-ss-devid')||'').trim();
+    const devpassword = String(localStorage.getItem('rv-ss-devpassword')||'').trim();
+    const ssid = String(localStorage.getItem('rv-ss-ssid')||'').trim();
+    const sspassword = String(localStorage.getItem('rv-ss-sspassword')||'').trim();
+    if(!devid || !devpassword || !ssid || !sspassword) return null;
+    return { devid, devpassword, ssid, sspassword };
+  }catch(e){ return null; }
+}
+
+function _rvSsSystemIdForConsole(consoleId){
+  const c = String(consoleId||'').toLowerCase();
+  // ScreenScraper `systemeid` mapping (common systems). Extend as needed.
+  const map = {
+    nes: '3',
+    snes: '4',
+    n64: '14',
+    gb: '9',
+    gbc: '10',
+    gba: '12',
+    sms: '2',
+    md: '1',
+    genesis: '1',
+    gg: '21',
+    sega32x: '19',
+    saturn: '22',
+    psx: '57',
+    ps1: '57',
+    ps2: '58',
+    psp: '61',
+    nds: '15',
+    nintendo_ds: '15',
+    dc: '23',
+    pce: '31',
+    tg16: '31',
+    neogeo: '24',
+    arcade: '75',
+    mame: '75',
+  };
+  return map[c] || '';
+}
+
+async function _rvScreenScraperFetchJeuInfos(rom, hashes){
+  const creds = _rvSsCreds();
+  if(!creds || !rom || !hashes) return null;
+  const systemeid = _rvSsSystemIdForConsole(rom.console);
+  if(!systemeid) return null;
+  const body = {
+    devid: creds.devid,
+    devpassword: creds.devpassword,
+    ssid: creds.ssid,
+    sspassword: creds.sspassword,
+    systemeid,
+    crc: hashes.crc || '',
+    sha1: hashes.sha1 || '',
+    romnom: String(rom.filename||rom.name||'').split('/').pop() || '',
+    romtaille: String(hashes.byteLength||rom.size||'')
+  };
+  const resp = await fetch(window.location.origin + '/screenscraper-jeuInfos', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
+    body: JSON.stringify(body)
+  });
+  const text = await resp.text();
+  let data = null;
+  try{ data = JSON.parse(text); }catch(e){ data = null; }
+  if(!resp.ok) return null;
+  return data;
+}
+
+function _rvSsFirstStringUrl(obj, prefer){
+  // Depth-first search for a URL string; optional prefer(regex) to bias toward boxart.
+  try{
+    const seen = new Set();
+    const stack = [obj];
+    let fallback = '';
+    while(stack.length){
+      const v = stack.pop();
+      if(!v) continue;
+      if(typeof v === 'string'){
+        const s = String(v).trim();
+        if(/^https?:\/\//i.test(s)){
+          if(prefer && prefer.test(s)) return s;
+          if(!fallback) fallback = s;
+        }
+        continue;
+      }
+      if(typeof v !== 'object') continue;
+      if(seen.has(v)) continue;
+      seen.add(v);
+      if(Array.isArray(v)){
+        for(let i=v.length-1;i>=0;i--) stack.push(v[i]);
+      } else {
+        const keys = Object.keys(v);
+        for(let i=keys.length-1;i>=0;i--) stack.push(v[keys[i]]);
+      }
+    }
+    return fallback;
+  }catch(e){
+    return '';
+  }
+}
+
+function _rvSsPickCoverUrl(ssData){
+  // Best-effort pick: prefer media URLs with 'box' / '2d' / 'cover' in path.
+  const prefer = /(box|2d|cover|boite)/i;
+  return _rvSsFirstStringUrl(ssData, prefer);
+}
+
+function _rvSsPickDescription(ssData){
+  try{
+    // Best-effort: find first long-ish string that isn't a URL.
+    const seen = new Set();
+    const stack = [ssData];
+    while(stack.length){
+      const v = stack.pop();
+      if(!v) continue;
+      if(typeof v === 'string'){
+        const s = String(v).trim();
+        if(!s) continue;
+        if(/^https?:\/\//i.test(s)) continue;
+        if(s.length >= 80) return _rvToPlainText(s);
+        continue;
+      }
+      if(typeof v !== 'object') continue;
+      if(seen.has(v)) continue;
+      seen.add(v);
+      if(Array.isArray(v)){
+        for(let i=v.length-1;i>=0;i--) stack.push(v[i]);
+      } else {
+        const keys = Object.keys(v);
+        for(let i=keys.length-1;i>=0;i--) stack.push(v[keys[i]]);
+      }
+    }
+  }catch(e){}
+  return '';
+}
+
+function _rvSsPickYear(ssData){
+  try{
+    const txt = JSON.stringify(ssData||{});
+    const m = txt.match(/(19|20)\d{2}/);
+    return m ? m[0] : '';
+  }catch(e){ return ''; }
+}
 async function _rvApplyHasheousToRom(romId, api, opts){
   opts = opts || {};
   const overwrite = !!opts.overwrite;
@@ -1694,6 +1886,44 @@ async function _rvHasheousScrapeRom(romId, opts){
   const ow = (opts.overwrite != null) ? opts.overwrite : (localStorage.getItem('rv-meta-overwrite') === '1');
   const miss = !!opts.missingOnly;
   const did = await _rvApplyHasheousToRom(romId, api, { overwrite: ow, missingOnly: miss });
+
+  // Optional: ScreenScraper enrich (better retro coverage)
+  try{
+    const rom2 = await dbGet('roms', romId);
+    if(rom2 && typeof _rvScreenScraperFetchJeuInfos === 'function' && typeof _rvSsEnabled === 'function' && _rvSsEnabled()){
+      const ss = await _rvScreenScraperFetchJeuInfos(rom2, hashes);
+      if(ss){
+        let changed2 = false;
+        const cover = _rvSsPickCoverUrl(ss);
+        if(cover && !_rvIsBadCoverUrl(cover)){
+          const prox = window.location.origin + '/img-proxy?url=' + encodeURIComponent(cover);
+          if((miss && !rom2.coverUrl) || (!miss && (ow || !rom2.coverUrl))){
+            if(rom2.coverUrl !== prox){ rom2.coverUrl = prox; changed2 = true; }
+          }
+        }
+        const desc2 = _rvSsPickDescription(ss);
+        if(desc2){
+          if((miss && !rom2.description) || (!miss && (ow || !rom2.description))){
+            if(rom2.description !== desc2){ rom2.description = desc2; changed2 = true; }
+          }
+        }
+        const year2 = _rvSsPickYear(ss);
+        if(year2 && /^(19|20)\d{2}$/.test(year2)){
+          if((miss && !rom2.year) || (!miss && (ow || !rom2.year))){
+            if(rom2.year !== year2){ rom2.year = year2; changed2 = true; }
+          }
+        }
+        if(changed2){
+          await dbPut('roms', rom2);
+          if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom2);
+          if(typeof logScrape === 'function') logScrape('[screenscraper] updated ' + (rom2.name||rom2.filename||romId));
+        }
+      }
+    }
+  }catch(e){
+    if(typeof logScrape === 'function') logScrape('[screenscraper] ' + (e && e.message ? e.message : e));
+  }
+
   if(typeof logScrape === 'function'){
     logScrape('[hasheous] ' + rom.name + (did ? ' updated' : ' no changes'));
   }
@@ -1786,6 +2016,24 @@ function _rvInitHasheousControls(){
     + 'RetroVault uses only <a href="https://hasheous.org/" target="_blank" rel="noopener">Hasheous</a> for automatic metadata. '
     + 'It matches your ROM file hash (CRC32, SHA-1, SHA-256) to No-Intro / Redump style signatures, then fills title, description, year, and a TheGamesDB box art URL. '
     + 'Other cloud scrapers and XML imports are removed.'
+    + '</div>'
+    + '<div class="sblk" style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--s2);">'
+    + '<div style="font-weight:700;margin-bottom:8px;">ScreenScraper</div>'
+    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Enable ScreenScraper to improve coverage for ROMs Hasheous can\'t map. Requires both <strong>developer</strong> credentials (devid/devpassword) and your <strong>member</strong> login (ssid/sspassword). Stored in localStorage only.</div>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvSsEnable"/> Enable ScreenScraper (use after Hasheous)</label>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">'
+    + '<input type="text" id="rvSsDevId" placeholder="devid" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
+    + '<input type="password" id="rvSsDevPw" placeholder="devpassword" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
+    + '<input type="text" id="rvSsUser" placeholder="ssid (username)" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
+    + '<input type="password" id="rvSsPass" placeholder="sspassword" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
+    + '<button class="bb s" type="button" id="rvSsSave">Save ScreenScraper</button>'
+    + '<button class="bb s" type="button" id="rvSsClear">Clear</button>'
+    + '</div>'
+    + '<div id="rvSsStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>'
+    + '</div>'
+
     + '</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);">'
     + '<input type="checkbox" id="rvHasheousOverwrite" /> Overwrite existing description / year / cover</label>'
@@ -6058,6 +6306,83 @@ export default {
       }
     }
 
+
+
+    // ====================================================================
+    // SCREENSCRAPER API v2 (proxy) — POST /screenscraper-jeuInfos
+    // Proxies https://api.screenscraper.fr/api2/jeuInfos.php (browser CORS blocks direct calls).
+    // ScreenScraper requires BOTH developer credentials (devid/devpassword) and member credentials (ssid/sspassword).
+    // Notes:
+    // - We accept crc (8 hex) and/or sha1 (40 hex). ScreenScraper also supports md5, but we only compute sha1+crc client-side today.
+    // - `systemeid` must be provided (ScreenScraper numeric system id).
+    // ====================================================================
+    if (path === '/screenscraper-jeuInfos' && method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+    if (path === '/screenscraper-jeuInfos' && method === 'POST') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return cloneJsonResponse(origin, { ok: false, error: 'Invalid JSON body' }, 400);
+      }
+      const asStr = (v) => String(v == null ? '' : v).trim();
+      const devid = asStr(body.devid).slice(0, 64);
+      const devpassword = asStr(body.devpassword).slice(0, 128);
+      const ssid = asStr(body.ssid).slice(0, 64);
+      const sspassword = asStr(body.sspassword).slice(0, 128);
+      const systemeid = asStr(body.systemeid).replace(/[^0-9]/g, '').slice(0, 6);
+      const romnom = asStr(body.romnom).slice(0, 180);
+      const romtype = asStr(body.romtype || 'rom').slice(0, 12);
+      const romtaille = asStr(body.romtaille).replace(/[^0-9]/g, '').slice(0, 16);
+      const crc = asStr(body.crc).toLowerCase().replace(/[^a-f0-9]/g, '').slice(0, 8);
+      const sha1 = asStr(body.sha1).toLowerCase().replace(/[^a-f0-9]/g, '').slice(0, 40);
+      const crcOk = crc.length === 8;
+      const sha1Ok = sha1.length === 40;
+
+      if (!devid || !devpassword || !ssid || !sspassword) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing ScreenScraper credentials (devid, devpassword, ssid, sspassword)' }, 400);
+      }
+      if (!systemeid) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing systemeid' }, 400);
+      }
+      if (!crcOk && !sha1Ok) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Provide crc (8 hex) or sha1 (40 hex)' }, 400);
+      }
+
+      const qs = new URLSearchParams({
+        devid,
+        devpassword,
+        softname: 'RetroVault',
+        output: 'json',
+        ssid,
+        sspassword,
+        systemeid,
+        romtype,
+      });
+      if (crcOk) qs.set('crc', crc);
+      if (sha1Ok) qs.set('sha1', sha1);
+      if (romnom) qs.set('romnom', romnom);
+      if (romtaille) qs.set('romtaille', romtaille);
+
+      const upstreamUrl = 'https://api.screenscraper.fr/api2/jeuInfos.php?' + qs.toString();
+      try {
+        const up = await fetch(upstreamUrl, { headers: { Accept: 'application/json' } });
+        const text = await up.text();
+        const ct = up.headers.get('Content-Type') || 'application/json';
+        return new Response(text, {
+          status: up.status,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': ct.includes('json') ? 'application/json; charset=UTF-8' : ct,
+            'Cache-Control': up.ok ? 'public, max-age=86400' : 'no-store',
+            'X-Proxied-By': 'RetroVault ScreenScraper',
+          },
+        });
+      } catch (err) {
+        return cloneJsonResponse(origin, { ok: false, error: 'ScreenScraper proxy failed: ' + err.message }, 502);
+      }
+    }
     // RELEASE LOG + GITHUB INTEGRATION STATUS
     // ════════════════════════════════════════════════════════════════════
     if (path === '/changelog' || path === '/release-notes.json') {
