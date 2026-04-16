@@ -308,7 +308,7 @@ const RELEASE_LOG = [
   },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-screenscraper-fix2';
+const APP_RELEASE_VERSION = '2026.04.16-video-ext-regex-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -5660,6 +5660,66 @@ export default {
 
     // ════════════════════════════════════════════════════════════════════
 
+
+    // ════════════════════════════════════════════════════════════════════
+    // SCRAPER PROXY — GET /scraper-proxy?url=
+    // Legacy bundle paths (ScreenScraper test + scrapeRomById) still call this
+    // same-origin wrapper. Without it, the Worker returns HTML (404) and the
+    // client throws "Unexpected token '<' ... is not valid JSON".
+    // Only http(s) to allowlisted API hosts.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/scraper-proxy') {
+      const target = url.searchParams.get('url');
+      if (!target) {
+        return new Response(JSON.stringify({ ok: false, error: 'Missing url' }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      if (method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      if (method !== 'GET') {
+        return new Response('Method not allowed', { status: 405, headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' } });
+      }
+
+      let parsed;
+      try { parsed = new URL(target); } catch { parsed = null; }
+      if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')) {
+        return new Response(JSON.stringify({ ok: false, error: 'Invalid url' }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      const host = (parsed.hostname || '').toLowerCase();
+      const allowed = host === 'api.screenscraper.fr'
+        || host === 'www.screenscraper.fr'
+        || host === 'screenscraper.fr'
+        || host === 'gamesdb.launchbox-app.com';
+      if (!allowed) {
+        return new Response(JSON.stringify({ ok: false, error: 'Host not allowed for scraper proxy' }), {
+          status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+
+      try {
+        const upstream = await fetch(parsed.toString(), {
+          method: 'GET',
+          headers: { Accept: 'application/json', 'User-Agent': 'RetroVault/2.0' },
+        });
+        const text = await upstream.text();
+        const ct = upstream.headers.get('Content-Type') || 'application/json';
+        return new Response(text, {
+          status: upstream.status,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': ct.includes('json') ? 'application/json; charset=UTF-8' : ct,
+            'Cache-Control': 'no-store',
+            'X-Proxied-By': 'RetroVault scraper-proxy',
+          },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: 'scraper-proxy failed: ' + err.message }), {
+          status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     // ════════════════════════════════════════════════════════════════════
     // IMAGE PROXY — GET /img-proxy?url=
