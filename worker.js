@@ -1703,7 +1703,7 @@ function _rvSsFirstStringUrl(obj, prefer){
       if(!v) continue;
       if(typeof v === 'string'){
         const s = String(v).trim();
-        if(/^https?:\/\//i.test(s)){
+        if((new RegExp('^https?://','i')).test(s)){
           if(prefer && prefer.test(s)) return s;
           if(!fallback) fallback = s;
         }
@@ -1742,7 +1742,7 @@ function _rvSsPickDescription(ssData){
       if(typeof v === 'string'){
         const s = String(v).trim();
         if(!s) continue;
-        if(/^https?:\/\//i.test(s)) continue;
+        if((new RegExp('^https?://','i')).test(s)) continue;
         if(s.length >= 80) return _rvToPlainText(s);
         continue;
       }
