@@ -322,9 +322,18 @@ const RELEASE_LOG = [
       'Member login test surfaces French API errors with short hints (pseudo + site password, not DebugPassword).',
     ],
   },
+  {
+    id: '2026-04-16-e',
+    title: 'Missing box art: name search + repair queue',
+    details: [
+      'ScreenScraper enrich: after hash jeuInfos, optional jeuRecherche + jeuInfos(gameid) when cover still missing.',
+      'POST /screenscraper-jeuRecherche proxies jeuRecherche.php; jeuInfos proxy accepts gameid without crc/sha1.',
+      'Scraper → Sources: Repair missing and broken covers queues ROMs with no coverUrl or known-bad URLs.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-screenscraper-login-hints';
+const APP_RELEASE_VERSION = '2026.04.16-cover-repair-name-search';
 
 // ScreenScraper API v2 developer identity (devid / devpassword). Baked so browsers only send member ssid/sspassword.
 // Override via Worker secrets SS_DEV_ID / SS_DEV_PASSWORD if you use a different registered app.
@@ -356,6 +365,7 @@ const CHANGELOG_DATA = {
     'RetroAchievements: Settings card + EJS_defaultOptions cheevos_* merged at launch (username + API key in localStorage)',
     'ScreenScraper enrich: baked developer id in Worker; member username/password in Scraper → Sources (localStorage) or SS_USER/SS_PASSWORD secrets',
     'ScreenScraper: Test developer API id (ssinfraInfos) vs member login (ssuserInfos) to interpret French 403 errors',
+    'Missing box art: ScreenScraper name search fallback + repair queue for bad/missing cover URLs',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -1727,6 +1737,126 @@ async function _rvScreenScraperFetchJeuInfos(rom, hashes){
   return data;
 }
 
+async function _rvScreenScraperFetchJeuInfosByGameId(rom, gameId){
+  const creds = _rvSsCreds();
+  if(!creds || !rom) return null;
+  const systemeid = _rvSsSystemIdForConsole(rom.console);
+  if(!systemeid) return null;
+  const gid = String(gameId == null ? '' : gameId).replace(/[^0-9]/g,'');
+  if(!gid) return null;
+  const resp = await fetch(window.location.origin + '/screenscraper-jeuInfos', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
+    body: JSON.stringify({
+      ssid: creds.ssid,
+      sspassword: creds.sspassword,
+      systemeid,
+      gameid: gid
+    })
+  });
+  const text = await resp.text();
+  let data = null;
+  try{ data = JSON.parse(text); }catch(e){ data = null; }
+  if(!resp.ok) return null;
+  return data;
+}
+
+async function _rvScreenScraperFetchJeuRecherche(rom, recherche){
+  const creds = _rvSsCreds();
+  if(!creds || !rom) return null;
+  const systemeid = _rvSsSystemIdForConsole(rom.console);
+  if(!systemeid) return null;
+  const q = String(recherche || '').trim();
+  if(!q) return null;
+  const resp = await fetch(window.location.origin + '/screenscraper-jeuRecherche', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
+    body: JSON.stringify({
+      ssid: creds.ssid,
+      sspassword: creds.sspassword,
+      systemeid,
+      recherche: q.slice(0, 180)
+    })
+  });
+  const text = await resp.text();
+  let data = null;
+  try{ data = JSON.parse(text); }catch(e){ data = null; }
+  if(!resp.ok) return null;
+  return data;
+}
+
+function _rvSsNameQueryFromRom(rom){
+  let base = String(rom && rom.name ? rom.name : '').trim();
+  const fn = String(rom && rom.filename ? rom.filename : '').trim();
+  if(!base || (typeof cleanName === 'function' && fn && base === cleanName(fn))){
+    base = fn.split('/').pop() || base;
+  } else {
+    base = base || (fn.split('/').pop() || '');
+  }
+  base = base.replace(/\.[^.\\/]*$/i, '');
+  base = base.replace(/[\[\]()_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return base.slice(0, 120);
+}
+
+function _rvSsListJeuxFromRecherche(data){
+  try{
+    const resp = data && data.response;
+    let j = resp && resp.jeux && resp.jeux.jeu;
+    if(!j && resp && Array.isArray(resp.jeu)) j = resp.jeu;
+    if(!j) return [];
+    const arr = Array.isArray(j) ? j : [j];
+    const out = [];
+    for(let i = 0; i < arr.length; i++){
+      const x = arr[i];
+      const id = x && x.id != null ? String(x.id).replace(/[^0-9]/g, '') : '';
+      if(!id) continue;
+      out.push({ id: id, nom: x && x.nom != null ? String(x.nom) : '' });
+    }
+    return out;
+  }catch(e){
+    return [];
+  }
+}
+
+function _rvRomHasGoodCover(rom){
+  if(!rom || !rom.coverUrl) return false;
+  return !_rvIsBadCoverUrl(rom.coverUrl);
+}
+
+async function _rvApplySsPayloadToRom(rom2, ss, opts){
+  opts = opts || {};
+  const ow = !!opts.overwrite;
+  const miss = !!opts.missingOnly;
+  if(!rom2 || !ss) return false;
+  const noGoodCover = !_rvRomHasGoodCover(rom2);
+  let changed2 = false;
+  const cover = _rvSsPickCoverUrl(ss);
+  if(cover && !_rvIsBadCoverUrl(cover)){
+    const prox = window.location.origin + '/img-proxy?url=' + encodeURIComponent(cover);
+    if((miss && noGoodCover) || (!miss && (ow || noGoodCover))){
+      if(rom2.coverUrl !== prox){ rom2.coverUrl = prox; changed2 = true; }
+    }
+  }
+  const desc2 = _rvSsPickDescription(ss);
+  if(desc2){
+    if((miss && !rom2.description) || (!miss && (ow || !rom2.description))){
+      if(rom2.description !== desc2){ rom2.description = desc2; changed2 = true; }
+    }
+  }
+  const year2 = _rvSsPickYear(ss);
+  if(year2 && /^(19|20)\d{2}$/.test(year2)){
+    if((miss && !rom2.year) || (!miss && (ow || !rom2.year))){
+      if(rom2.year !== year2){ rom2.year = year2; changed2 = true; }
+    }
+  }
+  if(changed2){
+    await dbPut('roms', rom2);
+    if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom2);
+    if(typeof logScrape === 'function') logScrape('[screenscraper] updated ' + (rom2.name||rom2.filename||rom2.id));
+  }
+  return changed2;
+}
+
 function _rvSsFirstStringUrl(obj, prefer){
   // Depth-first search for a URL string; optional prefer(regex) to bias toward boxart.
   try{
@@ -1895,41 +2025,35 @@ async function _rvHasheousScrapeRom(romId, opts){
     }
   }
 
-  // Optional: ScreenScraper enrich (better retro coverage); runs when Hasheous misses or is off
+  // Optional: ScreenScraper enrich (hash match + optional name search when cover still missing)
   let ssChanged = false;
   try{
-    const rom2 = await dbGet('roms', romId);
+    let rom2 = await dbGet('roms', romId);
     if(rom2 && typeof _rvScreenScraperFetchJeuInfos === 'function' && typeof _rvSsEnabled === 'function' && _rvSsEnabled()){
       const ss = await _rvScreenScraperFetchJeuInfos(rom2, hashes);
       if(ss){
-        let changed2 = false;
-        const cover = _rvSsPickCoverUrl(ss);
-        if(cover && !_rvIsBadCoverUrl(cover)){
-          const prox = window.location.origin + '/img-proxy?url=' + encodeURIComponent(cover);
-          if((miss && !rom2.coverUrl) || (!miss && (ow || !rom2.coverUrl))){
-            if(rom2.coverUrl !== prox){ rom2.coverUrl = prox; changed2 = true; }
+        if(await _rvApplySsPayloadToRom(rom2, ss, { overwrite: ow, missingOnly: miss })) ssChanged = true;
+      }
+      rom2 = await dbGet('roms', romId);
+      const wantNameSearch = opts.nameSearch !== false;
+      const needCover = rom2 && !_rvRomHasGoodCover(rom2);
+      if(rom2 && wantNameSearch && needCover && typeof _rvScreenScraperFetchJeuRecherche === 'function'){
+        const q = _rvSsNameQueryFromRom(rom2);
+        if(q){
+          const rec = await _rvScreenScraperFetchJeuRecherche(rom2, q);
+          const candidates = _rvSsListJeuxFromRecherche(rec || {});
+          const maxTry = Math.min(3, candidates.length);
+          for(let ti = 0; ti < maxTry && rom2 && !_rvRomHasGoodCover(rom2); ti++){
+            const ss2 = await _rvScreenScraperFetchJeuInfosByGameId(rom2, candidates[ti].id);
+            if(ss2 && await _rvApplySsPayloadToRom(rom2, ss2, { overwrite: ow, missingOnly: miss })){
+              ssChanged = true;
+            }
+            rom2 = await dbGet('roms', romId);
+          }
+          if(!candidates.length && typeof logScrape === 'function'){
+            logScrape('[screenscraper] name search no hits for "' + q + '"');
           }
         }
-        const desc2 = _rvSsPickDescription(ss);
-        if(desc2){
-          if((miss && !rom2.description) || (!miss && (ow || !rom2.description))){
-            if(rom2.description !== desc2){ rom2.description = desc2; changed2 = true; }
-          }
-        }
-        const year2 = _rvSsPickYear(ss);
-        if(year2 && /^(19|20)\d{2}$/.test(year2)){
-          if((miss && !rom2.year) || (!miss && (ow || !rom2.year))){
-            if(rom2.year !== year2){ rom2.year = year2; changed2 = true; }
-          }
-        }
-        if(changed2){
-          await dbPut('roms', rom2);
-          if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom2);
-          if(typeof logScrape === 'function') logScrape('[screenscraper] updated ' + (rom2.name||rom2.filename||romId));
-          ssChanged = true;
-        }
-      } else if(typeof logScrape === 'function'){
-        logScrape('[screenscraper] no match for ' + (rom.name||rom.filename||romId) + ' (enter ScreenScraper member login in Sources, check system mapping, or ROM hash in ScreenScraper DB)');
       }
     }
   }catch(e){
@@ -1954,7 +2078,7 @@ async function _rvRunHasheousQueue(romList, opts){
     try{
       if(await _rvHasheousScrapeRom(r.id, opts)) ok++;
     }catch(e){}
-    await new Promise(function(res){ setTimeout(res, 350); });
+    await new Promise(function(res){ setTimeout(res, 500); });
   }
   if(st) st.textContent = 'Done. Updated ' + ok + ' of ' + romList.length + ' ROM(s).';
   if(typeof toast === 'function') toast('Metadata: updated ' + ok + '/' + romList.length);
@@ -2019,8 +2143,8 @@ function _rvPatchScrapePipeline(){
   if(typeof scrapeMissing === 'function'){
     window.__rvScrapeMissingOriginal = scrapeMissing;
     scrapeMissing = async function(){
-      const roms = (await dbGetAll('roms')).filter(function(r){ return r && !r.coverUrl; });
-      if(typeof toast === 'function') toast('Scrape queue: ' + roms.length + ' ROM(s) missing artwork');
+      const roms = (await dbGetAll('roms')).filter(function(r){ return r && typeof _rvRomHasGoodCover === 'function' && !_rvRomHasGoodCover(r); });
+      if(typeof toast === 'function') toast('Scrape queue: ' + roms.length + ' ROM(s) missing or broken artwork');
       await _rvRunHasheousQueue(roms, { missingOnly:true });
     };
   }
@@ -2070,7 +2194,8 @@ function _rvInitHasheousControls(){
     + '<input type="checkbox" id="rvYoutubeTrailerOn" checked /> Auto-find YouTube trailer URL when missing (worker needs <code style="font-size:10px;">YT_API_KEY</code>)</label>'
     + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'
     + '<button class="bb p" type="button" id="rvHasheousAllBtn">Fetch metadata for all ROMs</button>'
-    + '<button class="bb s" type="button" id="rvHasheousMissingBtn">Missing artwork only</button>'
+    + '<button class="bb s" type="button" id="rvHasheousMissingBtn">Missing / broken artwork</button>'
+    + '<button class="bb s" type="button" id="rvHasheousRepairCoversBtn">Repair covers (clear bad URLs + rescan)</button>'
     + '</div>'
     + '<div id="rvHasheousStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>'
     + '<details style="margin-top:12px;font-size:11px;color:var(--muted);line-height:1.55;">'
@@ -2227,10 +2352,44 @@ function _rvInitHasheousControls(){
   };
   document.getElementById('rvHasheousMissingBtn').onclick = function(){
     dbGetAll('roms').then(function(roms){
-      const list = (roms || []).filter(function(r){ return r && !r.coverUrl; });
+      const list = (roms || []).filter(function(r){ return r && typeof _rvRomHasGoodCover === 'function' && !_rvRomHasGoodCover(r); });
       return _rvRunHasheousQueue(list, { missingOnly:true });
     }).catch(function(e){
       const st = document.getElementById('rvHasheousStatus');
+      if(st) st.textContent = String(e && e.message ? e.message : e);
+    });
+  };
+  const repBtn = document.getElementById('rvHasheousRepairCoversBtn');
+  if(repBtn) repBtn.onclick = function(){
+    const st = document.getElementById('rvHasheousStatus');
+    dbGetAll('roms').then(function(roms){
+      const all = roms || [];
+      let cleared = 0;
+      const chain = function(i){
+        if(i >= all.length){
+          if(st) st.textContent = 'Cleared ' + cleared + ' bad cover URL(s). Rescanning…';
+          if(typeof toast === 'function') toast('Repair: cleared ' + cleared + ' bad cover(s), rescanning');
+          return dbGetAll('roms').then(function(fresh){
+            const list = (fresh || []).filter(function(r){ return r && typeof _rvRomHasGoodCover === 'function' && !_rvRomHasGoodCover(r); });
+            return _rvRunHasheousQueue(list, { missingOnly:true });
+          });
+        }
+        const r = all[i];
+        if(!r || !r.id) return chain(i + 1);
+        return dbGet('roms', r.id).then(function(cur){
+          if(!cur || !cur.coverUrl) return chain(i + 1);
+          if(typeof _rvIsBadCoverUrl === 'function' && _rvIsBadCoverUrl(cur.coverUrl)){
+            cur.coverUrl = null;
+            cleared++;
+            return dbPut('roms', cur).then(function(){
+              if(typeof r2SaveMeta === 'function') return r2SaveMeta(cur);
+            }).then(function(){ return chain(i + 1); }, function(){ return chain(i + 1); });
+          }
+          return chain(i + 1);
+        }).catch(function(){ return chain(i + 1); });
+      };
+      return chain(0);
+    }).catch(function(e){
       if(st) st.textContent = String(e && e.message ? e.message : e);
     });
   };
@@ -6632,17 +6791,81 @@ export default {
       }
     }
 
+    // SCREENSCRAPER — POST /screenscraper-jeuRecherche (name search → game ids)
+    const ssRecPath = path === '/screenscraper-jeuRecherche' || path === '/screenscraper-jeuRecherche/';
+    if (ssRecPath && method === 'GET') {
+      return cloneJsonResponse(origin, { ok: false, error: 'Use POST with JSON body (systemeid, recherche). GET is not supported.' }, 405);
+    }
+    if (ssRecPath && method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+    if (ssRecPath && method === 'POST') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return cloneJsonResponse(origin, { ok: false, error: 'Invalid JSON body' }, 400);
+      }
+      const asStr = (v) => String(v == null ? '' : v).trim();
+      const devCreds = resolveScreenScraperDevCredentials(env);
+      const envUser = env && typeof env.SS_USER === 'string' ? String(env.SS_USER).trim() : '';
+      const envPass = env && typeof env.SS_PASSWORD === 'string' ? String(env.SS_PASSWORD).trim() : '';
+      const devid = (asStr(body.devid) || devCreds.devid).slice(0, 64);
+      const devpassword = (asStr(body.devpassword) || devCreds.devpassword).slice(0, 128);
+      const ssid = (asStr(body.ssid) || envUser).slice(0, 64);
+      const sspassword = (asStr(body.sspassword) || envPass).slice(0, 128);
+      const systemeid = asStr(body.systemeid).replace(/[^0-9]/g, '').slice(0, 6);
+      const recherche = asStr(body.recherche).slice(0, 180);
+      if (!ssid || !sspassword) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing member credentials (ssid/sspassword or SS_USER/SS_PASSWORD).' }, 400);
+      }
+      if (!systemeid) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing systemeid' }, 400);
+      }
+      if (!recherche) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing recherche (game name)' }, 400);
+      }
+      const qs = new URLSearchParams({
+        devid,
+        devpassword,
+        softname: 'RetroVault',
+        output: 'json',
+        ssid,
+        sspassword,
+        systemeid,
+        recherche,
+      });
+      const upstreamUrl = 'https://api.screenscraper.fr/api2/jeuRecherche.php?' + qs.toString();
+      try {
+        const up = await fetch(upstreamUrl, { headers: { Accept: 'application/json' } });
+        const text = await up.text();
+        const ct = up.headers.get('Content-Type') || 'application/json';
+        return new Response(text, {
+          status: up.status,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': ct.includes('json') ? 'application/json; charset=UTF-8' : ct,
+            'Cache-Control': 'no-store',
+            'X-Proxied-By': 'RetroVault ScreenScraper jeuRecherche',
+          },
+        });
+      } catch (err) {
+        return cloneJsonResponse(origin, { ok: false, error: 'ScreenScraper jeuRecherche failed: ' + err.message }, 502);
+      }
+    }
+
     // ====================================================================
     // SCREENSCRAPER API v2 (proxy) — POST /screenscraper-jeuInfos
     // Proxies https://api.screenscraper.fr/api2/jeuInfos.php (browser CORS blocks direct calls).
     // ScreenScraper requires BOTH developer credentials (devid/devpassword) and member credentials (ssid/sspassword).
     // Notes:
-    // - We accept crc (8 hex) and/or sha1 (40 hex). ScreenScraper also supports md5, but we only compute sha1+crc client-side today.
+    // - Hash mode: crc (8 hex) and/or sha1 (40 hex) + romnom / romtaille as needed.
+    // - gameid mode: pass numeric gameid only (no hash) per API docs.
     // - `systemeid` must be provided (ScreenScraper numeric system id).
     // ====================================================================
     const ssJeuPath = path === '/screenscraper-jeuInfos' || path === '/screenscraper-jeuInfos/';
     if (ssJeuPath && method === 'GET') {
-      return cloneJsonResponse(origin, { ok: false, error: 'Use POST with JSON body (crc/sha1, systemeid, romnom). GET is not supported.' }, 405);
+      return cloneJsonResponse(origin, { ok: false, error: 'Use POST with JSON body (crc/sha1, systemeid, romnom) or (gameid, systemeid). GET is not supported.' }, 405);
     }
     if (ssJeuPath && method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -6677,6 +6900,8 @@ export default {
       const sha1 = asStr(body.sha1).toLowerCase().replace(/[^a-f0-9]/g, '').slice(0, 40);
       const crcOk = crc.length === 8;
       const sha1Ok = sha1.length === 40;
+      const gameid = asStr(body.gameid).replace(/[^0-9]/g, '').slice(0, 12);
+      const gameidOk = gameid.length > 0;
 
       if (!ssid || !sspassword) {
         return cloneJsonResponse(origin, { ok: false, error: 'Missing member credentials. Enter ScreenScraper username + site password in Scraper → Sources (or set SS_USER/SS_PASSWORD secrets, or POST ssid/sspassword).' }, 400);
@@ -6684,8 +6909,8 @@ export default {
       if (!systemeid) {
         return cloneJsonResponse(origin, { ok: false, error: 'Missing systemeid' }, 400);
       }
-      if (!crcOk && !sha1Ok) {
-        return cloneJsonResponse(origin, { ok: false, error: 'Provide crc (8 hex) or sha1 (40 hex)' }, 400);
+      if (!gameidOk && !crcOk && !sha1Ok) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Provide gameid, or crc (8 hex), or sha1 (40 hex)' }, 400);
       }
 
       const qs = new URLSearchParams({
@@ -6698,10 +6923,14 @@ export default {
         systemeid,
         romtype,
       });
-      if (crcOk) qs.set('crc', crc);
-      if (sha1Ok) qs.set('sha1', sha1);
-      if (romnom) qs.set('romnom', romnom);
-      if (romtaille) qs.set('romtaille', romtaille);
+      if (gameidOk) {
+        qs.set('gameid', gameid);
+      } else {
+        if (crcOk) qs.set('crc', crc);
+        if (sha1Ok) qs.set('sha1', sha1);
+        if (romnom) qs.set('romnom', romnom);
+        if (romtaille) qs.set('romtaille', romtaille);
+      }
 
       const upstreamUrl = 'https://api.screenscraper.fr/api2/jeuInfos.php?' + qs.toString();
       try {
