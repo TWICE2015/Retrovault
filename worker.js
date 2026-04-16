@@ -314,12 +314,21 @@ const RELEASE_LOG = [
       'Scraper → Sources: member ScreenScraper username + site password only (localStorage); proxy merges with dev credentials server-side.',
     ],
   },
+  {
+    id: '2026-04-16-d',
+    title: 'ScreenScraper: diagnose login errors (dev vs member)',
+    details: [
+      'POST /screenscraper-test-dev calls ssinfraInfos.php (dev credentials only) so a 403 distinguishes wrong developer API password from wrong member password.',
+      'Member login test surfaces French API errors with short hints (pseudo + site password, not DebugPassword).',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-screenscraper-baked-dev';
+const APP_RELEASE_VERSION = '2026.04.16-screenscraper-login-hints';
 
 // ScreenScraper API v2 developer identity (devid / devpassword). Baked so browsers only send member ssid/sspassword.
 // Override via Worker secrets SS_DEV_ID / SS_DEV_PASSWORD if you use a different registered app.
+// NOTE: devpassword must be the API developer password ScreenScraper assigned to your app — not your member site login.
 const SS_BAKED_DEV_ID = 'TWICE2015';
 const SS_BAKED_DEV_PASSWORD = 'CEpm6pkDNDV';
 const CHANGELOG_DATA = {
@@ -346,6 +355,7 @@ const CHANGELOG_DATA = {
     'Optional auto YouTube trailer URL during Hasheous scrape (YT_API_KEY secret)',
     'RetroAchievements: Settings card + EJS_defaultOptions cheevos_* merged at launch (username + API key in localStorage)',
     'ScreenScraper enrich: baked developer id in Worker; member username/password in Scraper → Sources (localStorage) or SS_USER/SS_PASSWORD secrets',
+    'ScreenScraper: Test developer API id (ssinfraInfos) vs member login (ssuserInfos) to interpret French 403 errors',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -2044,8 +2054,12 @@ function _rvInitHasheousControls(){
     + '<label style="font-size:11px;color:var(--muted);">ScreenScraper username (member)<br/><input type="text" id="rvSsMemberUser" autocomplete="username" spellcheck="false" style="width:100%;margin-top:4px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:12px;"/></label>'
     + '<label style="font-size:11px;color:var(--muted);">ScreenScraper password (site login)<br/><input type="password" id="rvSsMemberPass" autocomplete="current-password" style="width:100%;margin-top:4px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:12px;"/></label>'
     + '</div>'
-    + '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45;">Stored in this browser only (<code style="font-size:10px;">localStorage</code>). Optional: operator can still set <code style="font-size:10px;">SS_USER</code> / <code style="font-size:10px;">SS_PASSWORD</code> on the Worker so clients do not need to enter them.</div>'
-    + '<button class="bb s" type="button" id="rvSsServerTestBtn" style="margin-top:8px;">Test ScreenScraper login</button>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45;">Use your <strong>ScreenScraper site login</strong> (pseudo + password from the website). Not your email, not the API DebugPassword column, not the developer row Password unless that is what you use to log in on the site.</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45;">Stored in this browser only (<code style="font-size:10px;">localStorage</code>). Optional: operator can set <code style="font-size:10px;">SS_USER</code> / <code style="font-size:10px;">SS_PASSWORD</code> on the Worker.</div>'
+    + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">'
+    + '<button class="bb s" type="button" id="rvSsDevTestBtn">Test developer API id</button>'
+    + '<button class="bb s" type="button" id="rvSsServerTestBtn">Test member login</button>'
+    + '</div>'
     + '<div id="rvSsStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>'
     + '</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvScraperSsLegacyOn" checked /> Legacy ScreenScraper (Scraper → Login tab, <code style="font-size:10px;">/scraper-proxy</code>)</label>'
@@ -2112,6 +2126,41 @@ function _rvInitHasheousControls(){
       };
     }
     if(ssSt && !ssSt.textContent) ssSt.textContent = (ssEn && ssEn.checked) ? 'Enrich on.' : 'Enrich off.';
+    const ssHint=function(msg){
+      msg=String(msg||'');
+      if(msg.indexOf('identifiants développeur')>=0||msg.indexOf('identifiants developpeur')>=0){
+        return ' Fix: set Worker secrets SS_DEV_ID + SS_DEV_PASSWORD to the developer pair ScreenScraper gave your app (API dev password, not the member table).';
+      }
+      if(msg.indexOf('identifiants utilisateurs')>=0){
+        return ' Fix: use your screenscraper.fr login pseudo + website password (not email, not DebugPassword).';
+      }
+      return '';
+    };
+    const ssDevTest=document.getElementById('rvSsDevTestBtn');
+    if(ssDevTest) ssDevTest.onclick=function(){
+      if(ssSt) ssSt.textContent='Testing developer API…';
+      fetch(window.location.origin + '/screenscraper-test-dev', { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:'{}' })
+        .then(function(r){ return r.text().then(function(t){ return { r:r, t:t }; }); })
+        .then(function(x){
+          let j=null;
+          try{ j=JSON.parse(x.t); }catch(e){}
+          if(!x.r.ok){
+            const msg=(j&&j.error)||x.t.slice(0,200)||('HTTP '+x.r.status);
+            const hint=ssHint(msg);
+            if(ssSt) ssSt.textContent='Dev API failed: '+msg+(hint?' —'+hint:'');
+            if(typeof toast==='function') toast('ScreenScraper dev: '+msg,'err');
+            if(typeof logScrape==='function') logScrape('[screenscraper] dev test HTTP '+x.r.status+': '+msg);
+            return;
+          }
+          if(ssSt) ssSt.textContent='Developer API credentials accepted (ssinfraInfos OK).';
+          if(typeof toast==='function') toast('ScreenScraper: developer API OK');
+          if(typeof logScrape==='function') logScrape('[screenscraper] developer API test OK');
+        })
+        .catch(function(e){
+          if(ssSt) ssSt.textContent=String(e&&e.message?e.message:e);
+          if(typeof toast==='function') toast('Dev test failed','err');
+        });
+    };
     const ssTest=document.getElementById('rvSsServerTestBtn');
     if(ssTest) ssTest.onclick=function(){
       persistSsMember();
@@ -2122,17 +2171,18 @@ function _rvInitHasheousControls(){
         if(typeof toast==='function') toast('ScreenScraper: enter member username and password','warn');
         return;
       }
-      if(ssSt) ssSt.textContent='Testing…';
+      if(ssSt) ssSt.textContent='Testing member login…';
       fetch(window.location.origin + '/screenscraper-test-ssuser', { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify({ ssid: ssid.slice(0,64), sspassword: sspassword.slice(0,128) }) })
         .then(function(r){ return r.text().then(function(t){ return { r:r, t:t }; }); })
         .then(function(x){
           let j=null;
           try{ j=JSON.parse(x.t); }catch(e){}
           if(!x.r.ok){
-            const msg=(j&&j.error)||x.t.slice(0,120)||('HTTP '+x.r.status);
-            if(ssSt) ssSt.textContent='Failed: '+msg;
+            const msg=(j&&j.error)||x.t.slice(0,200)||('HTTP '+x.r.status);
+            const hint=ssHint(msg);
+            if(ssSt) ssSt.textContent='Failed: '+msg+(hint?' —'+hint:'');
             if(typeof toast==='function') toast('ScreenScraper: '+msg,'err');
-            if(typeof logScrape==='function') logScrape('[screenscraper] Server test HTTP '+x.r.status+': '+msg);
+            if(typeof logScrape==='function') logScrape('[screenscraper] member test HTTP '+x.r.status+': '+msg);
             return;
           }
           const info=j&&j.response&&j.response.ssuser;
@@ -2143,7 +2193,7 @@ function _rvInitHasheousControls(){
             if(typeof logScrape==='function') logScrape('[screenscraper] '+okMsg);
           } else {
             if(ssSt) ssSt.textContent='Unexpected response (see log)';
-            if(typeof logScrape==='function') logScrape('[screenscraper] Server test: '+x.t.slice(0,300));
+            if(typeof logScrape==='function') logScrape('[screenscraper] member test: '+x.t.slice(0,300));
           }
         })
         .catch(function(e){
@@ -6484,6 +6534,50 @@ export default {
     }
 
 
+
+    // SCREENSCRAPER — POST /screenscraper-test-dev
+    // Calls ssinfraInfos.php (dev credentials only). If this fails with 403, devid/devpassword are wrong.
+    if (path === '/screenscraper-test-dev' && method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+    if (path === '/screenscraper-test-dev' && method === 'POST') {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch {
+        body = {};
+      }
+      const asStr = (v) => String(v == null ? '' : v).trim();
+      const devCreds = resolveScreenScraperDevCredentials(env);
+      const devid = (asStr(body.devid) || devCreds.devid).slice(0, 64);
+      const devpassword = (asStr(body.devpassword) || devCreds.devpassword).slice(0, 128);
+      if (!devid || !devpassword) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing developer credentials (baked defaults empty?)' }, 400);
+      }
+      const qs = new URLSearchParams({
+        devid,
+        devpassword,
+        softname: 'RetroVault',
+        output: 'json',
+      });
+      const upstreamUrl = 'https://api.screenscraper.fr/api2/ssinfraInfos.php?' + qs.toString();
+      try {
+        const up = await fetch(upstreamUrl, { headers: { Accept: 'application/json' } });
+        const text = await up.text();
+        const ct = up.headers.get('Content-Type') || 'application/json';
+        return new Response(text, {
+          status: up.status,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': ct.includes('json') ? 'application/json; charset=UTF-8' : ct,
+            'Cache-Control': 'no-store',
+            'X-Proxied-By': 'RetroVault ScreenScraper dev test',
+          },
+        });
+      } catch (err) {
+        return cloneJsonResponse(origin, { ok: false, error: 'ScreenScraper dev test failed: ' + err.message }, 502);
+      }
+    }
 
     // SCREENSCRAPER — POST /screenscraper-test-ssuser
     // Calls ssuserInfos.php using Worker secrets (or optional JSON body overrides).
