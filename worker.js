@@ -2008,8 +2008,6 @@ function _rvInitHasheousControls(){
     }
     if(ssSt && !ssSt.textContent) ssSt.textContent = (ssEn && ssEn.checked) ? 'Enabled.' : 'Disabled.';
   }catch(e){}
-    };
-  }catch(e){}
   const ytChk = document.getElementById('rvYoutubeTrailerOn');
   if(ytChk){
     try{
