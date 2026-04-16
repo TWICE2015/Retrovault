@@ -308,7 +308,7 @@ const RELEASE_LOG = [
   },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-video-ext-regex-fix';
+const APP_RELEASE_VERSION = '2026.04.16-scraper-toggles';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1616,8 +1616,16 @@ async function _rvHasheousFetchLookup(hashes){
 
 
 
+function _rvHasheousScraperOn(){
+  try{ return localStorage.getItem('rv-scraper-hasheous-on') !== '0'; }catch(e){ return true; }
+}
+
 function _rvSsEnabled(){
   try{ return localStorage.getItem('rv-ss-enabled') === '1'; }catch(e){ return false; }
+}
+
+function _rvSsLegacyScraperOn(){
+  try{ return localStorage.getItem('rv-scraper-ss-legacy-on') !== '0'; }catch(e){ return true; }
 }
 
 function _rvSsCreds(){
@@ -1827,17 +1835,29 @@ async function _rvHasheousScrapeRom(romId, opts){
     if(typeof logScrape === 'function') logScrape('[hasheous] no payload for ' + rom.name);
     return false;
   }
-  let api;
-  try{
-    api = await _rvHasheousFetchLookup(hashes);
-  }catch(e){
-    if(statusEl) statusEl.textContent = 'Hasheous error: ' + e.message;
-    if(typeof logScrape === 'function') logScrape('[hasheous] lookup failed: ' + e.message);
+  const hasheousOn = typeof _rvHasheousScraperOn === 'function' && _rvHasheousScraperOn();
+  const ssEnrichOn = typeof _rvSsEnabled === 'function' && _rvSsEnabled();
+  if(!hasheousOn && !ssEnrichOn){
+    if(statusEl) statusEl.textContent = 'All automatic scrapers are off — enable Hasheous and/or ScreenScraper enrich in Scraper → Sources.';
     return false;
   }
-  const ow = (opts.overwrite != null) ? opts.overwrite : (localStorage.getItem('rv-meta-overwrite') === '1');
-  const miss = !!opts.missingOnly;
-  const did = await _rvApplyHasheousToRom(romId, api, { overwrite: ow, missingOnly: miss });
+
+  let did = false;
+  if(hasheousOn){
+    let api;
+    try{
+      api = await _rvHasheousFetchLookup(hashes);
+    }catch(e){
+      if(statusEl) statusEl.textContent = 'Hasheous error: ' + e.message;
+      if(typeof logScrape === 'function') logScrape('[hasheous] lookup failed: ' + e.message);
+      if(!ssEnrichOn) return false;
+    }
+    if(api){
+      const ow = (opts.overwrite != null) ? opts.overwrite : (localStorage.getItem('rv-meta-overwrite') === '1');
+      const miss = !!opts.missingOnly;
+      did = await _rvApplyHasheousToRom(romId, api, { overwrite: ow, missingOnly: miss });
+    }
+  }
 
   // Optional: ScreenScraper enrich (better retro coverage)
   try{
@@ -1894,7 +1914,7 @@ async function _rvRunHasheousQueue(romList, opts){
     await new Promise(function(res){ setTimeout(res, 350); });
   }
   if(st) st.textContent = 'Done. Updated ' + ok + ' of ' + romList.length + ' ROM(s).';
-  if(typeof toast === 'function') toast('Hasheous: updated ' + ok + '/' + romList.length);
+  if(typeof toast === 'function') toast('Metadata: updated ' + ok + '/' + romList.length);
   if(typeof refreshAll === 'function') await refreshAll();
 }
 
@@ -1930,6 +1950,19 @@ function _rvOpenHasheousPanel(opts){
 
 window._rvOpenHasheousPanel = _rvOpenHasheousPanel;
 
+function _rvPatchScrapeRomByIdGate(){
+  if(typeof scrapeRomById !== 'function' || window.__rvScrapeRomByIdPatched) return;
+  window.__rvScrapeRomByIdOriginal = scrapeRomById;
+  scrapeRomById = async function(romId, creds){
+    if(typeof _rvSsLegacyScraperOn === 'function' && !_rvSsLegacyScraperOn()){
+      if(typeof toast === 'function') toast('Legacy ScreenScraper is off — enable it in Scraper → Sources (or use Hasheous + ScreenScraper enrich).','warn');
+      return;
+    }
+    return window.__rvScrapeRomByIdOriginal(romId, creds);
+  };
+  window.__rvScrapeRomByIdPatched = true;
+}
+
 function _rvPatchScrapePipeline(){
   if(window.__rvHasheousPipelinePatched) return;
   if(typeof autoScrapeWithFallback === 'function'){
@@ -1944,10 +1977,11 @@ function _rvPatchScrapePipeline(){
     window.__rvScrapeMissingOriginal = scrapeMissing;
     scrapeMissing = async function(){
       const roms = (await dbGetAll('roms')).filter(function(r){ return r && !r.coverUrl; });
-      if(typeof toast === 'function') toast('Hasheous: ' + roms.length + ' ROM(s) missing artwork');
+      if(typeof toast === 'function') toast('Scrape queue: ' + roms.length + ' ROM(s) missing artwork');
       await _rvRunHasheousQueue(roms, { missingOnly:true });
     };
   }
+  _rvPatchScrapeRomByIdGate();
   window.__rvHasheousPipelinePatched = true;
 }
 
@@ -1965,18 +1999,18 @@ function _rvInitHasheousControls(){
   card.innerHTML = ''
     + '<h3>Hasheous metadata</h3>'
     + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.55;">'
-    + 'RetroVault uses only <a href="https://hasheous.org/" target="_blank" rel="noopener">Hasheous</a> for automatic metadata. '
-    + 'It matches your ROM file hash (CRC32, SHA-1, SHA-256) to No-Intro / Redump style signatures, then fills title, description, year, and a TheGamesDB box art URL. '
-    + 'Other cloud scrapers and XML imports are removed.'
+    + 'Turn sources on or off below. <a href="https://hasheous.org/" target="_blank" rel="noopener">Hasheous</a> matches ROM hashes to signatures and fills title, description, year, and TheGamesDB-style cover URLs when mapped.'
     + '</div>'
+    + '<div style="font-weight:700;margin-bottom:6px;font-size:13px;">Automatic sources</div>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvScraperHasheousOn" checked /> Hasheous (hash lookup + metadata)</label>'
     + '<div class="sblk" style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--s2);">'
-    + '<div style="font-weight:700;margin-bottom:8px;">ScreenScraper</div>'
-    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Enable ScreenScraper to improve coverage for ROMs Hasheous cannot map. Credentials are configured on the server (Worker secrets), so users do not enter them in the browser.</div>'
-    + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvSsEnable"/> Enable ScreenScraper (use after Hasheous)</label>'
+    + '<div style="font-weight:700;margin-bottom:8px;">ScreenScraper enrich</div>'
+    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Optional second pass after hashing: calls the Worker ScreenScraper API to fill missing cover / text when the server has credentials configured.</div>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvSsEnable"/> Enable ScreenScraper enrich</label>'
     + '<div id="rvSsStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>'
     + '</div>'
-
-    + '</div>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvScraperSsLegacyOn" checked /> Legacy ScreenScraper (Scraper → Login tab, <code style="font-size:10px;">/scraper-proxy</code>)</label>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45;">Disable this if you only use Hasheous + enrich above and want to avoid duplicate ScreenScraper calls.</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);">'
     + '<input type="checkbox" id="rvHasheousOverwrite" /> Overwrite existing description / year / cover</label>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);">'
@@ -1990,23 +2024,37 @@ function _rvInitHasheousControls(){
     + '<summary style="cursor:pointer;color:var(--text);font-weight:600;">Scrapers vs manual covers</summary>'
     + '<div style="margin-top:8px;">'
     + '<strong style="color:var(--text);">Hasheous (built in):</strong> hash match, no API key, good when your ROM matches a known dump. Misses hacks, overdumps, or unlisted files.<br/>'
-    + '<strong style="color:var(--text);">ScreenScraper:</strong> huge art set but needs an account; not wired in this build.<br/>'
+    + '<strong style="color:var(--text);">ScreenScraper:</strong> optional enrich + legacy login tab when enabled.<br/>'
     + '<strong style="color:var(--text);">Skraper / LaunchBox (desktop):</strong> strongest for full media libraries offline, then you sync files yourself.<br/>'
     + '<strong style="color:var(--text);">Manual:</strong> open a game, then drag a PNG, JPG, WebP, or GIF onto the cover, or paste a URL and tap Set. Covers upload under <code>meta/&lt;console&gt;/art/</code> (next to JSON sidecars), not beside ROM binaries.'
     + '</div></details>';
 
   host.appendChild(card);
-  // ScreenScraper settings
+  // Per-source toggles
   try{
+    const ha=document.getElementById('rvScraperHasheousOn');
+    if(ha){
+      ha.checked = localStorage.getItem('rv-scraper-hasheous-on') !== '0';
+      ha.onchange=function(){
+        try{ localStorage.setItem('rv-scraper-hasheous-on', ha.checked ? '1' : '0'); }catch(e){}
+      };
+    }
+    const leg=document.getElementById('rvScraperSsLegacyOn');
+    if(leg){
+      leg.checked = localStorage.getItem('rv-scraper-ss-legacy-on') !== '0';
+      leg.onchange=function(){
+        try{ localStorage.setItem('rv-scraper-ss-legacy-on', leg.checked ? '1' : '0'); }catch(e){}
+      };
+    }
     const ssEn=document.getElementById('rvSsEnable');
     const ssSt=document.getElementById('rvSsStatus');
     if(ssEn){
       ssEn.checked = localStorage.getItem('rv-ss-enabled')==='1';
       ssEn.onchange=function(){
-        try{ localStorage.setItem('rv-ss-enabled', ssEn.checked?'1':'0'); if(ssSt) ssSt.textContent = ssEn.checked ? 'Enabled.' : 'Disabled.'; }catch(e){}
+        try{ localStorage.setItem('rv-ss-enabled', ssEn.checked?'1':'0'); if(ssSt) ssSt.textContent = ssEn.checked ? 'Enrich on.' : 'Enrich off.'; }catch(e){}
       };
     }
-    if(ssSt && !ssSt.textContent) ssSt.textContent = (ssEn && ssEn.checked) ? 'Enabled.' : 'Disabled.';
+    if(ssSt && !ssSt.textContent) ssSt.textContent = (ssEn && ssEn.checked) ? 'Enrich on.' : 'Enrich off.';
   }catch(e){}
   const ytChk = document.getElementById('rvYoutubeTrailerOn');
   if(ytChk){
@@ -2037,6 +2085,7 @@ function _rvInitHasheousControls(){
       if(st) st.textContent = String(e && e.message ? e.message : e);
     });
   };
+  _rvPatchScrapeRomByIdGate();
 }
 
 if(document.readyState === 'loading'){
