@@ -2014,6 +2014,8 @@ function _rvInitHasheousControls(){
     + '<div style="font-weight:700;margin-bottom:8px;">ScreenScraper enrich</div>'
     + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Optional second pass after hashing: calls the Worker ScreenScraper API to fill missing cover / text when the server has credentials configured.</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvSsEnable"/> Enable ScreenScraper enrich</label>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45;">Server uses Worker secrets <code style="font-size:10px;">SS_DEV_ID</code>, <code style="font-size:10px;">SS_DEV_PASSWORD</code>, <code style="font-size:10px;">SS_USER</code>, <code style="font-size:10px;">SS_PASSWORD</code>. <strong>SS_PASSWORD</strong> must be your <strong>ScreenScraper site login password</strong> (not DebugPassword).</div>'
+    + '<button class="bb s" type="button" id="rvSsServerTestBtn" style="margin-top:8px;">Test server ScreenScraper login</button>'
     + '<div id="rvSsStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>'
     + '</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvScraperSsLegacyOn" checked /> Legacy ScreenScraper (Scraper → Login tab, <code style="font-size:10px;">/scraper-proxy</code>)</label>'
@@ -2062,6 +2064,37 @@ function _rvInitHasheousControls(){
       };
     }
     if(ssSt && !ssSt.textContent) ssSt.textContent = (ssEn && ssEn.checked) ? 'Enrich on.' : 'Enrich off.';
+    const ssTest=document.getElementById('rvSsServerTestBtn');
+    if(ssTest) ssTest.onclick=function(){
+      if(ssSt) ssSt.textContent='Testing…';
+      fetch(window.location.origin + '/screenscraper-test-ssuser', { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:'{}' })
+        .then(function(r){ return r.text().then(function(t){ return { r:r, t:t }; }); })
+        .then(function(x){
+          let j=null;
+          try{ j=JSON.parse(x.t); }catch(e){}
+          if(!x.r.ok){
+            const msg=(j&&j.error)||x.t.slice(0,120)||('HTTP '+x.r.status);
+            if(ssSt) ssSt.textContent='Failed: '+msg;
+            if(typeof toast==='function') toast('ScreenScraper: '+msg,'err');
+            if(typeof logScrape==='function') logScrape('[screenscraper] Server test HTTP '+x.r.status+': '+msg);
+            return;
+          }
+          const info=j&&j.response&&j.response.ssuser;
+          if(info){
+            const okMsg='OK: '+info.id+' · today '+info.requeststoday+'/'+info.maxrequestsperday;
+            if(ssSt) ssSt.textContent=okMsg;
+            if(typeof toast==='function') toast(okMsg);
+            if(typeof logScrape==='function') logScrape('[screenscraper] '+okMsg);
+          } else {
+            if(ssSt) ssSt.textContent='Unexpected response (see log)';
+            if(typeof logScrape==='function') logScrape('[screenscraper] Server test: '+x.t.slice(0,300));
+          }
+        })
+        .catch(function(e){
+          if(ssSt) ssSt.textContent=String(e&&e.message?e.message:e);
+          if(typeof toast==='function') toast('Test failed','err');
+        });
+    };
   }catch(e){}
   const ytChk = document.getElementById('rvYoutubeTrailerOn');
   if(ytChk){
@@ -6385,6 +6418,60 @@ export default {
     }
 
 
+
+    // SCREENSCRAPER — POST /screenscraper-test-ssuser
+    // Calls ssuserInfos.php using Worker secrets (or optional JSON body overrides).
+    if (path === '/screenscraper-test-ssuser' && method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+    if (path === '/screenscraper-test-ssuser' && method === 'POST') {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch {
+        body = {};
+      }
+      const asStr = (v) => String(v == null ? '' : v).trim();
+      const envDevId = env && typeof env.SS_DEV_ID === 'string' ? String(env.SS_DEV_ID).trim() : '';
+      const envDevPw = env && typeof env.SS_DEV_PASSWORD === 'string' ? String(env.SS_DEV_PASSWORD).trim() : '';
+      const envUser = env && typeof env.SS_USER === 'string' ? String(env.SS_USER).trim() : '';
+      const envPass = env && typeof env.SS_PASSWORD === 'string' ? String(env.SS_PASSWORD).trim() : '';
+      const devid = (asStr(body.devid) || envDevId).slice(0, 64);
+      const devpassword = (asStr(body.devpassword) || envDevPw).slice(0, 128);
+      const ssid = (asStr(body.ssid) || envUser).slice(0, 64);
+      const sspassword = (asStr(body.sspassword) || envPass).slice(0, 128);
+      if (!devid || !devpassword || !ssid || !sspassword) {
+        return cloneJsonResponse(origin, {
+          ok: false,
+          error: 'Missing credentials. Set SS_DEV_ID, SS_DEV_PASSWORD, SS_USER, SS_PASSWORD secrets, or POST them in the JSON body.',
+        }, 400);
+      }
+      const qs = new URLSearchParams({
+        devid,
+        devpassword,
+        ssid,
+        sspassword,
+        softname: 'RetroVault',
+        output: 'json',
+      });
+      const upstreamUrl = 'https://api.screenscraper.fr/api2/ssuserInfos.php?' + qs.toString();
+      try {
+        const up = await fetch(upstreamUrl, { headers: { Accept: 'application/json' } });
+        const text = await up.text();
+        const ct = up.headers.get('Content-Type') || 'application/json';
+        return new Response(text, {
+          status: up.status,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': ct.includes('json') ? 'application/json; charset=UTF-8' : ct,
+            'Cache-Control': 'no-store',
+            'X-Proxied-By': 'RetroVault ScreenScraper test',
+          },
+        });
+      } catch (err) {
+        return cloneJsonResponse(origin, { ok: false, error: 'ScreenScraper test failed: ' + err.message }, 502);
+      }
+    }
 
     // ====================================================================
     // SCREENSCRAPER API v2 (proxy) — POST /screenscraper-jeuInfos

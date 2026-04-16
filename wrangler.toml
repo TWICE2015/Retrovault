@@ -28,7 +28,7 @@ new_sqlite_classes = ["NetplayCoordinatorDO"]
 #   wrangler secret put SS_DEV_ID
 #   wrangler secret put SS_DEV_PASSWORD
 #   wrangler secret put SS_USER
-#   wrangler secret put SS_PASSWORD
+#   wrangler secret put SS_PASSWORD   ← your ScreenScraper **website** password (login), not DebugPassword
 # Optional developer debug password (from dev dashboard):
 #   wrangler secret put SS_DEV_DEBUG_PASSWORD
 #
