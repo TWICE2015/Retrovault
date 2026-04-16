@@ -308,7 +308,7 @@ const RELEASE_LOG = [
   },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-scraper-toggles';
+const APP_RELEASE_VERSION = '2026.04.16-yt-trailer-quiet';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1574,6 +1574,9 @@ function _rvHasheousPickTgdbId(metadata){
 }
 
 async function _rvFetchYoutubeTrailerUrl(gameTitle, rom){
+  try{
+    if(localStorage.getItem('rv-yt-trailer-skip') === '1') return '';
+  }catch(e){}
   const base = String(gameTitle || '').trim();
   if(!base) return '';
   let q = base;
@@ -1590,6 +1593,10 @@ async function _rvFetchYoutubeTrailerUrl(gameTitle, rom){
   }
   const resp = await fetch(window.location.origin + '/youtube-search-trailer?q=' + encodeURIComponent(q.slice(0,200)));
   const data = await resp.json().catch(function(){ return {}; });
+  if(data && data.unconfigured){
+    try{ localStorage.setItem('rv-yt-trailer-skip', '1'); }catch(e){}
+    return '';
+  }
   if(!resp.ok || !data || !data.ok || !data.watchUrl) return '';
   return String(data.watchUrl).trim();
 }
@@ -2061,7 +2068,10 @@ function _rvInitHasheousControls(){
     try{
       ytChk.checked = localStorage.getItem('rv-youtube-trailer-on') !== '0';
       ytChk.onchange = function(){
-        try{ localStorage.setItem('rv-youtube-trailer-on', ytChk.checked ? '1' : '0'); }catch(e){}
+        try{
+          localStorage.setItem('rv-youtube-trailer-on', ytChk.checked ? '1' : '0');
+          if(ytChk.checked) localStorage.removeItem('rv-yt-trailer-skip');
+        }catch(e){}
       };
     }catch(e){}
   }
@@ -6307,11 +6317,13 @@ export default {
     if (path === '/youtube-search-trailer' && method === 'GET') {
       const key = env && typeof env.YT_API_KEY === 'string' ? String(env.YT_API_KEY).trim() : '';
       if (!key) {
+        // 200 so browsers do not log a "failed resource" for an optional feature; client caches skip.
         return cloneJsonResponse(origin, {
           ok: false,
+          unconfigured: true,
           error: 'YT_API_KEY not configured',
           hint: 'Set secret: wrangler secret put YT_API_KEY',
-        }, 503);
+        }, 200);
       }
       const qRaw = url.searchParams.get('q') || '';
       const q = String(qRaw).trim().slice(0, 200);
