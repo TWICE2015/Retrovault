@@ -2482,7 +2482,7 @@ if(document.readyState === 'loading'){
     if(!raw) return '';
     let abs = raw;
     if(abs.startsWith('//')) abs = 'https:' + abs;
-    if(!/^https?:\/\//i.test(abs)) return raw;
+    if(!(new RegExp('^https?://','i')).test(abs)) return raw;
     try{
       const parsed = new URL(abs, window.location.href);
       if(parsed.origin === window.location.origin && parsed.pathname === '/img-proxy') return abs;
