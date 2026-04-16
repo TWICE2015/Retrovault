@@ -500,46 +500,7 @@ function getHTML(env) {
   // gets an isolated R2 namespace without requiring a separate frontend build.
   if (!html.includes('function _rvOwnerId(')) {
     const helperAnchor = 'function cloudAppReady(){ return false; }';
-    const ownerHelper = "function _rvNormalizeOwner(v){ return String(v||'').trim().replace(/[^a-zA-Z0-9._-]/g,'').slice(0,128); }\nfunction _rvOwnerId(){ const k='rv-owner-id'; let v=_rvNormalizeOwner(localStorage.getItem(k)); if(!v){ v='u_'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem(k,v); } return v; }\nfunction _rvSetOwnerId(v){ const id=_rvNormalizeOwner(v); if(!id) return null; localStorage.setItem('rv-owner-id',id); return id; }\nfunction _rvMakeCard(title){ const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='10px'; const h=document.createElement('div'); h.style.fontWeight='700'; h.style.marginBottom='8px'; h.textContent=title; card.appendChild(h); return card; }\nfunction _rvInitOwnerControls(){ const r2Input=document.getElementById('r2UrlInput'); if(!r2Input||document.getElementById('rvOwnerInput')) return; const host=r2Input.closest('#rt-cloud')||r2Input.parentElement||r2Input; const card=_rvMakeCard('Shared Sync Owner'); const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvOwnerInput'; input.type='text'; input.placeholder='owner id (e.g. main)'; input.value=_rvOwnerId(); input.autocomplete='off'; input.spellcheck=false; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const btn=document.createElement('button'); btn.type='button'; btn.className='bb s'; btn.textContent='Save Owner'; btn.onclick=()=>{ const saved=_rvSetOwnerId(input.value); if(!saved){ toast('Enter a valid Owner ID (letters, numbers, . _ -)','err'); return; } input.value=saved; toast('Owner ID saved: '+saved); }; row.appendChild(input); row.appendChild(btn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; card.appendChild(row); card.appendChild(note); host.appendChild(card);
-  // ScreenScraper settings
-  try{
-    const ssEn=document.getElementById('rvSsEnable');
-    const ssDevId=document.getElementById('rvSsDevId');
-    const ssDevPw=document.getElementById('rvSsDevPw');
-    const ssUser=document.getElementById('rvSsUser');
-    const ssPass=document.getElementById('rvSsPass');
-    const ssSt=document.getElementById('rvSsStatus');
-    if(ssEn){ ssEn.checked = localStorage.getItem('rv-ss-enabled')==='1'; ssEn.onchange=function(){ try{ localStorage.setItem('rv-ss-enabled', ssEn.checked?'1':'0'); if(ssSt) ssSt.textContent = ssEn.checked ? 'Enabled.' : 'Disabled.'; }catch(e){} }; }
-    if(ssDevId) ssDevId.value = localStorage.getItem('rv-ss-devid')||'';
-    if(ssDevPw) ssDevPw.value = localStorage.getItem('rv-ss-devpassword')||'';
-    if(ssUser) ssUser.value = localStorage.getItem('rv-ss-ssid')||'';
-    if(ssPass) ssPass.value = localStorage.getItem('rv-ss-sspassword')||'';
-    const saveBtn=document.getElementById('rvSsSave');
-    if(saveBtn) saveBtn.onclick=function(){
-      try{
-        localStorage.setItem('rv-ss-devid', String(ssDevId&&ssDevId.value||'').trim());
-        localStorage.setItem('rv-ss-devpassword', String(ssDevPw&&ssDevPw.value||'').trim());
-        localStorage.setItem('rv-ss-ssid', String(ssUser&&ssUser.value||'').trim());
-        localStorage.setItem('rv-ss-sspassword', String(ssPass&&ssPass.value||'').trim());
-        if(ssSt) ssSt.textContent='Saved.';
-        if(typeof toast==='function') toast('ScreenScraper settings saved');
-      }catch(e){ if(typeof toast==='function') toast('Save failed','err'); }
-    };
-    const clrBtn=document.getElementById('rvSsClear');
-    if(clrBtn) clrBtn.onclick=function(){
-      try{
-        ['rv-ss-enabled','rv-ss-devid','rv-ss-devpassword','rv-ss-ssid','rv-ss-sspassword'].forEach(function(k){ localStorage.removeItem(k); });
-        if(ssEn) ssEn.checked=false;
-        if(ssDevId) ssDevId.value='';
-        if(ssDevPw) ssDevPw.value='';
-        if(ssUser) ssUser.value='';
-        if(ssPass) ssPass.value='';
-        if(ssSt) ssSt.textContent='Cleared.';
-        if(typeof toast==='function') toast('ScreenScraper cleared');
-      }catch(e){}
-    };
-  }catch(e){}
- }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitOwnerControls); else setTimeout(_rvInitOwnerControls,0);\n";
+    const ownerHelper = "function _rvNormalizeOwner(v){ return String(v||'').trim().replace(/[^a-zA-Z0-9._-]/g,'').slice(0,128); }\nfunction _rvOwnerId(){ const k='rv-owner-id'; let v=_rvNormalizeOwner(localStorage.getItem(k)); if(!v){ v='u_'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem(k,v); } return v; }\nfunction _rvSetOwnerId(v){ const id=_rvNormalizeOwner(v); if(!id) return null; localStorage.setItem('rv-owner-id',id); return id; }\nfunction _rvMakeCard(title){ const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='10px'; const h=document.createElement('div'); h.style.fontWeight='700'; h.style.marginBottom='8px'; h.textContent=title; card.appendChild(h); return card; }\nfunction _rvInitOwnerControls(){ const r2Input=document.getElementById('r2UrlInput'); if(!r2Input||document.getElementById('rvOwnerInput')) return; const host=r2Input.closest('#rt-cloud')||r2Input.parentElement||r2Input; const card=_rvMakeCard('Shared Sync Owner'); const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvOwnerInput'; input.type='text'; input.placeholder='owner id (e.g. main)'; input.value=_rvOwnerId(); input.autocomplete='off'; input.spellcheck=false; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const btn=document.createElement('button'); btn.type='button'; btn.className='bb s'; btn.textContent='Save Owner'; btn.onclick=()=>{ const saved=_rvSetOwnerId(input.value); if(!saved){ toast('Enter a valid Owner ID (letters, numbers, . _ -)','err'); return; } input.value=saved; toast('Owner ID saved: '+saved); }; row.appendChild(input); row.appendChild(btn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.textContent='Use this same owner on each device to sync only your own ROM uploads.'; card.appendChild(row); card.appendChild(note);  }\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitOwnerControls); else setTimeout(_rvInitOwnerControls,0);\n";
     if (html.includes(helperAnchor)) {
       html = html.replace(helperAnchor, ownerHelper + helperAnchor);
     }
@@ -2054,6 +2015,50 @@ function _rvInitHasheousControls(){
     + '</div></details>';
 
   host.appendChild(card);
+
+  // ScreenScraper settings
+  try{
+    const ssEn=document.getElementById('rvSsEnable');
+    const ssDevId=document.getElementById('rvSsDevId');
+    const ssDevPw=document.getElementById('rvSsDevPw');
+    const ssUser=document.getElementById('rvSsUser');
+    const ssPass=document.getElementById('rvSsPass');
+    const ssSt=document.getElementById('rvSsStatus');
+    if(ssEn){
+      ssEn.checked = localStorage.getItem('rv-ss-enabled')==='1';
+      ssEn.onchange=function(){
+        try{ localStorage.setItem('rv-ss-enabled', ssEn.checked?'1':'0'); if(ssSt) ssSt.textContent = ssEn.checked ? 'Enabled.' : 'Disabled.'; }catch(e){}
+      };
+    }
+    if(ssDevId) ssDevId.value = localStorage.getItem('rv-ss-devid')||'';
+    if(ssDevPw) ssDevPw.value = localStorage.getItem('rv-ss-devpassword')||'';
+    if(ssUser) ssUser.value = localStorage.getItem('rv-ss-ssid')||'';
+    if(ssPass) ssPass.value = localStorage.getItem('rv-ss-sspassword')||'';
+    const saveBtn=document.getElementById('rvSsSave');
+    if(saveBtn) saveBtn.onclick=function(){
+      try{
+        localStorage.setItem('rv-ss-devid', String(ssDevId&&ssDevId.value||'').trim());
+        localStorage.setItem('rv-ss-devpassword', String(ssDevPw&&ssDevPw.value||'').trim());
+        localStorage.setItem('rv-ss-ssid', String(ssUser&&ssUser.value||'').trim());
+        localStorage.setItem('rv-ss-sspassword', String(ssPass&&ssPass.value||'').trim());
+        if(ssSt) ssSt.textContent='Saved.';
+        if(typeof toast==='function') toast('ScreenScraper settings saved');
+      }catch(e){ if(typeof toast==='function') toast('Save failed','err'); }
+    };
+    const clrBtn=document.getElementById('rvSsClear');
+    if(clrBtn) clrBtn.onclick=function(){
+      try{
+        ['rv-ss-enabled','rv-ss-devid','rv-ss-devpassword','rv-ss-ssid','rv-ss-sspassword'].forEach(function(k){ localStorage.removeItem(k); });
+        if(ssEn) ssEn.checked=false;
+        if(ssDevId) ssDevId.value='';
+        if(ssDevPw) ssDevPw.value='';
+        if(ssUser) ssUser.value='';
+        if(ssPass) ssPass.value='';
+        if(ssSt) ssSt.textContent='Cleared.';
+        if(typeof toast==='function') toast('ScreenScraper cleared');
+      }catch(e){}
+    };
+  }catch(e){}
   const ytChk = document.getElementById('rvYoutubeTrailerOn');
   if(ytChk){
     try{
