@@ -308,7 +308,7 @@ const RELEASE_LOG = [
   },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-screenscraper';
+const APP_RELEASE_VERSION = '2026.04.16-screenscraper-fix2';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -2702,7 +2702,7 @@ if(document.readyState === 'loading'){
     if(!s) return false;
     let u = s;
     if(u.startsWith('//')) u = 'https:' + u;
-    if(!/^https?:\/\//i.test(u)) return false;
+    if(!(new RegExp('^https?://','i')).test(u)) return false;
     try{
       const p = new URL(u, window.location.href);
       const path = (p.pathname||'').toLowerCase();
@@ -3110,7 +3110,7 @@ if(document.readyState === 'loading'){
         return new File([blob], 'pasted-cover.' + ext, { type: blob.type || 'image/png' });
       }catch(e){}
     }
-    if(/^https?:\/\//i.test(first) || first.indexOf('blob:') === 0){
+    if((new RegExp('^https?://','i')).test(first) || first.indexOf('blob:') === 0){
       try{
         const res = await fetch(first, { mode: 'cors', credentials: 'omit' });
         if(!res.ok) return null;
