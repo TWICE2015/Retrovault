@@ -2704,7 +2704,10 @@ if(document.readyState === 'loading'){
     try{
       const p = new URL(u, window.location.href);
       const path = (p.pathname||'').toLowerCase();
-      return /\.(mp4|webm|ogv)(\?|$)/i.test(path);
+      const dot = path.lastIndexOf('.');
+      if(dot < 0) return false;
+      const ext = path.slice(dot + 1);
+      return ext === 'mp4' || ext === 'webm' || ext === 'ogv';
     }catch(e){ return false; }
   }
   function _rvRenderTrailerBlock(rom){
