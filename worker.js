@@ -1634,7 +1634,7 @@ function _rvSsCreds(){
 
 function _rvSsSystemIdForConsole(consoleId){
   const c = String(consoleId||'').toLowerCase();
-  // ScreenScraper `systemeid` mapping (common systems). Extend as needed.
+  // ScreenScraper systemeid mapping (common systems). Extend as needed.
   const map = {
     nes: '3',
     snes: '4',
