@@ -1980,7 +1980,7 @@ function _rvInitHasheousControls(){
     + '</div>'
     + '<div class="sblk" style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--s2);">'
     + '<div style="font-weight:700;margin-bottom:8px;">ScreenScraper</div>'
-    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Enable ScreenScraper to improve coverage for ROMs Hasheous can\'t map. Requires both <strong>developer</strong> credentials (devid/devpassword) and your <strong>member</strong> login (ssid/sspassword). Stored in localStorage only.</div>'
+    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Enable ScreenScraper to improve coverage for ROMs Hasheous cannot map. Requires both <strong>developer</strong> credentials (devid/devpassword) and your <strong>member</strong> login (ssid/sspassword). Stored in localStorage only.</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvSsEnable"/> Enable ScreenScraper (use after Hasheous)</label>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">'
     + '<input type="text" id="rvSsDevId" placeholder="devid" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
