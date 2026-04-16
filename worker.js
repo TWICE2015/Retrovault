@@ -308,7 +308,7 @@ const RELEASE_LOG = [
   },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-yt-trailer-quiet';
+const APP_RELEASE_VERSION = '2026.04.16-screenscraper-enrich-fix';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -1849,24 +1849,25 @@ async function _rvHasheousScrapeRom(romId, opts){
     return false;
   }
 
+  const ow = (opts.overwrite != null) ? opts.overwrite : (localStorage.getItem('rv-meta-overwrite') === '1');
+  const miss = !!opts.missingOnly;
   let did = false;
   if(hasheousOn){
     let api;
     try{
       api = await _rvHasheousFetchLookup(hashes);
     }catch(e){
-      if(statusEl) statusEl.textContent = 'Hasheous error: ' + e.message;
+      if(statusEl) statusEl.textContent = 'Hasheous: ' + e.message + (ssEnrichOn ? ' — trying ScreenScraper…' : '');
       if(typeof logScrape === 'function') logScrape('[hasheous] lookup failed: ' + e.message);
       if(!ssEnrichOn) return false;
     }
     if(api){
-      const ow = (opts.overwrite != null) ? opts.overwrite : (localStorage.getItem('rv-meta-overwrite') === '1');
-      const miss = !!opts.missingOnly;
       did = await _rvApplyHasheousToRom(romId, api, { overwrite: ow, missingOnly: miss });
     }
   }
 
-  // Optional: ScreenScraper enrich (better retro coverage)
+  // Optional: ScreenScraper enrich (better retro coverage); runs when Hasheous misses or is off
+  let ssChanged = false;
   try{
     const rom2 = await dbGet('roms', romId);
     if(rom2 && typeof _rvScreenScraperFetchJeuInfos === 'function' && typeof _rvSsEnabled === 'function' && _rvSsEnabled()){
@@ -1896,7 +1897,10 @@ async function _rvHasheousScrapeRom(romId, opts){
           await dbPut('roms', rom2);
           if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom2);
           if(typeof logScrape === 'function') logScrape('[screenscraper] updated ' + (rom2.name||rom2.filename||romId));
+          ssChanged = true;
         }
+      } else if(typeof logScrape === 'function'){
+        logScrape('[screenscraper] no match for ' + (rom.name||rom.filename||romId) + ' (check SS credentials, system mapping, or ROM hash in ScreenScraper DB)');
       }
     }
   }catch(e){
@@ -1904,9 +1908,12 @@ async function _rvHasheousScrapeRom(romId, opts){
   }
 
   if(typeof logScrape === 'function'){
-    logScrape('[hasheous] ' + rom.name + (did ? ' updated' : ' no changes'));
+    const parts = [];
+    if(hasheousOn) parts.push('hasheous:' + (did ? 'ok' : 'no match'));
+    if(ssEnrichOn) parts.push('screenscraper:' + (ssChanged ? 'ok' : 'skip'));
+    logScrape('[scrape] ' + rom.name + ' — ' + parts.join(', '));
   }
-  return did;
+  return did || ssChanged;
 }
 
 async function _rvRunHasheousQueue(romList, opts){
@@ -6481,10 +6488,14 @@ export default {
     // - We accept crc (8 hex) and/or sha1 (40 hex). ScreenScraper also supports md5, but we only compute sha1+crc client-side today.
     // - `systemeid` must be provided (ScreenScraper numeric system id).
     // ====================================================================
-    if (path === '/screenscraper-jeuInfos' && method === 'OPTIONS') {
+    const ssJeuPath = path === '/screenscraper-jeuInfos' || path === '/screenscraper-jeuInfos/';
+    if (ssJeuPath && method === 'GET') {
+      return cloneJsonResponse(origin, { ok: false, error: 'Use POST with JSON body (crc/sha1, systemeid, romnom). GET is not supported.' }, 405);
+    }
+    if (ssJeuPath && method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
-    if (path === '/screenscraper-jeuInfos' && method === 'POST') {
+    if (ssJeuPath && method === 'POST') {
       let body;
       try {
         body = await request.json();
