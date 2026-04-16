@@ -1623,12 +1623,7 @@ function _rvSsEnabled(){
 function _rvSsCreds(){
   try{
     if(!_rvSsEnabled()) return null;
-    const devid = String(localStorage.getItem('rv-ss-devid')||'').trim();
-    const devpassword = String(localStorage.getItem('rv-ss-devpassword')||'').trim();
-    const ssid = String(localStorage.getItem('rv-ss-ssid')||'').trim();
-    const sspassword = String(localStorage.getItem('rv-ss-sspassword')||'').trim();
-    if(!devid || !devpassword || !ssid || !sspassword) return null;
-    return { devid, devpassword, ssid, sspassword };
+    return {};
   }catch(e){ return null; }
 }
 
@@ -1670,10 +1665,6 @@ async function _rvScreenScraperFetchJeuInfos(rom, hashes){
   const systemeid = _rvSsSystemIdForConsole(rom.console);
   if(!systemeid) return null;
   const body = {
-    devid: creds.devid,
-    devpassword: creds.devpassword,
-    ssid: creds.ssid,
-    sspassword: creds.sspassword,
     systemeid,
     crc: hashes.crc || '',
     sha1: hashes.sha1 || '',
@@ -1980,18 +1971,8 @@ function _rvInitHasheousControls(){
     + '</div>'
     + '<div class="sblk" style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--s2);">'
     + '<div style="font-weight:700;margin-bottom:8px;">ScreenScraper</div>'
-    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Enable ScreenScraper to improve coverage for ROMs Hasheous cannot map. Requires both <strong>developer</strong> credentials (devid/devpassword) and your <strong>member</strong> login (ssid/sspassword). Stored in localStorage only.</div>'
+    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Enable ScreenScraper to improve coverage for ROMs Hasheous cannot map. Credentials are configured on the server (Worker secrets), so users do not enter them in the browser.</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvSsEnable"/> Enable ScreenScraper (use after Hasheous)</label>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">'
-    + '<input type="text" id="rvSsDevId" placeholder="devid" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
-    + '<input type="password" id="rvSsDevPw" placeholder="devpassword" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
-    + '<input type="text" id="rvSsUser" placeholder="ssid (username)" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
-    + '<input type="password" id="rvSsPass" placeholder="sspassword" autocomplete="off" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--s1);color:var(--text);"/>'
-    + '</div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
-    + '<button class="bb s" type="button" id="rvSsSave">Save ScreenScraper</button>'
-    + '<button class="bb s" type="button" id="rvSsClear">Clear</button>'
-    + '</div>'
     + '<div id="rvSsStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>'
     + '</div>'
 
@@ -2015,14 +1996,9 @@ function _rvInitHasheousControls(){
     + '</div></details>';
 
   host.appendChild(card);
-
   // ScreenScraper settings
   try{
     const ssEn=document.getElementById('rvSsEnable');
-    const ssDevId=document.getElementById('rvSsDevId');
-    const ssDevPw=document.getElementById('rvSsDevPw');
-    const ssUser=document.getElementById('rvSsUser');
-    const ssPass=document.getElementById('rvSsPass');
     const ssSt=document.getElementById('rvSsStatus');
     if(ssEn){
       ssEn.checked = localStorage.getItem('rv-ss-enabled')==='1';
@@ -2030,33 +2006,8 @@ function _rvInitHasheousControls(){
         try{ localStorage.setItem('rv-ss-enabled', ssEn.checked?'1':'0'); if(ssSt) ssSt.textContent = ssEn.checked ? 'Enabled.' : 'Disabled.'; }catch(e){}
       };
     }
-    if(ssDevId) ssDevId.value = localStorage.getItem('rv-ss-devid')||'';
-    if(ssDevPw) ssDevPw.value = localStorage.getItem('rv-ss-devpassword')||'';
-    if(ssUser) ssUser.value = localStorage.getItem('rv-ss-ssid')||'';
-    if(ssPass) ssPass.value = localStorage.getItem('rv-ss-sspassword')||'';
-    const saveBtn=document.getElementById('rvSsSave');
-    if(saveBtn) saveBtn.onclick=function(){
-      try{
-        localStorage.setItem('rv-ss-devid', String(ssDevId&&ssDevId.value||'').trim());
-        localStorage.setItem('rv-ss-devpassword', String(ssDevPw&&ssDevPw.value||'').trim());
-        localStorage.setItem('rv-ss-ssid', String(ssUser&&ssUser.value||'').trim());
-        localStorage.setItem('rv-ss-sspassword', String(ssPass&&ssPass.value||'').trim());
-        if(ssSt) ssSt.textContent='Saved.';
-        if(typeof toast==='function') toast('ScreenScraper settings saved');
-      }catch(e){ if(typeof toast==='function') toast('Save failed','err'); }
-    };
-    const clrBtn=document.getElementById('rvSsClear');
-    if(clrBtn) clrBtn.onclick=function(){
-      try{
-        ['rv-ss-enabled','rv-ss-devid','rv-ss-devpassword','rv-ss-ssid','rv-ss-sspassword'].forEach(function(k){ localStorage.removeItem(k); });
-        if(ssEn) ssEn.checked=false;
-        if(ssDevId) ssDevId.value='';
-        if(ssDevPw) ssDevPw.value='';
-        if(ssUser) ssUser.value='';
-        if(ssPass) ssPass.value='';
-        if(ssSt) ssSt.textContent='Cleared.';
-        if(typeof toast==='function') toast('ScreenScraper cleared');
-      }catch(e){}
+    if(ssSt && !ssSt.textContent) ssSt.textContent = (ssEn && ssEn.checked) ? 'Enabled.' : 'Disabled.';
+  }catch(e){}
     };
   }catch(e){}
   const ytChk = document.getElementById('rvYoutubeTrailerOn');
@@ -6332,10 +6283,21 @@ export default {
         return cloneJsonResponse(origin, { ok: false, error: 'Invalid JSON body' }, 400);
       }
       const asStr = (v) => String(v == null ? '' : v).trim();
-      const devid = asStr(body.devid).slice(0, 64);
-      const devpassword = asStr(body.devpassword).slice(0, 128);
-      const ssid = asStr(body.ssid).slice(0, 64);
-      const sspassword = asStr(body.sspassword).slice(0, 128);
+      const envDevId = env && typeof env.SS_DEV_ID === 'string' ? String(env.SS_DEV_ID).trim() : '';
+      const envDevPw = env && typeof env.SS_DEV_PASSWORD === 'string' ? String(env.SS_DEV_PASSWORD).trim() : '';
+      const envUser = env && typeof env.SS_USER === 'string' ? String(env.SS_USER).trim() : '';
+      const envPass = env && typeof env.SS_PASSWORD === 'string' ? String(env.SS_PASSWORD).trim() : '';
+      const devid = (asStr(body.devid) || envDevId).slice(0, 64);
+      const devpassword = (asStr(body.devpassword) || envDevPw).slice(0, 128);
+      const ssid = (asStr(body.ssid) || envUser).slice(0, 64);
+      const sspassword = (asStr(body.sspassword) || envPass).slice(0, 128);
+      const devdebugpassword = (asStr(body.devdebugpassword) || (env && typeof env.SS_DEV_DEBUG_PASSWORD === 'string' ? String(env.SS_DEV_DEBUG_PASSWORD).trim() : '')).slice(0, 128);
+      const forceupdate = asStr(body.forceupdate).replace(/[^0-9]/g,'').slice(0, 1);
+      const forcelevel = asStr(body.forcelevel).replace(/[^0-9]/g,'').slice(0, 4);
+      const forceip = asStr(body.forceip).slice(0, 64);
+      const forcerequestok = asStr(body.forcerequestok).replace(/[^0-9]/g,'').slice(0, 8);
+      const forcerequestko = asStr(body.forcerequestko).replace(/[^0-9]/g,'').slice(0, 8);
+      const forcerequestmin = asStr(body.forcerequestmin).replace(/[^0-9]/g,'').slice(0, 8);
       const systemeid = asStr(body.systemeid).replace(/[^0-9]/g, '').slice(0, 6);
       const romnom = asStr(body.romnom).slice(0, 180);
       const romtype = asStr(body.romtype || 'rom').slice(0, 12);
@@ -6346,7 +6308,7 @@ export default {
       const sha1Ok = sha1.length === 40;
 
       if (!devid || !devpassword || !ssid || !sspassword) {
-        return cloneJsonResponse(origin, { ok: false, error: 'Missing ScreenScraper credentials (devid, devpassword, ssid, sspassword)' }, 400);
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing ScreenScraper credentials. Set Worker secrets SS_DEV_ID/SS_DEV_PASSWORD/SS_USER/SS_PASSWORD (or pass them in the request body).' }, 400);
       }
       if (!systemeid) {
         return cloneJsonResponse(origin, { ok: false, error: 'Missing systemeid' }, 400);
