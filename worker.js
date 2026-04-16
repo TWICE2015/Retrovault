@@ -1,3 +1,6 @@
+import { NetplayCoordinatorDO } from './netplay-do.js';
+export { NetplayCoordinatorDO };
+
 const CHUNKS = [
   "PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9IlVURi04Ij4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xLjAsIHZpZXdwb3J0LWZpdD1jb3ZlciI+Cjx0aXRsZT5SZXRyb1ZhdWx0PC90aXRsZT4KPCEtLSBDbG91ZDogQ2xvdWRmbGFyZSBSMiB2aWEgV29ya2VyIC0tPgo8c3R5bGU+CkBpbXBvcnQgdXJsKCdodHRwczovL2ZvbnRzLmdvb2dsZWFwaXMuY29tL2NzczI/ZmFtaWx5PUJlYmFzK05ldWUmZmFtaWx5PURNK1NhbnM6d2dodEAzMDA7NDAwOzUwMDs2MDAmZGlzcGxheT1zd2FwJyk7Cip7bWFyZ2luOjA7cGFkZGluZzowO2JveC1zaXppbmc6Ym9yZGVyLWJveDt9Cjpyb290ewogIC0tYmc6IzE0MTQxNDstLXMxOiMxZTFlMWU7LS1zMjojMjgyODI4Oy0tczM6IzMzMzsKICAtLWFjY2VudDojZTUwOTE0Oy0tYWNjZW50MjpyZ2JhKDIyOSw5LDIwLC4xNCk7CiAgLS10ZXh0OiNlNWU1ZTU7LS1tdXRlZDojODg4Oy0tbXV0ZWQyOiM0NDQ7CiAgLS1ib3JkZXI6cmdiYSgyNTUsMjU1LDI1NSwuMDcpOy0tYm9yZGVyMjpyZ2JhKDI1NSwyNTUsMjU1LC4xNik7CiAgLS1ncmVlbjojMWRiOTU0Oy0tYmx1ZTojMTQ4ZWZmOy0tb3JhbmdlOiNmZjhjMDA7CiAgLS1yOjZweDstLW5hdjo2MnB4Owp9CmJvZHl7Zm9udC1mYW1pbHk6J0RNIFNhbnMnLHN5c3RlbS11aSxzYW5zLXNlcmlmO2JhY2tncm91bmQ6dmFyKC0tYmcpO2NvbG9yOnZhcigtLXRleHQpO2hlaWdodDoxMDB2aDtvdmVyZmxvdzpoaWRkZW47LXdlYmtpdC1mb250LXNtb290aGluZzphbnRpYWxpYXNlZDt9Cjo6LXdlYmtpdC1zY3JvbGxiYXJ7d2lkdGg6NHB4O2hlaWdodDo0cHg7fQo6Oi13ZWJraXQtc2Nyb2xsYmFyLXRodW1ie2JhY2tncm91bmQ6cmdiYSgyNTUsMjU1LDI1NSwuMSk7Ym9yZGVyLXJhZGl1czoycHg7fQphe2NvbG9yOnZhcigtLWFjY2VudCk7dGV4dC1kZWNvcmF0aW9uOm5vbmU7fQoKLyog4pSA4pSAIE5BViDilIDilIAgKi8KLm5hdntwb3NpdGlvbjpmaXhlZDt0b3A6MDtsZWZ0OjA7cmlnaHQ6MDt6LWluZGV4OjMwMDtoZWlnaHQ6dmFyKC0tbmF2KTtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO3BhZGRpbmc6MCAzNnB4O2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KHRvIGJvdHRvbSxyZ2JhKDAsMCwwLC45NyksdHJhbnNwYXJlbnQpO3RyYW5zaXRpb246YmFja2dyb3VuZCAuM3M7fQoubmF2LnNvbGlke2JhY2tncm91bmQ6cmdiYSgxNiwxNiwxNiwuOTgpO2JvcmRlci1ib3R0b206MXB4IHNvbGlkIHZhcigtLWJvcmRlcik7fQoubG9nb3tmb250LWZhbWlseTonQmViYXMgTmV1ZScsc2Fucy1zZXJpZjtmb250LXNpemU6MjRweDtsZXR0ZXItc3BhY2luZzo0cHg7Y29sb3I6dmFyKC0tYWNjZW50KTttYXJnaW4tcmlnaHQ6MjhweDtjdXJzb3I6cG9pbnRlcjtmbGV4LXNocmluazowO30KLm5hdi1saW5rc3tkaXNwbGF5OmZsZXg7Z2FwOjJweDt9Ci5ubHtmb250LXNpemU6MTNweDtjb2xvcjp2YXIoLS1tdXRlZCk7Y3Vyc29yOnBvaW50ZXI7cGFkZGluZzo1cHggMTJweDtib3JkZXItcmFkaXVzOjRweDtib3JkZXItYm90dG9tOjJweCBzb2xpZCB0cmFuc3BhcmVudDt0cmFuc2l0aW9uOmFsbCAuMnM7fQoubmw6aG92ZXJ7Y29sb3I6dmFyKC0tdGV4dCk7fQoubmwub257Y29sb3I6dmFyKC0tdGV4dCk7Ym9yZGVyLWJvdHRvbS1jb2xvcjp2YXIoLS1hY2NlbnQpO30KLm5hdi1ye21hcmdpbi1sZWZ0OmF1dG87ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6OHB4O30KLm5ie2JhY2tncm91bmQ6bm9uZTtib3JkZXI6MXB4IHNvbGlkIHJnYmEoMjU1LDI1NSwyNTUsLjIpO2JvcmRlci1yYWRpdXM6NHB4O2NvbG9yOnZhcigtLXRleHQpO3BhZGRpbmc6NXB4IDEzcHg7Zm9udC1zaXplOjEycHg7Y3Vyc29yOnBvaW50ZXI7Zm9udC1mYW1pbHk6aW5oZXJpdDt0cmFuc2l0aW9uOmFsbCAuMTVzO30KLm5iOmhvdmVye2JhY2tncm91bmQ6cmdiYSgyNTUsMjU1LDI1NSwuMDcpO30KLm5iLnJlZHtiYWNrZ3JvdW5kOnZhcigtLWFjY2VudCk7Ym9yZGVyLWNvbG9yOnZhcigtLWFjY2VudCk7Zm9udC13ZWlnaHQ6NjAwO30KLm5iLnJlZDpob3ZlcntiYWNrZ3JvdW5kOiNjMjA4MTA7fQoubmIuZ3Jue2JhY2tncm91bmQ6dmFyKC0tZ3JlZW4pO2JvcmRlci1jb2xvcjp2YXIoLS1ncmVlbik7Zm9udC13ZWlnaHQ6NjAwO2NvbG9yOiMwMDA7fQoKLyog4pSA4pSAIE1BSU4g4pSA4pSAICovCi5tYWlue2hlaWdodDoxMDB2aDtvdmVyZmxvdy15OmF1dG87b3ZlcmZsb3cteDpoaWRkZW47fQoudmlld3tkaXNwbGF5Om5vbmU7YW5pbWF0aW9uOnZJbiAuMzJzIGVhc2UgYm90aDt9Ci52aWV3Lm9ue2Rpc3BsYXk6YmxvY2s7fQpAa2V5ZnJhbWVzIHZJbntmcm9te29wYWNpdHk6MDt0cmFuc2Zvcm06dHJhbnNsYXRlWSg4cHgpO310b3tvcGFjaXR5OjE7dHJhbnNmb3JtOnRyYW5zbGF0ZVkoMCk7fX0KCi8qIOKUgOKUgCBIRVJPIOKUgOKUgCAqLwouaGVyb3toZWlnaHQ6NTJ2aDttaW4taGVpZ2h0OjM2MHB4O3Bvc2l0aW9uOnJlbGF0aXZlO2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpmbGV4LWVuZDtwYWRkaW5nOjAgMzZweCA0NHB4O292ZXJmbG93OmhpZGRlbjtiYWNrZ3JvdW5kOiMwOTA5MDk7fQouaG17cG9zaXRpb246YWJzb2x1dGU7aW5zZXQ6MDtkaXNwbGF5OmdyaWQ7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOnJlcGVhdCgxMCwxZnIpO2dhcDoycHg7b3BhY2l0eTouMTQ7bWFzay1pbWFnZTpsaW5lYXItZ3JhZGllbnQodG8gcmlnaHQsdHJhbnNwYXJlbnQscmdiYSgwLDAsMCwuNSkgNDAlLGJsYWNrIDcwJSk7LXdlYmtpdC1tYXNrLWltYWdlOmxpbmVhci1ncmFkaWVudCh0byByaWdodCx0cmFuc3BhcmVudCxyZ2JhKDAsMCwwLC41KSA0MCUsYmxhY2sgNzAlKTt9Ci5obWN7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyO2ZvbnQtd2VpZ2h0OjkwMDtmb250LXNpemU6MTZweDt9Ci5oZ3twb3NpdGlvbjphYnNvbHV0ZTtpbnNldDowO2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KHRvIHJpZ2h0LHJnYmEoOSw5LDksMSkgMjYlLHRyYW5zcGFyZW50KSxsaW5lYXItZ3JhZGllbnQodG8gdG9wLHJnYmEoOSw5LDksLjg4KSx0cmFuc3BhcmVudCA1NSUpO30KLmhje3Bvc2l0aW9uOnJlbGF0aXZlO3otaW5kZXg6MjttYXgtd2lkdGg6NDgwcHg7fQouaGV7Zm9udC1zaXplOjEwcHg7bGV0dGVyLXNwYWNpbmc6NHB4O3RleHQtdHJhbnNmb3JtOnVwcGVyY2FzZTtjb2xvcjp2YXIoLS1hY2NlbnQpO21hcmdpbi1ib3R0b206MTFweDtmb250LXdlaWdodDo2MDA7fQouaHR7Zm9udC1mYW1pbHk6J0JlYmFzIE5ldWUnLHNhbnMtc2VyaWY7Zm9udC1zaXplOjYycHg7bGluZS1oZWlnaHQ6Ljk0O2xldHRlci1zcGFjaW5nOjJweDttYXJnaW4tYm90dG9tOjEzcHg7fQouaG0ye2ZvbnQtc2l6ZToxM3B4O2NvbG9yOnZhcigtLW11dGVkKTttYXJnaW4tYm90dG9tOjI0cHg7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6MTRweDt9Ci5oZG90e3dpZHRoOjNweDtoZWlnaHQ6M3B4O2JvcmRlci1yYWRpdXM6NTAlO2JhY2tncm91bmQ6dmFyKC0tbXV0ZWQyKTtkaXNwbGF5OmlubGluZS1ibG9jazt9Ci5oYnRuc3tkaXNwbGF5OmZsZXg7Z2FwOjEwcHg7fQouYnBsYXl7YmFja2dyb3VuZDp2YXIoLS10ZXh0KTtjb2xvcjojMDAwO2JvcmRlcjpub25lO3BhZGRpbmc6MTBweCAyNnB4O2JvcmRlci1yYWRpdXM6NHB4O2ZvbnQtc2l6ZToxNHB4O2ZvbnQtd2VpZ2h0OjcwMDtjdXJzb3I6cG9pbnRlcjtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2dhcDo3cHg7Zm9udC1mYW1pbHk6aW5oZXJpdDt0cmFuc2l0aW9uOmFsbCAuMTVzO30KLmJwbGF5OmhvdmVye2JhY2tncm91bmQ6cmdiYSgyNTUsMjU1LDI1NSwuODUpO30KLmJtb3Jle2JhY2tncm91bmQ6cmdiYSgxMDAsMTAwLDEwMCwuNSk7Y29sb3I6dmFyKC0tdGV4dCk7Ym9yZGVyOm5vbmU7cGFkZGluZzoxMHB4IDIwcHg7Ym9yZGVyLXJhZGl1czo0cHg7Zm9udC1zaXplOjE0cHg7Y3Vyc29yOnBvaW50ZXI7Zm9udC1mYW1pbHk6aW5oZXJpdDt0cmFuc2l0aW9uOmFsbCAuMTVzO30KLmJtb3JlOmhvdmVye2JhY2tncm91bmQ6cmdiYSgxMDAsMTAwLDEwMCwuMyk7fQoKCi8qIOKUgOKUgCBST1cgU0NST0xMIEFSUk9XUyDilIDilIAgKi8KLnJvdy13cmFwe3Bvc2l0aW9uOnJlbGF0aXZlO30KLnJvdy1hcnJvd3sKICBwb3NpdGlvbjphYnNvbHV0ZTt0b3A6NTAlO3RyYW5zZm9ybTp0cmFuc2xhdGVZKC01MCUpOwogIHdpZHRoOjM0cHg7aGVpZ2h0OjM0cHg7Ym9yZGVyLXJhZGl1czo1MCU7CiAgYmFja2dyb3VuZDpyZ2JhKDIwLDIwLDIwLC45Mik7Ym9yZGVyOjFweCBzb2xpZCByZ2JhKDI1NSwyNTUsMjU1LC4xNSk7CiAgY29sb3I6I2ZmZjtmb250LXNpemU6MThweDtjdXJzb3I6cG9pbnRlcjt6LWluZGV4OjIwOwogIGRpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7anVzdGlmeS1jb250ZW50OmNlbnRlcjsKICBvcGFjaXR5OjA7dHJhbnNpdGlvbjpvcGFjaXR5IC4ycyxiYWNrZ3JvdW5kIC4xNXM7CiAgcG9pbnRlci1ldmVudHM6bm9uZTt1c2VyLXNlbGVjdDpub25lOwogIGJveC1zaGFkb3c6MCAycHggMTBweCByZ2JhKDAsMCwwLC42KTtsaW5lLWhlaWdodDoxOwp9Ci5yb3c6aG92ZXIgLnJvdy1hcnJvdywucm93LXdyYXA6aG92ZXIgLnJvdy1hcnJvd3tvcGFjaXR5OjE7cG9pbnRlci1ldmVudHM6YXV0bzt9Ci5yb3ctYXJyb3c6aG92ZXJ7YmFja2dyb3VuZDpyZ2JhKDIyOSw5LDIwLC44NSk7fQoucm93LWFycm93LmFyci1se2xlZnQ6NnB4O30KLnJvdy1hcnJvdy5hcnItcntyaWdodDo2cHg7fQoucm93LWFycm93LmFyci1oaWRkZW57b3BhY2l0eTowIWltcG9ydGFudDtwb2ludGVyLWV2ZW50czpub25lIWltcG9ydGFudDt9CkBtZWRpYShtYXgtd2lkdGg6NzY4cHgpey5yb3ctYXJyb3d7ZGlzcGxheTpub25lIWltcG9ydGFudDt9fQoKLyog4pSA4pSAIEVNUFRZIFNUQVRFIOKUgOKUgCAqLwouZW1wdHl7dGV4dC1hbGlnbjpjZW50ZXI7cGFkZGluZzo2MHB4IDQwcHg7fQouZW1wdHktaWNvbntmb250LXNpemU6NTZweDttYXJnaW4tYm90dG9tOjE2cHg7b3BhY2l0eTouNDt9Ci5lbXB0eS10aXRsZXtmb250LXNpemU6MjBweDtmb250LXdlaWdodDo2MDA7bWFyZ2luLWJvdHRvbTo4cHg7Y29sb3I6dmFyKC0tbXV0ZWQpO30KLmVtcHR5LXN1Yntmb250LXNpemU6MTRweDtjb2xvcjp2YXIoLS1tdXRlZDIpO21hcmdpbi1ib3R0b206MjRweDt9CgovKiDilIDilIAgUk9XUyDilIDilIAgKi8KLnJvd3N7cGFkZGluZzo0cHggMCA4MHB4O30KLnJvd3ttYXJnaW4tYm90dG9tOjQwcHg7fQoucmh7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6MTBweDtwYWRkaW5nOjAgMzZweDttYXJnaW4tYm90dG9tOjEycHg7fQoucnR7Zm9udC1zaXplOjE3cHg7Zm9udC13ZWlnaHQ6NjAwO30KLnJ0YWd7Zm9udC1zaXplOjlweDtmb250LXdlaWdodDo3MDA7bGV0dGVyLXNwYWNpbmc6MS41cHg7dGV4dC10cmFuc2Zvcm06dXBwZXJjYXNlO3BhZGRpbmc6MnB4IDdweDtib3JkZXItcmFkaXVzOjNweDt9Ci50YWctcntiYWNrZ3JvdW5kOnJnYmEoMjI5LDksMjAsLjIpO2NvbG9yOiNmZjcwNzA7fQoudGFnLW17YmFja2dyb3VuZDpyZ2JhKDI5LDE4NSw4NCwuMik7Y29sb3I6IzFkYjk1NDt9Ci50YWctcHtiYWNrZ3JvdW5kOnJnYmEoMCwxMjAsMjE1LC4yKTtjb2xvcjojNWJiOGZmO30KLnRhZy1he2JhY2tncm91bmQ6cmdiYSgyNTUsMTcwLDAsLjIpO2NvbG9yOiNmZmFhMzM7fQoucnNjcm9sbHtkaXNwbGF5OmZsZXg7Z2FwOjhweDtvdmVyZmxvdy14OmF1dG87cGFkZGluZzo0cHggMzZweCAxMHB4O3Njcm9sbGJhci13aWR0aDpub25lO30KLnJzY3JvbGw6Oi13ZWJraXQtc2Nyb2xsYmFye2Rpc3BsYXk6bm9uZTt9CgoKLyog4pSA4pSAIEZBVk9VUklURSBCVVRUT04g4pSA4pSAICovCi5nZmF2ewogIHBvc2l0",
   "aW9uOmFic29sdXRlO3RvcDo0cHg7bGVmdDo0cHg7d2lkdGg6MjJweDtoZWlnaHQ6MjJweDtib3JkZXItcmFkaXVzOjk5OXB4OwogIGJhY2tncm91bmQ6cmdiYSgwLDAsMCwuNTUpO2JvcmRlcjoxcHggc29saWQgcmdiYSgyNTUsMjU1LDI1NSwuMTgpOwogIGNvbG9yOnJnYmEoMjU1LDI1NSwyNTUsLjUpO2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7anVzdGlmeS1jb250ZW50OmNlbnRlcjsKICBmb250LXNpemU6MTFweDt6LWluZGV4OjM7Y3Vyc29yOnBvaW50ZXI7b3BhY2l0eTowO3RyYW5zaXRpb246b3BhY2l0eSAuMTZzLGNvbG9yIC4xNnM7CiAgbGluZS1oZWlnaHQ6MTtwYWRkaW5nOjA7Cn0KLmdjOmhvdmVyIC5nZmF2LC5nZmF2LmdmYXYtb257b3BhY2l0eToxO30KLmdmYXYuZ2Zhdi1vbntjb2xvcjp2YXIoLS1hY2NlbnQpO2JvcmRlci1jb2xvcjp2YXIoLS1hY2NlbnQpO2JhY2tncm91bmQ6cmdiYSgyMjksOSwyMCwuMik7fQouZ2Zhdjpob3ZlcntiYWNrZ3JvdW5kOnJnYmEoMjI5LDksMjAsLjUpO2NvbG9yOiNmZmY7Ym9yZGVyLWNvbG9yOnZhcigtLWFjY2VudCk7fQoKLyog4pSA4pSAIEdBTUUgQ0FSRCDilIDilIAgKi8KLmdje2ZsZXgtc2hyaW5rOjA7d2lkdGg6MTA4cHg7Y3Vyc29yOnBvaW50ZXI7dHJhbnNpdGlvbjp0cmFuc2Zvcm0gLjJzO3Bvc2l0aW9uOnJlbGF0aXZlO30KLmdjLWNsb3VkOjphZnRlcntjb250ZW50OifimIEnO3Bvc2l0aW9uOmFic29sdXRlO3RvcDo0cHg7cmlnaHQ6NHB4O2ZvbnQtc2l6ZTo5cHg7YmFja2dyb3VuZDpyZ2JhKDAsMTEwLDI1NSwuOCk7Y29sb3I6I2ZmZjtib3JkZXItcmFkaXVzOjNweDtwYWRkaW5nOjAgM3B4O2xpbmUtaGVpZ2h0OjE1cHg7cG9pbnRlci1ldmVudHM6bm9uZTt6LWluZGV4OjI7fQouZ2M6aG92ZXJ7dHJhbnNmb3JtOnNjYWxlKDEuMSk7ei1pbmRleDoxMDt9Ci5nYzpob3ZlciAuZ2Nve29wYWNpdHk6MTt9Ci5nYXt3aWR0aDoxMDAlO2hlaWdodDoxNjJweDtib3JkZXItcmFkaXVzOnZhcigtLXIpO2JhY2tncm91bmQ6dmFyKC0tczIpO292ZXJmbG93OmhpZGRlbjtwb3NpdGlvbjpyZWxhdGl2ZTt9Ci5nYSBpbWd7d2lkdGg6MTAwJTtoZWlnaHQ6MTAwJTtvYmplY3QtZml0OmNvdmVyO2Rpc3BsYXk6YmxvY2s7fQouZ2EgaW1nLmVycntkaXNwbGF5Om5vbmU7fQouZ2luZm97cG9zaXRpb246YWJzb2x1dGU7dG9wOjZweDtsZWZ0OjZweDt3aWR0aDoyMnB4O2hlaWdodDoyMnB4O2JvcmRlci1yYWRpdXM6OTk5cHg7YmFja2dyb3VuZDpyZ2JhKDAsMCwwLC41NSk7Ym9yZGVyOjFweCBzb2xpZCByZ2JhKDI1NSwyNTUsMjU1LC4xOCk7Y29sb3I6I2ZmZjtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2p1c3RpZnktY29udGVudDpjZW50ZXI7Zm9udC1zaXplOjEycHg7Zm9udC13ZWlnaHQ6ODAwO3otaW5kZXg6MztvcGFjaXR5Oi4wO3RyYW5zaXRpb246b3BhY2l0eSAuMTZzLHRyYW5zZm9ybSAuMTZzO30KLmdjOmhvdmVyIC5naW5mb3tvcGFjaXR5OjE7dHJhbnNmb3JtOnRyYW5zbGF0ZVkoLTFweCk7fQouZ2luZm86aG92ZXJ7YmFja2dyb3VuZDpyZ2JhKDAsMCwwLC43Mik7Ym9yZGVyLWNvbG9yOnJnYmEoMjU1LDI1NSwyNTUsLjI2KTt9Ci5naW5mbzphY3RpdmV7dHJhbnNmb3JtOnRyYW5zbGF0ZVkoMCk7fQouZ3B7d2lkdGg6MTAwJTtoZWlnaHQ6MTAwJTtkaXNwbGF5OmZsZXg7ZmxleC1kaXJlY3Rpb246Y29sdW1uO2FsaWduLWl0ZW1zOmNlbnRlcjtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyO2dhcDo3cHg7cGFkZGluZzo4cHg7cG9zaXRpb246YWJzb2x1dGU7aW5zZXQ6MDt9Ci5nc2J7d2lkdGg6MzZweDtoZWlnaHQ6MzZweDtib3JkZXItcmFkaXVzOjhweDtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2p1c3RpZnktY29udGVudDpjZW50ZXI7Zm9udC1zaXplOjEycHg7Zm9udC13ZWlnaHQ6ODAwO30KLmdue2ZvbnQtc2l6ZTo4cHg7dGV4dC1hbGlnbjpjZW50ZXI7Y29sb3I6dmFyKC0tbXV0ZWQpO2xpbmUtaGVpZ2h0OjEuNDt3b3JkLWJyZWFrOmJyZWFrLXdvcmQ7fQouZ2Nve3Bvc2l0aW9uOmFic29sdXRlO2JvdHRvbTowO2xlZnQ6MDtyaWdodDowO2JhY2tncm91bmQ6bGluZWFyLWdyYWRpZW50KHRvIHRvcCxyZ2JhKDAsMCwwLC45MyksdHJhbnNwYXJlbnQpO3BhZGRpbmc6MThweCA3cHggN3B4O29wYWNpdHk6MDt0cmFuc2l0aW9uOm9wYWNpdHkgLjE4cztib3JkZXItcmFkaXVzOjAgMCB2YXIoLS1yKSB2YXIoLS1yKTt9Ci5nY257Zm9udC1zaXplOjlweDtmb250LXdlaWdodDo2MDA7d2hpdGUtc3BhY2U6bm93cmFwO292ZXJmbG93OmhpZGRlbjt0ZXh0LW92ZXJmbG93OmVsbGlwc2lzO30KLmdjc3tmb250LXNpemU6OHB4O2NvbG9yOnZhcigtLW11dGVkKTt9Ci5nbHtmb250LXNpemU6MTFweDtjb2xvcjp2YXIoLS1tdXRlZCk7bWFyZ2luLXRvcDo1cHg7d2hpdGUtc3BhY2U6bm93cmFwO292ZXJmbG93OmhpZGRlbjt0ZXh0LW92ZXJmbG93OmVsbGlwc2lzO30KLmdjLXNjcmFwaW5ne3Bvc2l0aW9uOmFic29sdXRlO3RvcDo0cHg7cmlnaHQ6NHB4O3dpZHRoOjE4cHg7aGVpZ2h0OjE4cHg7Ym9yZGVyOjJweCBzb2xpZCB2YXIoLS1hY2NlbnQpO2JvcmRlci10b3AtY29sb3I6dHJhbnNwYXJlbnQ7Ym9yZGVyLXJhZGl1czo1MCU7YW5pbWF0aW9uOnNwaW4gLjZzIGxpbmVhciBpbmZpbml0ZTt9CkBrZXlmcmFtZXMgc3Bpbnt0b3t0cmFuc2Zvcm06cm90YXRlKDM2MGRlZyk7fX0KCi8qIOKUgOKUgCBTSURFIExBWU9VVCDilIDilIAgKi8KLnNpZGV7ZGlzcGxheTpmbGV4O3BhZGRpbmctdG9wOnZhcigtLW5hdik7aGVpZ2h0OjEwMHZoO30KLnNuYXZ7d2lkdGg6MjEwcHg7ZmxleC1zaHJpbms6MDtiYWNrZ3JvdW5kOnZhcigtLXMxKTtib3JkZXItcmlnaHQ6MXB4IHNvbGlkIHZhcigtLWJvcmRlcik7cGFkZGluZzoyMnB4IDA7b3ZlcmZsb3cteTphdXRvO30KLnNudHtmb250LXNpemU6MTBweDtsZXR0ZXItc3BhY2luZzoycHg7dGV4dC10cmFuc2Zvcm06dXBwZXJjYXNlO2NvbG9yOnZhcigtLW11dGVkMik7cGFkZGluZzowIDE4cHg7bWFyZ2luOjAgMCA3cHg7fQouc2l7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6OXB4O3BhZGRpbmc6OXB4IDE4cHg7Zm9udC1zaXplOjEzcHg7Y3Vyc29yOnBvaW50ZXI7Ym9yZGVyLWxlZnQ6M3B4IHNvbGlkIHRyYW5zcGFyZW50O2NvbG9yOnZhcigtLW11dGVkKTt0cmFuc2l0aW9uOmFsbCAuMTVzO30KLnNpOmhvdmVye2JhY2tncm91bmQ6dmFyKC0tczIpO2NvbG9yOnZhcigtLXRleHQpO30KLnNpLm9ue2JvcmRlci1sZWZ0LWNvbG9yOnZhcigtLWFjY2VudCk7YmFja2dyb3VuZDpyZ2JhKDIyOSw5LDIwLC4wNyk7Y29sb3I6dmFyKC0tdGV4dCk7fQouc2lje2ZvbnQtc2l6ZToxNHB4O3dpZHRoOjE4cHg7dGV4dC1hbGlnbjpjZW50ZXI7ZmxleC1zaHJpbms6MDt9Ci5zY3tmbGV4OjE7b3ZlcmZsb3cteTphdXRvO3BhZGRpbmc6MzJweCA0NHB4O30KLnNjIGgye2ZvbnQtZmFtaWx5OidCZWJhcyBOZXVlJyxzYW5zLXNlcmlmO2ZvbnQtc2l6ZTozNnB4O2xldHRlci1zcGFjaW5nOjJweDttYXJnaW4tYm90dG9tOjVweDt9Ci5zdWJ7Y29sb3I6dmFyKC0tbXV0ZWQpO2ZvbnQtc2l6ZToxNHB4O21hcmdpbi1ib3R0b206MjRweDt9CgovKiDilIDilIAgU1lTVEVNUyDilIDilIAgKi8KLnN5c3B7cGFkZGluZzpjYWxjKHZhcigtLW5hdikgKyAyMHB4KSAzNnB4IDgwcHg7fQouc3lzLWhkcntkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6ZmxleC1lbmQ7anVzdGlmeS1jb250ZW50OnNwYWNlLWJldHdlZW47bWFyZ2luLWJvdHRvbToyMnB4O30KLnN5cy1oZHIgaDF7Zm9udC1mYW1pbHk6J0JlYmFzIE5ldWUnLHNhbnMtc2VyaWY7Zm9udC1zaXplOjQ2cHg7bGV0dGVyLXNwYWNpbmc6M3B4O30KLmZie2JhY2tncm91bmQ6dmFyKC0tczIpO2JvcmRlcjoxcHggc29saWQgdmFyKC0tYm9yZGVyKTtib3JkZXItcmFkaXVzOjRweDtjb2xvcjp2YXIoLS1tdXRlZCk7cGFkZGluZzo1cHggMTNweDtmb250LXNpemU6MTJweDtjdXJzb3I6cG9pbnRlcjtmb250LWZhbWlseTppbmhlcml0O3RyYW5zaXRpb246YWxsIC4xNXM7fQouZmI6aG92ZXJ7Ym9yZGVyLWNvbG9yOnZhcigtLWJvcmRlcjIpO2NvbG9yOnZhcigtLXRleHQpO30KLmZiLm9ue2JhY2tncm91bmQ6dmFyKC0tYWNjZW50KTtib3JkZXItY29sb3I6dmFyKC0tYWNjZW50KTtjb2xvcjojZmZmO30KLnNncmlke2Rpc3BsYXk6Z3JpZDtncmlkLXRlbXBsYXRlLWNvbHVtbnM6cmVwZWF0KGF1dG8tZmlsbCxtaW5tYXgoMTQ1cHgsMWZyKSk7Z2FwOjEwcHg7fQouc2NyZHtiYWNrZ3JvdW5kOnZhcigtLXMxKTtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWJvcmRlcik7Ym9yZGVyLXJhZGl1czo5cHg7cGFkZGluZzoxOHB4IDEzcHggMTVweDtjdXJzb3I6cG9pbnRlcjt0ZXh0LWFsaWduOmNlbnRlcjt0cmFuc2l0aW9uOmFsbCAuMnM7cG9zaXRpb246cmVsYXRpdmU7b3ZlcmZsb3c6aGlkZGVuO30KLnNjcmQ6aG92ZXJ7YmFja2dyb3VuZDp2YXIoLS1zMik7Ym9yZGVyLWNvbG9yOnZhcigtLWJvcmRlcjIpO3RyYW5zZm9ybTp0cmFuc2xhdGVZKC0zcHgpO30KLnNjcmQ6OmJlZm9yZXtjb250ZW50OicnO3Bvc2l0aW9uOmFic29sdXRlO3RvcDowO2xlZnQ6MDtyaWdodDowO2hlaWdodDoycHg7YmFja2dyb3VuZDp2YXIoLS1zYyx2YXIoLS1hY2NlbnQpKTtvcGFjaXR5OjA7dHJhbnNpdGlvbjpvcGFjaXR5IC4yczt9Ci5zY3JkOmhvdmVyOjpiZWZvcmV7b3BhY2l0eToxO30KLnNjaXt3aWR0aDo0NnB4O2hlaWdodDo0NnB4O2JvcmRlci1yYWRpdXM6MTBweDtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2p1c3RpZnktY29udGVudDpjZW50ZXI7Zm9udC1zaXplOjE3cHg7Zm9udC13ZWlnaHQ6OTAwO21hcmdpbjowIGF1dG8gMTBweDt9Ci5zY257Zm9udC1zaXplOjEycHg7Zm9udC13ZWlnaHQ6NjAwO21hcmdpbi1ib3R0b206MnB4O30KLnNjY3tmb250LXNpemU6MTFweDtjb2xvcjp2YXIoLS1tdXRlZCk7fQouc2JkZ3twb3NpdGlvbjphYnNvbHV0ZTt0b3A6N3B4O3JpZ2h0OjdweDtmb250LXNpemU6OHB4O2ZvbnQtd2VpZ2h0OjcwMDtsZXR0ZXItc3BhY2luZzoxcHg7dGV4dC10cmFuc2Zvcm06dXBwZXJjYXNlO3BhZGRpbmc6MnB4IDVweDtib3JkZXItcmFkaXVzOjNweDt9CgovKiDilIDilIAgTElCUkFSWSDilIDilIAgKi8KLmxpYnB7cGFkZGluZzpjYWxjKHZhcigtLW5hdikgKyAxMnB4KSAwIDgwcHg7fQoubGlidGJ7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6MTBweDtwYWRkaW5nOjE0cHggMzZweDt9Ci5saWJ0e2ZvbnQtZmFtaWx5OidCZWJhcyBOZXVlJyxzYW5zLXNlcmlmO2ZvbnQtc2l6ZTo0MHB4O2xldHRlci1zcGFjaW5nOjNweDttYXJnaW4tcmlnaHQ6OHB4O30KLnN3e2ZsZXg6MTttYXgtd2lkdGg6MjUwcHg7cG9zaXRpb246cmVsYXRpdmU7fQouc3cgaW5wdXR7d2lkdGg6MTAwJTtiYWNrZ3JvdW5kOnZhcigtLXMxKTtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWJvcmRlcik7Ym9yZGVyLXJhZGl1czo0cHg7Y29sb3I6dmFyKC0tdGV4dCk7cGFkZGluZzo3cHggMTBweCA3cHggMzBweDtmb250LXNpemU6MTNweDtvdXRsaW5lOm5vbmU7Zm9udC1mYW1pbHk6aW5oZXJpdDt0cmFuc2l0aW9uOmJvcmRlci1jb2xvciAuMnM7fQouc3cgaW5wdXQ6Zm9jdXN7Ym9yZGVyLWNvbG9yOnZhcigtLWJvcmRlcjIpO30KLnN3OjpiZWZvcmV7Y29udGVudDon4oyVJztwb3NpdGlvbjphYnNvbHV0ZTtsZWZ0OjlweDt0b3A6NTAlO3RyYW5zZm9ybTp0cmFuc2xhdGVZKC01MCUpO2NvbG9yOnZhcigtLW11dGVkKTtmb250LXNpemU6MTRweDtwb2ludGVyLWV2ZW50czpub25lO30KLmxzZWx7YmFja2dyb3VuZDp2YXIoLS1zMSk7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1ib3JkZXIpO2JvcmRlci1yYWRpdXM6NHB4O2NvbG9yOnZhcigtLXRleHQpO3BhZGRpbmc6N3B4IDEwcHg7Zm9udC1zaXplOjEycHg7b3V0bGluZTpub25lO2ZvbnQtZmFtaWx5OmluaGVyaXQ7Y3Vyc29yOnBvaW50ZXI7fQoKLyog4pSA4pSAIFJP",
@@ -41,6 +44,7 @@ const CHUNKS = [
 
 // ── HTML cache ────────────────────────────────────────────────────────────
 let _cachedHtml = null;
+let _cachedHtmlNetplayKey = '';
 let _cachedLandingHtml = null;
 
 const RELEASE_LOG = [
@@ -213,7 +217,7 @@ const RELEASE_LOG = [
     title: 'Online session + EmulatorJS netplay wiring',
     details: [
       'Create/join now stores memberId for the EmulatorJS netplay handshake.',
-      'Settings include EmulatorJS Netplay server URL (self-hosted EmulatorJS-Netplay); launch sets EJS_netplayServer, EJS_gameID (per ROM+session), and STUN ICE servers.',
+      'Settings include optional netplay base URL override; launch sets EJS_netplayUrl, EJS_gameID (per ROM+session), and STUN ICE servers (same-origin DO or external relay).',
       'Documented that RetroVault session codes are a lobby only — WebRTC netplay requires a separate Node netplay server.',
     ],
   },
@@ -234,9 +238,68 @@ const RELEASE_LOG = [
       'Replaced with (?<!async ) lookbehind and a dedupe pass for launchRomById and closeEmu.',
     ],
   },
+  {
+    id: '2026-04-14-s',
+    title: 'Optional host-configured netplay relay (DEFAULT_NETPLAY_URL)',
+    details: [
+      'Worker env DEFAULT_NETPLAY_URL injects window.__RV_DEFAULT_NETPLAY_URL; _rvGetNetplayServerUrl falls back to it when localStorage is empty.',
+      'Easier UX: site operator hosts EmulatorJS-Netplay once; players only create/join session + launch ROM. Users can still override in Settings.',
+      'getHTML(env) cache key includes netplay default so changing the var rebuilds HTML.',
+    ],
+  },
+  {
+    id: '2026-04-15-a',
+    title: 'Cloudflare-native netplay signaling (Durable Object)',
+    details: [
+      'NETPLAY_DO (NetplayCoordinatorDO) implements EmulatorJS-Netplay room + webrtc-signal fanout over Engine.IO v4 + Socket.IO v5 WebSocket transport.',
+      'Worker routes GET /list and /socket.io/* to the DO; default netplay base URL is same-origin when DEFAULT_NETPLAY_URL is unset.',
+      'Client patches io() to transports:[websocket] only; EJS_netplayUrl is set (EmulatorJS reads netplayUrl, not EJS_netplayServer).',
+    ],
+  },
+  {
+    id: '2026-04-15-b',
+    title: 'Auto-assign physical gamepads in EmulatorJS',
+    details: [
+      'After loader.js creates EJS_emulator, _rvHookEjsGamepadAutopick fills empty gamepadSelection slots from connected pads (pads connected before the control menu existed stayed on Not Connected).',
+      'Short poll + gamepadconnected listener; cleanup on closeEmu. getHTML cache key includes APP_RELEASE_VERSION.',
+    ],
+  },
+  {
+    id: '2026-04-15-c',
+    title: 'Netflix-style hero background trailer',
+    details: [
+      'Featured home hero (most recently added ROM) plays a muted full-bleed trailer when rom.videoUrl is set (YouTube or direct mp4/webm).',
+      '_rvApplyHeroTrailer / _rvClearHeroTrailer; z-index so text stays readable over gradients.',
+    ],
+  },
+  {
+    id: '2026-04-15-d',
+    title: 'Home row trailer hover: stacking + YouTube COEP',
+    details: [
+      'Raised .rv-card-trailer z-index and hide .gp on hover so placeholder tiles do not cover the preview.',
+      'credentialless on YouTube iframes (card hover, detail panel, hero); m.youtube.com and live/ paths in URL parser.',
+    ],
+  },
+  {
+    id: '2026-04-15-e',
+    title: 'Profile picker: Users button and tile clicks',
+    details: [
+      'Open picker with force=true from Users nav and avatar chip; clear rv-profile-picker-dismissed on explicit open so overlay is not auto-hidden.',
+      'Replace nested button Edit control inside profile tile with span+role=button (valid HTML; fixes broken tile clicks).',
+    ],
+  },
+  {
+    id: '2026-04-16-a',
+    title: 'Auto YouTube trailer URL (optional YT_API_KEY)',
+    details: [
+      'GET /youtube-search-trailer?q= proxies YouTube Data API v3 search (server-side key).',
+      'After Hasheous applies title/metadata, optional trailer lookup fills rom.videoUrl when empty; Scraper checkbox + localStorage rv-youtube-trailer-on.',
+      'Home row hover + hero use existing videoUrl; user must wrangler secret put YT_API_KEY.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.14-cloud-save-state-async-fix';
+const APP_RELEASE_VERSION = '2026.04.16-youtube-trailer-scrape';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -252,6 +315,13 @@ const CHANGELOG_DATA = {
     'Home row cards play a muted trailer preview on hover when videoUrl is set',
     'Online session + EmulatorJS netplay: netplay server URL in settings, EJS vars set on launch when in a session',
     'Cloud backup of EmulatorJS save state on exit; auto-load via EJS_loadStateURL on next launch when present',
+    'Optional DEFAULT_NETPLAY_URL worker var for zero-paste netplay relay when operator hosts EmulatorJS-Netplay',
+    'Built-in NETPLAY_DO Durable Object for same-origin EmulatorJS netplay signaling (no external Node server)',
+    'Physical gamepads auto-mapped to EmulatorJS player slots after load (no manual dropdown each ROM)',
+    'Home hero: Netflix-style muted full-bleed trailer when the featured game has videoUrl',
+    'Card trailer hover: z-index vs placeholder art + credentialless YouTube iframes (COEP)',
+    'Profile picker: Users / avatar chip always opens overlay; fix nested Edit button in tiles',
+    'Optional auto YouTube trailer URL during Hasheous scrape (YT_API_KEY secret)',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -399,13 +469,22 @@ function getReleaseNotesHTML() {
 </html>`;
 }
 
-function getHTML() {
-  if (_cachedHtml) return _cachedHtml;
+function getHTML(env) {
+  const netplayDefaultKey = env && typeof env.DEFAULT_NETPLAY_URL === 'string'
+    ? String(env.DEFAULT_NETPLAY_URL).trim()
+    : '';
+  const htmlCacheKey = `${netplayDefaultKey}\0${APP_RELEASE_VERSION}`;
+  if (_cachedHtml && _cachedHtmlNetplayKey === htmlCacheKey) return _cachedHtml;
   const b64 = CHUNKS.join('');
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   let html = new TextDecoder('utf-8').decode(bytes);
+
+  if (html.includes('</head>')) {
+    const inject = `<script>(function(){try{var d=${JSON.stringify(netplayDefaultKey)};window.__RV_DEFAULT_NETPLAY_URL=(d&&String(d).trim())?String(d).trim():(window.location&&window.location.origin?String(window.location.origin).replace(/\\/$/,''):'');}catch(e){}})();if(typeof io==='function'&&!window.__RV_IO_PATCHED){window.__RV_IO_PATCHED=1;var _rvIo=io;window.io=function(u,o){return _rvIo(u,Object.assign({transports:['websocket']},o||{}));};}<\/script>`;
+    html = html.replace('</head>', `${inject}\n</head>`);
+  }
 
   // Inject owner-scoped sync calls into the embedded app so every browser
   // gets an isolated R2 namespace without requiring a separate frontend build.
@@ -433,12 +512,12 @@ function getHTML() {
       "function _rvSetSessionPassword(v){ const clean=_rvNormalizeSessionPassword(v); if(clean.length<4){ return null; } localStorage.setItem('rv-session-password', clean); return clean; }",
       "function _rvSessionStatus(msg, state){ const el=document.getElementById('rvSessionStatus'); if(el){ el.textContent=msg; el.style.color=state==='err'?'#ff5555':(state==='ok'?'var(--green)':'var(--muted)'); } if(typeof toast==='function'){ if(state==='err') toast(msg,'err'); else toast(msg); } }",
       "function _rvNetplayIceServers(){ return [{ urls:'stun:stun.l.google.com:19302' },{ urls:'stun:stun1.l.google.com:19302' }]; }",
-      "function _rvGetNetplayServerUrl(){ return String(localStorage.getItem('rv-netplay-server-url')||'').trim(); }",
+      "function _rvGetNetplayServerUrl(){ const stored=String(localStorage.getItem('rv-netplay-server-url')||'').trim(); if(stored) return stored; const d=(typeof window.__RV_DEFAULT_NETPLAY_URL==='string'?window.__RV_DEFAULT_NETPLAY_URL:'').trim(); return d||''; }",
       "function _rvSetNetplayServerUrl(raw){ const u=String(raw||'').trim(); localStorage.setItem('rv-netplay-server-url', u); return u; }",
-      "function _rvApplyEjsNetplayFromSession(rom){ try{ delete window.EJS_netplayServer; delete window.EJS_gameID; delete window.EJS_netplayICEServers; }catch(e){} const sid=localStorage.getItem('rv-last-session-id')||''; const mid=localStorage.getItem('rv-session-member-id')||''; let base=_rvGetNetplayServerUrl(); if(!rom||!sid||!mid){ return; } if(!base){ try{ console.warn('[netplay] In an online session but no EmulatorJS Netplay server URL — set it in Settings → Online Session.'); }catch(e){} return; } if(!/^https?:\\/\\//i.test(base)){ try{ console.warn('[netplay] Netplay server URL must start with http:// or https://'); }catch(e){} return; } if(base.indexOf('#')<0) base=base+'#'; const gameKey=sid+'|'+String(rom.id); let h=5381; for(let i=0;i<gameKey.length;i++){ h=((h<<5)+h)+gameKey.charCodeAt(i); h=h|0; } const gid=(Math.abs(h)%2000000000)||1; window.EJS_netplayServer=base; window.EJS_gameID=gid; window.EJS_netplayICEServers=_rvNetplayIceServers(); }",
+      "function _rvApplyEjsNetplayFromSession(rom){ try{ delete window.EJS_netplayUrl; delete window.EJS_netplayServer; delete window.EJS_gameID; delete window.EJS_netplayICEServers; }catch(e){} const sid=localStorage.getItem('rv-last-session-id')||''; const mid=localStorage.getItem('rv-session-member-id')||''; let base=_rvGetNetplayServerUrl(); if(!rom||!sid||!mid){ return; } if(!base){ try{ console.warn('[netplay] In an online session but no netplay base URL — set override in Settings → Online Session or deploy NETPLAY_DO.'); }catch(e){} return; } if(!/^https?:\\/\\//i.test(base)){ try{ console.warn('[netplay] Netplay URL must start with http:// or https://'); }catch(e){} return; } if(base.indexOf('#')<0) base=base+'#'; const gameKey=sid+'|'+String(rom.id); let h=5381; for(let i=0;i<gameKey.length;i++){ h=((h<<5)+h)+gameKey.charCodeAt(i); h=h|0; } const gid=(Math.abs(h)%2000000000)||1; window.EJS_netplayUrl=base; window.EJS_gameID=gid; window.EJS_netplayICEServers=_rvNetplayIceServers(); }",
       "async function _rvCreateSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } try{ const resp=await fetch(window.location.origin+'/session-create',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password, hostName:(typeof _rvOwnerId==='function'?_rvOwnerId():'host') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', data.sessionId); if(data.memberId) localStorage.setItem('rv-session-member-id', data.memberId); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(data.sessionId).catch(function(){}); } _rvSessionStatus('Session created: '+data.sessionId+' — use Netplay URL + launch same ROM for 2P.','ok'); }catch(e){ _rvSessionStatus('Create session failed: '+e.message,'err'); } }",
       "async function _rvJoinSession(){ const password=_rvSessionPassword(); if(password.length<4){ _rvSessionStatus('Set an Online Session password first (min 4 chars).','err'); return; } const prev=localStorage.getItem('rv-last-session-id')||''; const sessionId=String(prompt('Enter session code',prev)||'').trim(); if(!sessionId){ return; } try{ const resp=await fetch(window.location.origin+'/session-join',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ sessionId, password, playerName:(typeof _rvOwnerId==='function'?_rvOwnerId():'player') }) }); const data=await resp.json(); if(!resp.ok||!data.ok) throw new Error(data.error||('HTTP '+resp.status)); localStorage.setItem('rv-last-session-id', sessionId); if(data.memberId) localStorage.setItem('rv-session-member-id', data.memberId); _rvSessionStatus('Joined session '+sessionId+' ('+(data.memberCount||0)+' players). Set same Netplay URL as host, then launch the same game.','ok'); }catch(e){ _rvSessionStatus('Join failed: '+e.message,'err'); } }",
-      "function _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=function(){ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const npRow=document.createElement('div'); npRow.style.display='grid'; npRow.style.gridTemplateColumns='minmax(240px,1fr) auto'; npRow.style.gap='8px'; npRow.style.alignItems='center'; npRow.style.marginTop='8px'; const np=document.createElement('input'); np.id='rvNetplayServerInput'; np.type='url'; np.placeholder='EmulatorJS Netplay server — https://your-host:3000/'; np.value=_rvGetNetplayServerUrl(); np.autocomplete='off'; np.style.padding='8px'; np.style.borderRadius='8px'; np.style.border='1px solid var(--line)'; np.style.background='var(--s1)'; np.style.color='var(--text)'; const npBtn=document.createElement('button'); npBtn.type='button'; npBtn.className='bb s'; npBtn.textContent='Save URL'; npBtn.onclick=function(){ _rvSetNetplayServerUrl(np.value); _rvSessionStatus('Netplay server URL saved (required for 2-player).','ok'); }; npRow.appendChild(np); npRow.appendChild(npBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=function(){ _rvCreateSession(); }; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=function(){ _rvJoinSession(); }; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.innerHTML='Session code + password are the <strong>lobby</strong> in R2. For <strong>2-player netplay</strong>, host must run an <a href=\"https://github.com/EmulatorJS/EmulatorJS-Netplay\" target=\"_blank\" rel=\"noopener\">EmulatorJS-Netplay</a> server, both players paste the same <strong>Netplay server URL</strong> above, join this session, then launch the <strong>same ROM</strong> — use the globe in the emulator bar to connect.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent='Set password, optional netplay URL, then create or join.'; card.appendChild(title); card.appendChild(row); card.appendChild(npRow); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }",
+      "function _rvInitSessionControls(){ const settingsPanel=document.getElementById('st-gen')||document.getElementById('view-settings'); if(!settingsPanel||document.getElementById('rvSessionPasswordInput')) return; const card=document.createElement('div'); card.style.background='var(--s2)'; card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.padding='12px'; card.style.marginTop='12px'; const title=document.createElement('div'); title.style.fontWeight='700'; title.style.marginBottom='8px'; title.textContent='Online Session'; const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='minmax(240px,1fr) auto'; row.style.gap='8px'; row.style.alignItems='center'; const input=document.createElement('input'); input.id='rvSessionPasswordInput'; input.type='password'; input.placeholder='Session password'; input.value=_rvSessionPassword(); input.autocomplete='off'; input.style.padding='8px'; input.style.borderRadius='8px'; input.style.border='1px solid var(--line)'; input.style.background='var(--s1)'; input.style.color='var(--text)'; const saveBtn=document.createElement('button'); saveBtn.type='button'; saveBtn.className='bb s'; saveBtn.textContent='Save Password'; saveBtn.onclick=function(){ const saved=_rvSetSessionPassword(input.value); if(!saved){ _rvSessionStatus('Password must be at least 4 characters.','err'); return; } input.value=saved; _rvSessionStatus('Session password saved.','ok'); }; row.appendChild(input); row.appendChild(saveBtn); const npRow=document.createElement('div'); npRow.style.display='grid'; npRow.style.gridTemplateColumns='minmax(240px,1fr) auto'; npRow.style.gap='8px'; npRow.style.alignItems='center'; npRow.style.marginTop='8px'; const np=document.createElement('input'); np.id='rvNetplayServerInput'; np.type='url'; np.placeholder=(typeof window.__RV_DEFAULT_NETPLAY_URL==='string'&&window.__RV_DEFAULT_NETPLAY_URL)?'Optional override — site default is set':'EmulatorJS Netplay relay URL (https://…) — or site owner sets default'; np.value=String(localStorage.getItem('rv-netplay-server-url')||'').trim(); np.autocomplete='off'; np.style.padding='8px'; np.style.borderRadius='8px'; np.style.border='1px solid var(--line)'; np.style.background='var(--s1)'; np.style.color='var(--text)'; const npBtn=document.createElement('button'); npBtn.type='button'; npBtn.className='bb s'; npBtn.textContent='Save URL'; npBtn.onclick=function(){ _rvSetNetplayServerUrl(np.value); _rvSessionStatus('Netplay URL saved (blank = use site default if any).','ok'); }; npRow.appendChild(np); npRow.appendChild(npBtn); const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'; actions.style.flexWrap='wrap'; const createBtn=document.createElement('button'); createBtn.type='button'; createBtn.className='bb p'; createBtn.textContent='Create Session'; createBtn.onclick=function(){ _rvCreateSession(); }; const joinBtn=document.createElement('button'); joinBtn.type='button'; joinBtn.className='bb s'; joinBtn.textContent='Join Session'; joinBtn.onclick=function(){ _rvJoinSession(); }; actions.appendChild(createBtn); actions.appendChild(joinBtn); const note=document.createElement('div'); note.style.fontSize='11px'; note.style.color='var(--muted)'; note.style.marginTop='6px'; note.innerHTML='Session code + password are the <strong>lobby</strong> in R2. <strong>2-player</strong> uses WebRTC and needs an <a href=\"https://github.com/EmulatorJS/EmulatorJS-Netplay\" target=\"_blank\" rel=\"noopener\">EmulatorJS-Netplay</a> <em>relay</em> (hosted by this site or you). If a default relay is configured, leave Netplay URL blank. Otherwise paste the same HTTPS URL on both devices, join this session, launch the <strong>same ROM</strong>, then use the globe in the emulator bar.'; const status=document.createElement('div'); status.id='rvSessionStatus'; status.style.fontSize='11px'; status.style.color='var(--muted)'; status.style.marginTop='6px'; status.textContent=(typeof window.__RV_DEFAULT_NETPLAY_URL==='string'&&window.__RV_DEFAULT_NETPLAY_URL)?'Password → create/join. Netplay relay is pre-configured; override above only if needed.':'Set password and netplay relay URL (or ask the site owner to set a default), then create or join.'; card.appendChild(title); card.appendChild(row); card.appendChild(npRow); card.appendChild(actions); card.appendChild(note); card.appendChild(status); settingsPanel.appendChild(card); }",
       "if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_rvInitSessionControls); else setTimeout(_rvInitSessionControls,0);",
     ].join('\n');
     if (html.includes(helperAnchor)) {
@@ -454,7 +533,7 @@ function getHTML() {
   }
 
   if (!html.includes('id="rvCardTrailerHover"')) {
-    const cardTrailerHover = '<style id="rvCardTrailerHover">.gc-has-trailer .ga{position:relative!important}.gc-has-trailer .ga>img{position:relative!important;z-index:2!important;transition:opacity .22s ease!important}.gc-has-trailer:hover .ga>img{opacity:0!important}.rv-card-trailer{position:absolute!important;inset:0!important;z-index:1!important;opacity:0!important;transition:opacity .22s ease!important;pointer-events:none!important;background:#000!important;overflow:hidden!important}.gc-has-trailer:hover .rv-card-trailer{opacity:1!important}.gc-has-trailer:hover .gco{z-index:4!important}.gc-has-trailer:hover .ginfo,.gc-has-trailer:hover .gfav{z-index:5!important}.rv-card-trailer-iframe,.rv-card-trailer-vid{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;border:0!important;object-fit:cover!important}</style>';
+    const cardTrailerHover = '<style id="rvCardTrailerHover">.gc-has-trailer .ga{position:relative!important}.gc-has-trailer .ga>img{position:relative!important;z-index:2!important;transition:opacity .22s ease!important}.gc-has-trailer:hover .ga>img{opacity:0!important}.rv-card-trailer{position:absolute!important;inset:0!important;z-index:3!important;opacity:0!important;transition:opacity .22s ease!important;pointer-events:none!important;background:#000!important;overflow:hidden!important}.gc-has-trailer:hover .rv-card-trailer{opacity:1!important}.gc-has-trailer:hover .gp{opacity:0!important;visibility:hidden!important;pointer-events:none!important}.gc-has-trailer:hover .gco{z-index:4!important}.gc-has-trailer:hover .ginfo,.gc-has-trailer:hover .gfav{z-index:5!important}.rv-card-trailer-iframe,.rv-card-trailer-vid{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;border:0!important;object-fit:cover!important}</style>';
     if (html.includes('</head>')) {
       html = html.replace('</head>', `${cardTrailerHover}\n</head>`);
     }
@@ -498,6 +577,7 @@ body{background:#141414!important;color:#fff!important;}
 }
 
 .hero{
+  position:relative!important;
   min-height:520px!important;
   height:64vh!important;
   padding:0 48px 62px!important;
@@ -510,8 +590,35 @@ body{background:#141414!important;color:#fff!important;}
   left:0;right:0;bottom:0;height:150px;
   background:linear-gradient(to top,#141414,transparent);
   pointer-events:none;
+  z-index:4!important;
 }
-.hc{max-width:740px!important;}
+#rvHeroTrailer{
+  position:absolute!important;
+  inset:0!important;
+  z-index:0!important;
+  opacity:0;
+  transition:opacity .55s ease;
+  pointer-events:none!important;
+  overflow:hidden!important;
+  background:#000!important;
+}
+#rvHeroTrailer.rv-hero-trailer-on{opacity:1!important;}
+#rvHeroTrailer iframe,#rvHeroTrailer video{
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  min-width:102%!important;
+  min-height:102%!important;
+  width:auto!important;
+  height:auto!important;
+  max-width:none!important;
+  transform:translate(-50%,-50%)!important;
+  border:0!important;
+  pointer-events:none!important;
+}
+.hero .hm{z-index:1!important;opacity:.12!important;}
+.hero .hg{z-index:2!important;}
+.hc{max-width:740px!important;z-index:5!important;position:relative!important;}
 .ht{font-size:54px!important;line-height:1.05!important;font-weight:800!important;}
 .hs{font-size:18px!important;color:#d0d0d0!important;line-height:1.42!important;}
 .hbtns{gap:12px!important;}
@@ -694,6 +801,7 @@ body{background:#141414!important;color:#fff!important;}
       hr.innerHTML = '<div class="empty"><div class="empty-icon">🎮</div><div class="empty-title">No games yet</div><div class="empty-sub">Upload your ROM files to start playing</div><button class="bb p" onclick="sv(\\'roms\\',null)">⬆ Upload ROMs</button></div>';
       const hs = document.getElementById('heroStats');
       if(hs) hs.textContent = 'Upload ROMs to get started';
+      if(typeof _rvClearHeroTrailer==='function'){ try{ _rvClearHeroTrailer(); }catch(e){} }
       return;
     }
 
@@ -705,6 +813,7 @@ body{background:#141414!important;color:#fff!important;}
     if(ht && heroRom) ht.textContent = _rvCleanCardName(heroRom.name || heroRom.filename || 'RetroVault');
     const playBtn = document.querySelector('.hbtns .bplay');
     if(playBtn && heroRom) playBtn.onclick = function(){ launchRomById(heroRom.id); };
+    if(typeof _rvApplyHeroTrailer==='function'){ try{ _rvApplyHeroTrailer(heroRom); }catch(e){} }
 
     let out = '';
     groups.forEach((group)=>{
@@ -1454,6 +1563,27 @@ function _rvHasheousPickTgdbId(metadata){
   return '';
 }
 
+async function _rvFetchYoutubeTrailerUrl(gameTitle, rom){
+  const base = String(gameTitle || '').trim();
+  if(!base) return '';
+  let q = base;
+  try{
+    if(rom && rom.console && typeof getSys === 'function'){
+      const s = getSys(rom.console);
+      if(s && s.name) q = base + ' ' + s.name + ' trailer';
+      else q = base + ' game trailer';
+    } else {
+      q = base + ' game trailer';
+    }
+  }catch(e){
+    q = base + ' game trailer';
+  }
+  const resp = await fetch(window.location.origin + '/youtube-search-trailer?q=' + encodeURIComponent(q.slice(0,200)));
+  const data = await resp.json().catch(function(){ return {}; });
+  if(!resp.ok || !data || !data.ok || !data.watchUrl) return '';
+  return String(data.watchUrl).trim();
+}
+
 async function _rvHasheousFetchLookup(hashes){
   const body = {};
   if(hashes.crc) body.crc = String(hashes.crc).toLowerCase();
@@ -1506,6 +1636,22 @@ async function _rvApplyHasheousToRom(romId, api, opts){
   }
   take('description', desc);
   if(year && /^(19|20)\d{2}$/.test(year)) take('year', year);
+  const ytOn = (function(){
+    try{
+      const el = document.getElementById('rvYoutubeTrailerOn');
+      if(el) return !!el.checked;
+    }catch(e){}
+    return localStorage.getItem('rv-youtube-trailer-on') !== '0';
+  })();
+  const gameTitleForTrailer = String(title || rom.name || '').trim();
+  if(ytOn && !rom.videoUrl && gameTitleForTrailer){
+    try{
+      const tu = await _rvFetchYoutubeTrailerUrl(gameTitleForTrailer, rom);
+      if(tu){ rom.videoUrl = tu; changed = true; }
+    }catch(e){
+      if(typeof logScrape === 'function') logScrape('[youtube-trailer] ' + (e && e.message ? e.message : e));
+    }
+  }
   if(changed){
     await dbPut('roms', rom);
     if(typeof r2SaveMeta === 'function') await r2SaveMeta(rom);
@@ -1633,6 +1779,8 @@ function _rvInitHasheousControls(){
     + '</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);">'
     + '<input type="checkbox" id="rvHasheousOverwrite" /> Overwrite existing description / year / cover</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);">'
+    + '<input type="checkbox" id="rvYoutubeTrailerOn" checked /> Auto-find YouTube trailer URL when missing (worker needs <code style="font-size:10px;">YT_API_KEY</code>)</label>'
     + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'
     + '<button class="bb p" type="button" id="rvHasheousAllBtn">Fetch metadata for all ROMs</button>'
     + '<button class="bb s" type="button" id="rvHasheousMissingBtn">Missing artwork only</button>'
@@ -1648,6 +1796,15 @@ function _rvInitHasheousControls(){
     + '</div></details>';
 
   host.appendChild(card);
+  const ytChk = document.getElementById('rvYoutubeTrailerOn');
+  if(ytChk){
+    try{
+      ytChk.checked = localStorage.getItem('rv-youtube-trailer-on') !== '0';
+      ytChk.onchange = function(){
+        try{ localStorage.setItem('rv-youtube-trailer-on', ytChk.checked ? '1' : '0'); }catch(e){}
+      };
+    }catch(e){}
+  }
   document.getElementById('rvHasheousAllBtn').onclick = function(){
     dbGetAll('roms').then(function(roms){
       const list = roms || [];
@@ -1895,7 +2052,7 @@ if(document.readyState === 'loading'){
     )
     .replace(
       "<button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>",
-      "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" id=\"rvUsersNavBtn\" onclick=\"window._rvOpenProfilePicker&&window._rvOpenProfilePicker()\">👥 Users</button>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
+      "<a class=\"nb\" href=\"/release-notes\">✨ What's New</a>\n    <button class=\"nb\" id=\"rvUsersNavBtn\" onclick=\"window._rvOpenProfilePicker&&window._rvOpenProfilePicker(true)\">👥 Users</button>\n    <button class=\"nb\" onclick=\"toggleTV()\">⛶ TV</button>"
     )
     .replace(
       "function cloudAppReady(){ return _rvFbInited && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0; }\nfunction cloudSignedIn(){ return cloudAppReady() && firebase.auth().currentUser; }",
@@ -2152,6 +2309,59 @@ if(document.readyState === 'loading'){
   }
   window._rvApplyCloudSaveStateOnLaunch = _rvApplyCloudSaveStateOnLaunch;
 
+  /** Assign physical gamepads to EmulatorJS player slots (fixes "Not Connected" when pad was plugged in before the control menu existed). */
+  function _rvHookEjsGamepadAutopick(){
+    const sync = { poller: null, onConn: null };
+    try{ if(window._rvEjsGamepadSync && window._rvEjsGamepadSync.poller) clearInterval(window._rvEjsGamepadSync.poller); }catch(e){}
+    try{ if(window._rvEjsGamepadSync && window._rvEjsGamepadSync.onConn) window.removeEventListener('gamepadconnected', window._rvEjsGamepadSync.onConn); }catch(e){}
+    window._rvEjsGamepadSync = sync;
+    function applyPads(){
+      const ejs = window.EJS_emulator;
+      if(!ejs || !Array.isArray(ejs.gamepadSelection) || !ejs.gamepad || !Array.isArray(ejs.gamepad.gamepads)) return false;
+      const pads = ejs.gamepad.gamepads;
+      if(!pads.length) return false;
+      let changed = false;
+      for(let pi = 0; pi < ejs.gamepadSelection.length; pi++){
+        if(ejs.gamepadSelection[pi]) continue;
+        for(let j = 0; j < pads.length; j++){
+          const g = pads[j];
+          if(!g) continue;
+          const id = g.id + '_' + g.index;
+          let taken = false;
+          for(let k = 0; k < ejs.gamepadSelection.length; k++){
+            if(ejs.gamepadSelection[k] === id){ taken = true; break; }
+          }
+          if(taken) continue;
+          ejs.gamepadSelection[pi] = id;
+          changed = true;
+          break;
+        }
+      }
+      if(changed && typeof ejs.updateGamepadLabels === 'function'){
+        try{ ejs.updateGamepadLabels(); }catch(e){}
+      }
+      return changed;
+    }
+    function tick(){
+      applyPads();
+      const ejs = window.EJS_emulator;
+      if(!ejs || !Array.isArray(ejs.gamepadSelection)) return;
+      let all = true;
+      for(let i = 0; i < ejs.gamepadSelection.length; i++){
+        if(!ejs.gamepadSelection[i]){ all = false; break; }
+      }
+      if(all && sync.poller){ clearInterval(sync.poller); sync.poller = null; }
+    }
+    sync.onConn = function(){ tick(); };
+    window.addEventListener('gamepadconnected', sync.onConn);
+    tick();
+    sync.poller = setInterval(tick, 250);
+    setTimeout(function(){
+      if(sync.poller){ clearInterval(sync.poller); sync.poller = null; }
+    }, 8000);
+  }
+  window._rvHookEjsGamepadAutopick = _rvHookEjsGamepadAutopick;
+
   function _rvYoutubeEmbedSrcFromUrl(raw){
     const s = String(raw||'').trim();
     if(!s) return '';
@@ -2159,18 +2369,20 @@ if(document.readyState === 'loading'){
     if(u.startsWith('//')) u = 'https:' + u;
     try{
       const p = new URL(u, window.location.href);
-      const host = (p.hostname||'').toLowerCase();
+      let host = (p.hostname||'').toLowerCase();
+      if(host.startsWith('www.')) host = host.slice(4);
       if(host === 'youtu.be'){
         const id = p.pathname.replace(/^[/]+/,'').split('/')[0];
         return id ? ('https://www.youtube-nocookie.com/embed/' + id + '?rel=0') : '';
       }
-      if(host.indexOf('youtube.com') >= 0 || host.indexOf('youtube-nocookie.com') >= 0){
+      if(host === 'youtube.com' || host === 'youtube-nocookie.com' || host === 'm.youtube.com' || host === 'music.youtube.com'){
         let id = p.searchParams.get('v');
         if(!id){
           const seg = p.pathname.split('/').filter(Boolean);
           const ei = seg.indexOf('embed');
           if(ei >= 0 && seg[ei+1]) id = seg[ei+1];
           else if(seg[0] === 'shorts' && seg[1]) id = seg[1];
+          else if(seg[0] === 'live' && seg[1]) id = seg[1];
         }
         return id ? ('https://www.youtube-nocookie.com/embed/' + id + '?rel=0') : '';
       }
@@ -2201,7 +2413,7 @@ if(document.readyState === 'loading'){
     const yt = _rvYoutubeEmbedSrcFromUrl(raw);
     if(yt){
       wrap.style.display = 'block';
-      wrap.innerHTML = '<div style="position:relative;width:100%;max-width:560px;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe title="Trailer" src="'+yt.replace(/"/g,'&quot;')+'" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
+      wrap.innerHTML = '<div style="position:relative;width:100%;max-width:560px;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;"><iframe title="Trailer" credentialless src="'+yt.replace(/"/g,'&quot;')+'" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>';
       return;
     }
     if(_rvIsDirectVideoUrl(raw)){
@@ -2234,6 +2446,61 @@ if(document.readyState === 'loading'){
   }
   window._rvCardTrailerHtml = _rvCardTrailerHtml;
 
+  function _rvEnsureHeroTrailerHost(){
+    const hero = document.querySelector('#view-home .hero');
+    if(!hero) return null;
+    let el = document.getElementById('rvHeroTrailer');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'rvHeroTrailer';
+      el.setAttribute('aria-hidden','true');
+      hero.insertBefore(el, hero.firstChild);
+    }
+    return el;
+  }
+  function _rvClearHeroTrailer(){
+    const el = document.getElementById('rvHeroTrailer');
+    if(!el) return;
+    el.classList.remove('rv-hero-trailer-on');
+    el.innerHTML = '';
+  }
+  function _rvApplyHeroTrailer(rom){
+    const host = _rvEnsureHeroTrailerHost();
+    if(!host){ return; }
+    _rvClearHeroTrailer();
+    const raw = rom && rom.videoUrl ? String(rom.videoUrl).trim() : '';
+    if(!raw){ return; }
+    const yt = _rvYoutubeEmbedSrcFromUrl(raw);
+    if(yt){
+      const fr = document.createElement('iframe');
+      fr.setAttribute('title','Hero trailer');
+      fr.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
+      fr.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      try{ fr.setAttribute('credentialless',''); }catch(e){}
+      const u = yt + (yt.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&iv_load_policy=3';
+      fr.setAttribute('src', u);
+      host.appendChild(fr);
+      host.classList.add('rv-hero-trailer-on');
+      return;
+    }
+    if(_rvIsDirectVideoUrl(raw)){
+      let abs = raw;
+      if(abs.startsWith('//')) abs = 'https:' + abs;
+      const v = document.createElement('video');
+      v.setAttribute('playsinline','');
+      v.muted = true;
+      v.loop = true;
+      v.autoplay = true;
+      v.setAttribute('preload','auto');
+      v.src = abs;
+      host.appendChild(v);
+      host.classList.add('rv-hero-trailer-on');
+      try{ v.play().catch(function(){}); }catch(e){}
+    }
+  }
+  window._rvApplyHeroTrailer = _rvApplyHeroTrailer;
+  window._rvClearHeroTrailer = _rvClearHeroTrailer;
+
   function _rvPrimeCardTrailer(el){
     if(!el || el.getAttribute('data-rv-primed') === '1') return;
     const kind = el.getAttribute('data-rv-trailer') || '';
@@ -2248,6 +2515,7 @@ if(document.readyState === 'loading'){
       fr.setAttribute('loading','lazy');
       fr.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
       fr.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      try{ fr.setAttribute('credentialless',''); }catch(e){}
       fr.setAttribute('src', src + (src.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1&mute=1&playsinline=1');
       el.appendChild(fr);
       return;
@@ -2760,7 +3028,7 @@ if(document.readyState === 'loading'){
     btn.className = 'nb';
     btn.type = 'button';
     btn.textContent = '👥 Users';
-    btn.onclick = function(){ _rvOpenProfilePicker(); };
+    btn.onclick = function(){ _rvOpenProfilePicker(true); };
     if(whatsNew && whatsNew.parentElement){
       whatsNew.insertAdjacentElement('afterend', btn);
     } else {
@@ -2797,7 +3065,7 @@ if(document.readyState === 'loading'){
       '#rvProfilePicker .rv-tile-add .rv-avatar-add{width:120px;height:120px;margin:0 auto 10px;border-radius:6px;background:rgba(255,255,255,.06);border:2px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;}',
       '#rvProfilePicker .rv-tile-add .rv-plus{font-size:56px;font-weight:300;color:#b3b3b3;line-height:1;}',
       '#rvProfilePicker .rv-name{font-size:13px;color:#b3b3b3;text-align:center;max-width:140px;margin:0 auto 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-      '#rvProfilePicker .rv-edit-btn{display:inline-block;font-size:12px;padding:4px 12px;border-radius:4px;border:1px solid rgba(255,255,255,.22);background:transparent;color:#e5e5e5;cursor:pointer;}',
+      '#rvProfilePicker .rv-edit-btn{display:inline-block;font-size:12px;padding:4px 12px;border-radius:4px;border:1px solid rgba(255,255,255,.22);background:transparent;color:#e5e5e5;cursor:pointer;user-select:none;}',
       '#rvProfilePicker .rv-edit-btn:hover{border-color:#fff;color:#fff;}',
       '#rvProfilePicker .rv-actions{margin-top:12px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;}',
       '#rvProfilePicker .rv-btn{padding:10px 18px;font-size:13px;color:#fff;background:transparent;border:1px solid #444;cursor:pointer;border-radius:4px;min-width:160px;}',
@@ -3006,11 +3274,12 @@ if(document.readyState === 'loading'){
       tile.dataset.profileId = id;
       const avatar = '<div class="rv-avatar">'+_rvProfileAvatarHtml(slot)+'</div>';
       const name = '<div class="rv-name">'+_rvEscapeHtml(slot.displayName || id)+'</div>';
-      const edit = '<button type="button" class="rv-edit-btn" data-edit="1">Edit</button>';
+      const edit = '<span class="rv-edit-btn" role="button" tabindex="0" data-edit="1">Edit</span>';
       tile.innerHTML = avatar + name + edit;
       tile.onclick = function(ev){
         const t = ev && ev.target;
-        if(t && t.dataset && t.dataset.edit === '1'){
+        if(t && t.closest && t.closest('[data-edit="1"]')){
+          ev.preventDefault();
           ev.stopPropagation();
           _rvOpenProfileEditor(slot);
           return;
@@ -3236,7 +3505,9 @@ if(document.readyState === 'loading'){
       _rvSetPickerStatus('Loading\u2026', false);
       await _rvReloadProfilePickerData(baseOwner);
       _rvSetPickerStatus('', false);
-      if(force !== true){
+      if(force === true){
+        try{ localStorage.removeItem('rv-profile-picker-dismissed'); }catch(e){}
+      } else {
         const skip = localStorage.getItem('rv-profile-picker-dismissed') === '1';
         if(skip) root.classList.remove('show');
       }
@@ -3314,24 +3585,10 @@ if(document.readyState === 'loading'){
       chip.style.textOverflow = 'ellipsis';
       chip.style.whiteSpace = 'nowrap';
       chip.style.padding = '4px 8px';
-      chip.onclick = async function(){
-        const current = (window.__rvProfile && window.__rvProfile.displayName) || ownerId();
-        const next = String(prompt('Profile display name', current) || '').trim();
-        if(!next) return;
-        try{
-          const oid = ownerId();
-          const resp = await fetch('/profile-save?owner='+encodeURIComponent(oid), {
-            method:'POST',
-            headers:{'Content-Type':'application/json','X-Retrovault-Owner':oid},
-            body: JSON.stringify({ displayName: next })
-          });
-          const data = await resp.json().catch(()=>({}));
-          if(!resp.ok || !data.ok) throw new Error(data.error || ('HTTP '+resp.status));
-          window.__rvProfile = data.profile || null;
-          upsertChip(window.__rvProfile || { displayName: oid, avatar:{ type:'preset', preset:'neon' } });
-          if(typeof toast==='function') toast('Profile updated');
-        }catch(e){
-          if(typeof toast==='function') toast('Profile save failed: '+e.message, 'err');
+      chip.onclick = function(){
+        if(typeof _rvOpenProfilePicker === 'function'){
+          _rvOpenProfilePicker(true);
+          return;
         }
       };
       const avatarNode = document.createElement('span');
@@ -3698,6 +3955,29 @@ if(document.readyState === 'loading'){
 
   html = _rvEnsureAsyncDetailSavers(html);
 
+  if (!html.includes('_rvApplyHeroTrailer(heroRom)')) {
+    html = html.replace(
+      `    document.getElementById('heroStats').textContent='Upload ROMs to get started';
+    return;
+  }
+  const grouped={};`,
+      `    document.getElementById('heroStats').textContent='Upload ROMs to get started';
+    if(typeof _rvClearHeroTrailer==='function'){ try{ _rvClearHeroTrailer(); }catch(e){} }
+    return;
+  }
+  const grouped={};`
+    );
+    html = html.replace(
+      `  document.querySelector('.hbtns .bplay').onclick = ()=>launchRomById(heroRom.id);
+  cons.forEach(cid=>updateRowArrows(cid));
+}`,
+      `  document.querySelector('.hbtns .bplay').onclick = ()=>launchRomById(heroRom.id);
+  if(typeof _rvApplyHeroTrailer==='function'){ try{ _rvApplyHeroTrailer(heroRom); }catch(e){} }
+  cons.forEach(cid=>updateRowArrows(cid));
+}`
+    );
+  }
+
   const launchRomNetplayInject = `  // Optional settings
   if(ejsSettings.fullscreen)   window.EJS_fullscreenOnLoaded = true;
   if(ejsSettings.threads)      window.EJS_threads = true;
@@ -3732,7 +4012,7 @@ if(document.readyState === 'loading'){
     'EJS_player','EJS_core','EJS_gameUrl','EJS_gameName','EJS_pathtodata',
     'EJS_color','EJS_startOnLoaded','EJS_backgroundColor','EJS_backgroundBlur',
     'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',
-    'EJS_loadStateURL','EJS_netplayServer','EJS_gameID','EJS_netplayICEServers',
+    'EJS_loadStateURL','EJS_netplayUrl','EJS_netplayServer','EJS_gameID','EJS_netplayICEServers',
     'Module','EJS_Buttons','EJS_defaultOptions',
   ];`
   );
@@ -3764,11 +4044,36 @@ if(document.readyState === 'loading'){
     try{ window.EJS_emulator.terminate(); }catch(e){}
     try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}
     window.EJS_emulator = null;
+  }
+  if(window._rvEjsGamepadSync){
+    try{
+      if(window._rvEjsGamepadSync.poller) clearInterval(window._rvEjsGamepadSync.poller);
+      if(window._rvEjsGamepadSync.onConn) window.removeEventListener('gamepadconnected', window._rvEjsGamepadSync.onConn);
+    }catch(e){}
+    window._rvEjsGamepadSync = null;
   }`
   );
   html = html.replace(/\basync async function closeEmu\b/g, 'async function closeEmu');
 
+  if (!html.includes('_rvHookEjsGamepadAutopick') && html.includes('document.head.appendChild(loader);')) {
+    html = html.replace(
+      'document.head.appendChild(loader);',
+      `document.head.appendChild(loader);
+  if(typeof _rvHookEjsGamepadAutopick==='function'){
+    const _rvPrevOnload = loader.onload;
+    loader.onload = function(){
+      try{ if(typeof _rvPrevOnload==='function') _rvPrevOnload.apply(this, arguments); }catch(e){}
+      function arm(){ if(window.EJS_emulator && typeof _rvHookEjsGamepadAutopick==='function'){ _rvHookEjsGamepadAutopick(); return true; } return false; }
+      if(arm()) return;
+      let n = 0;
+      const t = setInterval(function(){ if(arm() || (++n > 120)) clearInterval(t); }, 50);
+    };
+  }`
+    );
+  }
+
   _cachedHtml = html;
+  _cachedHtmlNetplayKey = htmlCacheKey;
   return _cachedHtml;
 }
 
@@ -4668,9 +4973,42 @@ export default {
     }
 
     // ════════════════════════════════════════════════════════════════════
+    // NETPLAY — EmulatorJS-Netplay–compatible signaling (Durable Object + WebSocket)
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/list' && method === 'GET') {
+      if (!env.NETPLAY_DO) {
+        return new Response(JSON.stringify({ ok: false, error: 'NETPLAY_DO not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      const id = env.NETPLAY_DO.idFromName('global');
+      const stub = env.NETPLAY_DO.get(id);
+      const listUrl = new URL('https://do/list');
+      listUrl.search = url.search;
+      return stub.fetch(new Request(listUrl.toString(), { method: 'GET', headers: request.headers }));
+    }
+
+    if (path.startsWith('/socket.io/')) {
+      if (!env.NETPLAY_DO) {
+        return new Response(JSON.stringify({ ok: false, error: 'NETPLAY_DO not configured' }), {
+          status: 503, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' }
+        });
+      }
+      const id = env.NETPLAY_DO.idFromName('global');
+      const stub = env.NETPLAY_DO.get(id);
+      const doUrl = new URL('https://do' + path);
+      doUrl.search = url.search;
+      return stub.fetch(new Request(doUrl.toString(), {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+      }));
+    }
+
+    // ════════════════════════════════════════════════════════════════════
     // ONLINE SESSIONS — private password-protected room metadata (R2)
-    // EmulatorJS netplay uses a separate Node "EmulatorJS-Netplay" server.
-    // The frontend sets EJS_netplayServer / EJS_gameID / ICE when a netplay URL is saved.
+    // EmulatorJS netplay signaling can use this Worker's /socket.io (Durable Object) or an external URL.
+    // The frontend sets EJS_netplayUrl / EJS_gameID / ICE when a netplay URL is saved or defaulted.
     // ════════════════════════════════════════════════════════════════════
     if (path === '/session-create' && method === 'POST') {
       if (!env.ROM_BUCKET) {
@@ -5545,6 +5883,76 @@ export default {
       }
     }
 
+    // YOUTUBE TRAILER SEARCH — GET /youtube-search-trailer?q=...
+    // Uses YouTube Data API v3 (server-side key via env.YT_API_KEY). Optional; Hasheous scrape calls this to set rom.videoUrl.
+    if (path === '/youtube-search-trailer' && method === 'GET') {
+      const key = env && typeof env.YT_API_KEY === 'string' ? String(env.YT_API_KEY).trim() : '';
+      if (!key) {
+        return cloneJsonResponse(origin, {
+          ok: false,
+          error: 'YT_API_KEY not configured',
+          hint: 'Set secret: wrangler secret put YT_API_KEY',
+        }, 503);
+      }
+      const qRaw = url.searchParams.get('q') || '';
+      const q = String(qRaw).trim().slice(0, 200);
+      if (q.length < 2) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing or short q parameter' }, 400);
+      }
+      const apiUrl = 'https://www.googleapis.com/youtube/v3/search?'
+        + new URLSearchParams({
+          part: 'snippet',
+          type: 'video',
+          maxResults: '5',
+          videoEmbeddable: 'true',
+          safeSearch: 'moderate',
+          q,
+          key,
+        }).toString();
+      try {
+        const up = await fetch(apiUrl, {
+          headers: { Accept: 'application/json' },
+        });
+        const text = await up.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = null;
+        }
+        if (!up.ok) {
+          const msg = data && data.error && data.error.message ? String(data.error.message) : text.slice(0, 200);
+          return cloneJsonResponse(origin, { ok: false, error: msg }, up.status >= 400 ? up.status : 502);
+        }
+        const items = data && Array.isArray(data.items) ? data.items : [];
+        const bad = /reaction|reacts|news|podcast|review only|top 10|compilation|full movie|walkthrough/i;
+        let picked = null;
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          const vid = it && it.id && it.id.videoId ? String(it.id.videoId) : '';
+          const title = it && it.snippet && it.snippet.title ? String(it.snippet.title) : '';
+          if (!vid) continue;
+          if (bad.test(title)) continue;
+          picked = vid;
+          break;
+        }
+        if (!picked && items[0] && items[0].id && items[0].id.videoId) {
+          picked = String(items[0].id.videoId);
+        }
+        if (!picked) {
+          return cloneJsonResponse(origin, { ok: false, error: 'No video results' }, 404);
+        }
+        const watchUrl = `https://www.youtube.com/watch?v=${picked}`;
+        return cloneJsonResponse(origin, {
+          ok: true,
+          videoId: picked,
+          watchUrl,
+        });
+      } catch (err) {
+        return cloneJsonResponse(origin, { ok: false, error: 'YouTube search failed: ' + err.message }, 502);
+      }
+    }
+
     // RELEASE LOG + GITHUB INTEGRATION STATUS
     // ════════════════════════════════════════════════════════════════════
     if (path === '/changelog' || path === '/release-notes.json') {
@@ -6225,7 +6633,7 @@ export default {
     }
 
     if (path === '/app') {
-      const html = getHTML();
+      const html = getHTML(env);
       return new Response(html, {
         headers: {
           'Content-Type': 'text/html; charset=UTF-8',
@@ -6242,7 +6650,7 @@ export default {
     // ════════════════════════════════════════════════════════════════════
     // DEFAULT — Serve the app HTML
     // ════════════════════════════════════════════════════════════════════
-    const html = getHTML();
+    const html = getHTML(env);
     return new Response(html, {
       headers: {
         'Content-Type': 'text/html; charset=UTF-8',

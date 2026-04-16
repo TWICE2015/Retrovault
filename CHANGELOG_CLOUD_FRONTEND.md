@@ -54,6 +54,33 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - Added release-notes and GitHub integration status API endpoints.
 - Added route split prep (`/` landing target, `/app` app target) while preserving existing app route behavior.
 
+## 2026-04-16
+
+### Automatic YouTube trailer URLs (optional)
+- After **Hasheous** finds a game title, the app can call **`GET /youtube-search-trailer?q=...`** (Worker proxies **YouTube Data API v3** with a server key).
+- Configure: **`wrangler secret put YT_API_KEY`** (Google Cloud → YouTube Data API v3 → API key; restrict by HTTP referrer or IP as you prefer).
+- **Scraper → Sources → Hasheous**: checkbox **Auto-find YouTube trailer URL when missing** (default on). Saves **`rom.videoUrl`** → syncs via **`r2SaveMeta`** → shows on **Home** (hover cards + hero) like manual trailers.
+- If the key is missing, trailer auto-fill is skipped (no crash).
+
+## 2026-04-15
+
+### Profile / Users clicks (fix)
+- **Users** and the **avatar chip** now open the profile picker with **`force`** so it is not immediately hidden when `rv-profile-picker-dismissed` was set from a previous close.
+- **Explicit open** clears that dismiss flag so the overlay stays visible after load.
+- Profile tiles no longer nest a **`<button>` inside a `<button>`** (invalid HTML); **Edit** is a `<span role="button">` so choosing a profile works reliably in strict browsers.
+
+### Trailer hover on home row cards (fix)
+- **Placeholder cover (`.gp`)** was painted above the trailer layer, so hover showed a black/empty tile for games without box art.
+- Trailer slot **z-index** raised; on hover **`.gp` hides**. YouTube preview iframes use **`credentialless`** where supported (COEP / cross-origin isolation).
+
+### Netflix-style hero trailer (home)
+- The **featured title** on Home (most recently added ROM) can show a **full-bleed muted trailer** behind the hero text, similar to Netflix, when that game has **`videoUrl`** set (game detail → **Save trailer**).
+- Uses the same rules as row hover: **YouTube** or direct **.mp4 / .webm**. No trailer URL → hero stays the usual gradient + mosaic.
+
+### Gamepad auto-detection in the emulator
+- EmulatorJS only auto-fills the **Connected Gamepad** dropdown when a pad connects **after** its internal handler is ready; pads already plugged in often stayed on **Not Connected** until you picked them manually.
+- After **`loader.js`** creates **`window.EJS_emulator`**, the app runs **`_rvHookEjsGamepadAutopick`**: it assigns free physical pads to empty player slots, refreshes the dropdowns, listens for **`gamepadconnected`**, and polls briefly. **`closeEmu`** clears the listener/timer.
+
 ## 2026-04-14
 
 ### Metadata: Hasheous only
@@ -115,9 +142,10 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 - **Home rows:** games with a trailer show a **muted hover preview** on the card (cover fades; YouTube or direct video plays while the pointer is over the tile). Video loads only when you hover to limit bandwidth.
 
 ### Online session + EmulatorJS netplay (2-player)
-- **RetroVault “Online Session”** (create/join) is a **lobby** stored in R2; it does **not** run the WebRTC netplay server by itself.
-- **2-player online** uses [EmulatorJS **Netplay**](https://github.com/EmulatorJS/EmulatorJS-Netplay): host that Node server (or use your own URL), then in **Settings → Online Session** paste the **EmulatorJS Netplay server URL** (e.g. `https://your-host:3000/`) and **Save URL**.
-- Create/join session now stores **`memberId`** for the handshake; when you **launch a game** while in a session, the app sets **`EJS_netplayServer`**, **`EJS_gameID`** (same for both players on the same session + ROM), and **STUN** ICE servers so the emulator’s **netplay (globe)** can connect.
+- **RetroVault “Online Session”** (create/join) is a **lobby** stored in R2; it does **not** replace **WebRTC signaling** (that is the netplay relay).
+- **Built-in (Cloudflare):** deploy with **`NETPLAY_DO`** (`NetplayCoordinatorDO`). The Worker serves **`/socket.io/*`** (WebSocket) and **`/list`** compatible with [EmulatorJS-Netplay](https://github.com/EmulatorJS/EmulatorJS-Netplay) room events. The app defaults **`window.__RV_DEFAULT_NETPLAY_URL`** to **`window.location.origin`** when unset, so players usually **do not paste a URL**.
+- **External:** you can still run the Node **EmulatorJS-Netplay** server and set **`DEFAULT_NETPLAY_URL`** or paste a URL in **Settings → Online Session**.
+- Create/join session stores **`memberId`**; on launch in a session the app sets **`EJS_netplayUrl`** (what EmulatorJS reads), **`EJS_gameID`** (same for both players on the same session + ROM), and **STUN** ICE servers for the emulator **globe**.
 
 ### Cloud save states (exit backup + resume)
 - On **Exit** from the emulator, if the core **supports save states**, the current state is uploaded to R2 under **`meta/{console}/saves/rom-{id}-...state`** and **`cloudSaveStateUrl` / `cloudSaveStateKey` / `cloudSaveStateRev`** are stored on the ROM row and in the JSON sidecar (syncs across devices like other metadata).
@@ -127,6 +155,11 @@ This file tracks cloud-agent changes applied to the live Worker/frontend integra
 ### Hotfix: `async async` broke the whole app script
 - Making `launchRomById` async used a replace that also matched **inside** `async function launchRomById`, producing **`async async function`** → parse errors and **`sv is not defined`** (nav never ran).
 - Fixed with a negative lookbehind so only the real declaration is prefixed, plus a dedupe pass.
+
+### Easier netplay UX: site-wide default relay URL
+- **Signaling** must live somewhere with WebSockets (Node **EmulatorJS-Netplay** or this project’s **`NETPLAY_DO`** Durable Object).
+- **Same-origin default:** with **`NETPLAY_DO`** deployed, the HTML inject sets **`__RV_DEFAULT_NETPLAY_URL`** to the Worker origin when **`DEFAULT_NETPLAY_URL`** is unset — no paste for most users.
+- **Override:** set **`DEFAULT_NETPLAY_URL`** in **`wrangler.toml`** or use **Save URL** in Settings for an external relay.
 
 ## Planned next implementation block (selected requirements)
 - Netflix-style landing (`/`) and app shell (`/app`).

@@ -2,6 +2,27 @@ name = "retrovault"
 main = "worker.js"
 compatibility_date = "2026-04-12"
 
+# Built-in netplay signaling (EmulatorJS-Netplay protocol over Socket.IO + WebSocket).
+# Deploy once: `wrangler deploy` creates the Durable Object class. Browsers default to same-origin.
+[[durable_objects.bindings]]
+name = "NETPLAY_DO"
+class_name = "NetplayCoordinatorDO"
+
+[[migrations]]
+tag = "v1-netplay-do"
+# Workers Free plan: Durable Objects must use the SQLite-backed class migration.
+new_sqlite_classes = ["NetplayCoordinatorDO"]
+
+# Optional: override netplay base URL (https, no trailing slash required). If unset, the app uses window.location.origin.
+# [vars]
+# DEFAULT_NETPLAY_URL = "https://custom.example.com"
+
+# YouTube Data API v3 key (secret) — enables automatic trailer URL discovery during Hasheous scrape.
+# wrangler secret put YT_API_KEY
+# Or for local dev only: uncomment and use a restricted key.
+# [vars]
+# YT_API_KEY = "your-youtube-data-api-key"
+
 [[r2_buckets]]
 binding = "ROM_BUCKET"
 bucket_name = "game-roms"
