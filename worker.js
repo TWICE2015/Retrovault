@@ -306,9 +306,22 @@ const RELEASE_LOG = [
       'Not every EmulatorJS core exposes the full RetroArch cheevos UI; unsupported cores ignore these options.',
     ],
   },
+  {
+    id: '2026-04-16-c',
+    title: 'ScreenScraper: baked developer id + member login in UI',
+    details: [
+      'Worker embeds ScreenScraper devid/devpassword defaults; jeuInfos and ssuserInfos use SS_DEV_* secrets when set, else baked values.',
+      'Scraper → Sources: member ScreenScraper username + site password only (localStorage); proxy merges with dev credentials server-side.',
+    ],
+  },
 ];
 
-const APP_RELEASE_VERSION = '2026.04.16-screenscraper-enrich-fix';
+const APP_RELEASE_VERSION = '2026.04.16-screenscraper-baked-dev';
+
+// ScreenScraper API v2 developer identity (devid / devpassword). Baked so browsers only send member ssid/sspassword.
+// Override via Worker secrets SS_DEV_ID / SS_DEV_PASSWORD if you use a different registered app.
+const SS_BAKED_DEV_ID = 'TWICE2015';
+const SS_BAKED_DEV_PASSWORD = 'CEpm6pkDNDV';
 const CHANGELOG_DATA = {
   version: APP_RELEASE_VERSION,
   updatedAt: '2026-04-14',
@@ -332,6 +345,7 @@ const CHANGELOG_DATA = {
     'Profile picker: Users / avatar chip always opens overlay; fix nested Edit button in tiles',
     'Optional auto YouTube trailer URL during Hasheous scrape (YT_API_KEY secret)',
     'RetroAchievements: Settings card + EJS_defaultOptions cheevos_* merged at launch (username + API key in localStorage)',
+    'ScreenScraper enrich: baked developer id in Worker; member username/password in Scraper → Sources (localStorage) or SS_USER/SS_PASSWORD secrets',
   ],
   selectedRoadmap: {
     style: 'Netflix',
@@ -1638,7 +1652,10 @@ function _rvSsLegacyScraperOn(){
 function _rvSsCreds(){
   try{
     if(!_rvSsEnabled()) return null;
-    return {};
+    const ssid = String(localStorage.getItem('rv-ss-member-user') || '').trim();
+    const sspassword = String(localStorage.getItem('rv-ss-member-pass') || '').trim();
+    if(!ssid || !sspassword) return null;
+    return { ssid: ssid.slice(0, 64), sspassword: sspassword.slice(0, 128) };
   }catch(e){ return null; }
 }
 
@@ -1680,6 +1697,8 @@ async function _rvScreenScraperFetchJeuInfos(rom, hashes){
   const systemeid = _rvSsSystemIdForConsole(rom.console);
   if(!systemeid) return null;
   const body = {
+    ssid: creds.ssid,
+    sspassword: creds.sspassword,
     systemeid,
     crc: hashes.crc || '',
     sha1: hashes.sha1 || '',
@@ -1900,7 +1919,7 @@ async function _rvHasheousScrapeRom(romId, opts){
           ssChanged = true;
         }
       } else if(typeof logScrape === 'function'){
-        logScrape('[screenscraper] no match for ' + (rom.name||rom.filename||romId) + ' (check SS credentials, system mapping, or ROM hash in ScreenScraper DB)');
+        logScrape('[screenscraper] no match for ' + (rom.name||rom.filename||romId) + ' (enter ScreenScraper member login in Sources, check system mapping, or ROM hash in ScreenScraper DB)');
       }
     }
   }catch(e){
@@ -1921,7 +1940,7 @@ async function _rvRunHasheousQueue(romList, opts){
   let ok = 0;
   for(let i = 0; i < romList.length; i++){
     const r = romList[i];
-    if(st) st.textContent = 'Hasheous ' + (i + 1) + '/' + romList.length + ': ' + (r && r.name ? r.name : '');
+    if(st) st.textContent = 'Scraping ' + (i + 1) + '/' + romList.length + ': ' + (r && r.name ? r.name : '');
     try{
       if(await _rvHasheousScrapeRom(r.id, opts)) ok++;
     }catch(e){}
@@ -2019,10 +2038,14 @@ function _rvInitHasheousControls(){
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvScraperHasheousOn" checked /> Hasheous (hash lookup + metadata)</label>'
     + '<div class="sblk" style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--s2);">'
     + '<div style="font-weight:700;margin-bottom:8px;">ScreenScraper enrich</div>'
-    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Optional second pass after hashing: calls the Worker ScreenScraper API to fill missing cover / text when the server has credentials configured.</div>'
+    + '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Optional second pass after hashing: calls the Worker ScreenScraper API to fill missing cover / text. Developer app credentials are built into the Worker; you only sign in with your ScreenScraper member account.</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvSsEnable"/> Enable ScreenScraper enrich</label>'
-    + '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45;">Server uses Worker secrets <code style="font-size:10px;">SS_DEV_ID</code>, <code style="font-size:10px;">SS_DEV_PASSWORD</code>, <code style="font-size:10px;">SS_USER</code>, <code style="font-size:10px;">SS_PASSWORD</code>. <strong>SS_PASSWORD</strong> must be your <strong>ScreenScraper site login password</strong> (not DebugPassword).</div>'
-    + '<button class="bb s" type="button" id="rvSsServerTestBtn" style="margin-top:8px;">Test server ScreenScraper login</button>'
+    + '<div style="margin-top:10px;display:grid;gap:6px;max-width:420px;">'
+    + '<label style="font-size:11px;color:var(--muted);">ScreenScraper username (member)<br/><input type="text" id="rvSsMemberUser" autocomplete="username" spellcheck="false" style="width:100%;margin-top:4px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:12px;"/></label>'
+    + '<label style="font-size:11px;color:var(--muted);">ScreenScraper password (site login)<br/><input type="password" id="rvSsMemberPass" autocomplete="current-password" style="width:100%;margin-top:4px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:12px;"/></label>'
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45;">Stored in this browser only (<code style="font-size:10px;">localStorage</code>). Optional: operator can still set <code style="font-size:10px;">SS_USER</code> / <code style="font-size:10px;">SS_PASSWORD</code> on the Worker so clients do not need to enter them.</div>'
+    + '<button class="bb s" type="button" id="rvSsServerTestBtn" style="margin-top:8px;">Test ScreenScraper login</button>'
     + '<div id="rvSsStatus" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>'
     + '</div>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);"><input type="checkbox" id="rvScraperSsLegacyOn" checked /> Legacy ScreenScraper (Scraper → Login tab, <code style="font-size:10px;">/scraper-proxy</code>)</label>'
@@ -2064,6 +2087,24 @@ function _rvInitHasheousControls(){
     }
     const ssEn=document.getElementById('rvSsEnable');
     const ssSt=document.getElementById('rvSsStatus');
+    const ssUserEl=document.getElementById('rvSsMemberUser');
+    const ssPassEl=document.getElementById('rvSsMemberPass');
+    const persistSsMember=function(){
+      try{
+        if(ssUserEl) localStorage.setItem('rv-ss-member-user', String(ssUserEl.value||'').trim());
+        if(ssPassEl) localStorage.setItem('rv-ss-member-pass', String(ssPassEl.value||''));
+      }catch(e){}
+    };
+    if(ssUserEl){
+      try{ ssUserEl.value = localStorage.getItem('rv-ss-member-user') || ''; }catch(e){}
+      ssUserEl.onchange = persistSsMember;
+      ssUserEl.onblur = persistSsMember;
+    }
+    if(ssPassEl){
+      try{ ssPassEl.value = localStorage.getItem('rv-ss-member-pass') || ''; }catch(e){}
+      ssPassEl.onchange = persistSsMember;
+      ssPassEl.onblur = persistSsMember;
+    }
     if(ssEn){
       ssEn.checked = localStorage.getItem('rv-ss-enabled')==='1';
       ssEn.onchange=function(){
@@ -2073,8 +2114,16 @@ function _rvInitHasheousControls(){
     if(ssSt && !ssSt.textContent) ssSt.textContent = (ssEn && ssEn.checked) ? 'Enrich on.' : 'Enrich off.';
     const ssTest=document.getElementById('rvSsServerTestBtn');
     if(ssTest) ssTest.onclick=function(){
+      persistSsMember();
+      const ssid = (ssUserEl && String(ssUserEl.value||'').trim()) || '';
+      const sspassword = (ssPassEl && String(ssPassEl.value||'')) || '';
+      if(!ssid || !sspassword){
+        if(ssSt) ssSt.textContent='Enter ScreenScraper username and password above.';
+        if(typeof toast==='function') toast('ScreenScraper: enter member username and password','warn');
+        return;
+      }
       if(ssSt) ssSt.textContent='Testing…';
-      fetch(window.location.origin + '/screenscraper-test-ssuser', { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:'{}' })
+      fetch(window.location.origin + '/screenscraper-test-ssuser', { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify({ ssid: ssid.slice(0,64), sspassword: sspassword.slice(0,128) }) })
         .then(function(r){ return r.text().then(function(t){ return { r:r, t:t }; }); })
         .then(function(x){
           let j=null;
@@ -5368,6 +5417,16 @@ async function restoreOwnerSnapshot(bucket, ownerId, payload) {
   };
 }
 
+/** ScreenScraper jeuInfos/ssuserInfos need devid+devpassword; member ssid+sspassword come from the user or Worker secrets. */
+function resolveScreenScraperDevCredentials(env) {
+  const envDevId = env && typeof env.SS_DEV_ID === 'string' ? String(env.SS_DEV_ID).trim() : '';
+  const envDevPw = env && typeof env.SS_DEV_PASSWORD === 'string' ? String(env.SS_DEV_PASSWORD).trim() : '';
+  return {
+    devid: (envDevId || SS_BAKED_DEV_ID).slice(0, 64),
+    devpassword: (envDevPw || SS_BAKED_DEV_PASSWORD).slice(0, 128),
+  };
+}
+
 // ── Main fetch handler ─────────────────────────────────────────────────────
 export default {
   async fetch(request, env) {
@@ -6439,18 +6498,17 @@ export default {
         body = {};
       }
       const asStr = (v) => String(v == null ? '' : v).trim();
-      const envDevId = env && typeof env.SS_DEV_ID === 'string' ? String(env.SS_DEV_ID).trim() : '';
-      const envDevPw = env && typeof env.SS_DEV_PASSWORD === 'string' ? String(env.SS_DEV_PASSWORD).trim() : '';
+      const devCreds = resolveScreenScraperDevCredentials(env);
       const envUser = env && typeof env.SS_USER === 'string' ? String(env.SS_USER).trim() : '';
       const envPass = env && typeof env.SS_PASSWORD === 'string' ? String(env.SS_PASSWORD).trim() : '';
-      const devid = (asStr(body.devid) || envDevId).slice(0, 64);
-      const devpassword = (asStr(body.devpassword) || envDevPw).slice(0, 128);
+      const devid = (asStr(body.devid) || devCreds.devid).slice(0, 64);
+      const devpassword = (asStr(body.devpassword) || devCreds.devpassword).slice(0, 128);
       const ssid = (asStr(body.ssid) || envUser).slice(0, 64);
       const sspassword = (asStr(body.sspassword) || envPass).slice(0, 128);
-      if (!devid || !devpassword || !ssid || !sspassword) {
+      if (!ssid || !sspassword) {
         return cloneJsonResponse(origin, {
           ok: false,
-          error: 'Missing credentials. Set SS_DEV_ID, SS_DEV_PASSWORD, SS_USER, SS_PASSWORD secrets, or POST them in the JSON body.',
+          error: 'Missing member credentials. Enter your ScreenScraper username and site password in Scraper → Sources (or set SS_USER / SS_PASSWORD secrets, or POST ssid and sspassword in the JSON body).',
         }, 400);
       }
       const qs = new URLSearchParams({
@@ -6503,12 +6561,11 @@ export default {
         return cloneJsonResponse(origin, { ok: false, error: 'Invalid JSON body' }, 400);
       }
       const asStr = (v) => String(v == null ? '' : v).trim();
-      const envDevId = env && typeof env.SS_DEV_ID === 'string' ? String(env.SS_DEV_ID).trim() : '';
-      const envDevPw = env && typeof env.SS_DEV_PASSWORD === 'string' ? String(env.SS_DEV_PASSWORD).trim() : '';
+      const devCreds = resolveScreenScraperDevCredentials(env);
       const envUser = env && typeof env.SS_USER === 'string' ? String(env.SS_USER).trim() : '';
       const envPass = env && typeof env.SS_PASSWORD === 'string' ? String(env.SS_PASSWORD).trim() : '';
-      const devid = (asStr(body.devid) || envDevId).slice(0, 64);
-      const devpassword = (asStr(body.devpassword) || envDevPw).slice(0, 128);
+      const devid = (asStr(body.devid) || devCreds.devid).slice(0, 64);
+      const devpassword = (asStr(body.devpassword) || devCreds.devpassword).slice(0, 128);
       const ssid = (asStr(body.ssid) || envUser).slice(0, 64);
       const sspassword = (asStr(body.sspassword) || envPass).slice(0, 128);
       const devdebugpassword = (asStr(body.devdebugpassword) || (env && typeof env.SS_DEV_DEBUG_PASSWORD === 'string' ? String(env.SS_DEV_DEBUG_PASSWORD).trim() : '')).slice(0, 128);
@@ -6527,8 +6584,8 @@ export default {
       const crcOk = crc.length === 8;
       const sha1Ok = sha1.length === 40;
 
-      if (!devid || !devpassword || !ssid || !sspassword) {
-        return cloneJsonResponse(origin, { ok: false, error: 'Missing ScreenScraper credentials. Set Worker secrets SS_DEV_ID/SS_DEV_PASSWORD/SS_USER/SS_PASSWORD (or pass them in the request body).' }, 400);
+      if (!ssid || !sspassword) {
+        return cloneJsonResponse(origin, { ok: false, error: 'Missing member credentials. Enter ScreenScraper username + site password in Scraper → Sources (or set SS_USER/SS_PASSWORD secrets, or POST ssid/sspassword).' }, 400);
       }
       if (!systemeid) {
         return cloneJsonResponse(origin, { ok: false, error: 'Missing systemeid' }, 400);

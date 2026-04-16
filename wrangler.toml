@@ -23,19 +23,21 @@ new_sqlite_classes = ["NetplayCoordinatorDO"]
 # [vars]
 # YT_API_KEY = "your-youtube-data-api-key"
 
-# ScreenScraper API v2 credentials (secrets recommended)
-# Set these as secrets (recommended):
+# ScreenScraper API v2
+# The Worker bakes default devid/devpassword for the registered app; optional override:
 #   wrangler secret put SS_DEV_ID
 #   wrangler secret put SS_DEV_PASSWORD
+# Member login (required for API): each browser can enter username + site password in Scraper → Sources,
+# or the operator can set server-side defaults:
 #   wrangler secret put SS_USER
-#   wrangler secret put SS_PASSWORD   ← your ScreenScraper **website** password (login), not DebugPassword
+#   wrangler secret put SS_PASSWORD   ← ScreenScraper **website** login password (not DebugPassword)
 # Optional developer debug password (from dev dashboard):
 #   wrangler secret put SS_DEV_DEBUG_PASSWORD
 #
 # For local dev only you can also use [vars] (NOT recommended for production):
 # [vars]
-# SS_DEV_ID = "your-dev-id"
-# SS_DEV_PASSWORD = "your-dev-password"
+# SS_DEV_ID = "override-dev-id"
+# SS_DEV_PASSWORD = "override-dev-password"
 # SS_USER = "your-ssid"
 # SS_PASSWORD = "your-sspassword"
 # SS_DEV_DEBUG_PASSWORD = "your-debug-password"
