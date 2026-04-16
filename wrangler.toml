@@ -23,6 +23,23 @@ new_sqlite_classes = ["NetplayCoordinatorDO"]
 # [vars]
 # YT_API_KEY = "your-youtube-data-api-key"
 
+# ScreenScraper API v2 credentials (secrets recommended)
+# Set these as secrets (recommended):
+#   wrangler secret put SS_DEV_ID
+#   wrangler secret put SS_DEV_PASSWORD
+#   wrangler secret put SS_USER
+#   wrangler secret put SS_PASSWORD   ← your ScreenScraper **website** password (login), not DebugPassword
+# Optional developer debug password (from dev dashboard):
+#   wrangler secret put SS_DEV_DEBUG_PASSWORD
+#
+# For local dev only you can also use [vars] (NOT recommended for production):
+# [vars]
+# SS_DEV_ID = "your-dev-id"
+# SS_DEV_PASSWORD = "your-dev-password"
+# SS_USER = "your-ssid"
+# SS_PASSWORD = "your-sspassword"
+# SS_DEV_DEBUG_PASSWORD = "your-debug-password"
+
 [[r2_buckets]]
 binding = "ROM_BUCKET"
 bucket_name = "game-roms"
