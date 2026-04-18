@@ -118,9 +118,10 @@ def patch_html(html: str) -> str:
         + "</select></div>\n"
         '            <div class="srow"><div><div class="slbl">Rewind</div>'
     )
-    if needle not in html:
-        raise SystemExit("needle for settings UI not found")
-    html = html.replace(needle, insert, 1)
+    if 'id="ejsCloudSaveR2"' not in html:
+        if needle not in html:
+            raise SystemExit("needle for settings UI not found")
+        html = html.replace(needle, insert, 1)
 
     # 2) r2SaveMeta early return + payload
     old_meta_guard = (
@@ -135,9 +136,8 @@ def patch_html(html: str) -> str:
         "  // Persist metadata and/or cloud save-state pointers\n"
         "  if(!rom.coverUrl && !rom.description && !rom.year && !rom.rating && !rom.videoUrl && !rom.cloudSaveStateKey) return;\n"
     )
-    if old_meta_guard not in html:
-        raise SystemExit("r2SaveMeta guard not found")
-    html = html.replace(old_meta_guard, new_meta_guard, 1)
+    if old_meta_guard in html:
+        html = html.replace(old_meta_guard, new_meta_guard, 1)
 
     old_payload = (
         "      genres: rom.genres||null,\n"
@@ -153,9 +153,8 @@ def patch_html(html: str) -> str:
         "      cloudSaveStateSlot: (rom.cloudSaveStateSlot!=null?rom.cloudSaveStateSlot:null),\n"
         "    };\n"
     )
-    if old_payload not in html:
-        raise SystemExit("r2SaveMeta payload block not found")
-    html = html.replace(old_payload, new_payload, 1)
+    if old_payload in html:
+        html = html.replace(old_payload, new_payload, 1)
 
     # 3) Sync-from-bucket metadata restore
     old_sync = (
@@ -179,9 +178,8 @@ def patch_html(html: str) -> str:
         "              }\n"
         "              if(changed){ await dbPut('roms', match); metaRestored++; }\n"
     )
-    if old_sync not in html:
-        raise SystemExit("r2-sync metadata block not found")
-    html = html.replace(old_sync, new_sync, 1)
+    if old_sync in html:
+        html = html.replace(old_sync, new_sync, 1)
 
     # 4) saveEjsSettings / loadEjsSettings
     old_save = (
@@ -197,9 +195,17 @@ def patch_html(html: str) -> str:
         "  }catch(e){}\n"
         "  ejsSettings.rewind     = document.getElementById('ejsRewind')?.classList.contains('on');\n"
     )
-    if old_save not in html:
-        raise SystemExit("saveEjsSettings block not found")
-    html = html.replace(old_save, new_save, 1)
+    if "ejsSettings.cloudLoadPrompt = document" not in html:
+        if old_save in html:
+            html = html.replace(old_save, new_save, 1)
+        elif "ejsSettings.cloudSaveR2 = document" in html:
+            html = html.replace(
+                "  ejsSettings.cloudSaveR2 = document.getElementById('ejsCloudSaveR2')?.classList.contains('on');\n",
+                "  ejsSettings.cloudSaveR2 = document.getElementById('ejsCloudSaveR2')?.classList.contains('on');\n"
+                "  ejsSettings.cloudLoadPrompt = document.getElementById('ejsCloudLoadPrompt')?.classList.contains('on');\n"
+                "  ejsSettings.cloudLoadAfterSave = document.getElementById('ejsCloudLoadAfterSave')?.classList.contains('on');\n",
+                1,
+            )
 
     old_load = (
         "function loadEjsSettings(){\n"
@@ -220,16 +226,31 @@ def patch_html(html: str) -> str:
         "    }\n"
         "  }catch(e){}\n"
     )
-    if old_load not in html:
-        raise SystemExit("loadEjsSettings block not found")
-    html = html.replace(old_load, new_load, 1)
+    if "getElementById('ejsCloudLoadPrompt')" not in html:
+        if old_load in html:
+            html = html.replace(old_load, new_load, 1)
+        elif "if(ejsSettings.cloudSaveR2===false)" in html and "ejsCloudLoadPrompt" not in html:
+            html = html.replace(
+                "  if(ejsSettings.cloudSaveR2===false) document.getElementById('ejsCloudSaveR2')?.classList.remove('on');\n"
+                "  else document.getElementById('ejsCloudSaveR2')?.classList.add('on');\n",
+                "  if(ejsSettings.cloudSaveR2===false) document.getElementById('ejsCloudSaveR2')?.classList.remove('on');\n"
+                "  else document.getElementById('ejsCloudSaveR2')?.classList.add('on');\n"
+                "  if(ejsSettings.cloudLoadPrompt===false) document.getElementById('ejsCloudLoadPrompt')?.classList.remove('on');\n"
+                "  else document.getElementById('ejsCloudLoadPrompt')?.classList.add('on');\n"
+                "  if(ejsSettings.cloudLoadAfterSave) document.getElementById('ejsCloudLoadAfterSave')?.classList.add('on');\n"
+                "  else document.getElementById('ejsCloudLoadAfterSave')?.classList.remove('on');\n",
+                1,
+            )
 
-    # 5) Helpers + patch launchRomById + closeEmu — insert after ejsSettings const
-    anchor = "const ejsSettings = JSON.parse(localStorage.getItem('rv-ejs')||'{}');\n\nasync function launchRomById(id){\n"
-    if anchor not in html:
-        raise SystemExit("launch anchor not found")
+    # 5) Helpers + patch launchRomById + closeEmu — insert after ejsSettings const (once)
+    if "async function _rvFlushCloudSaveState" in html:
+        pass  # already patched
+    else:
+        anchor = "const ejsSettings = JSON.parse(localStorage.getItem('rv-ejs')||'{}');\n\nasync function launchRomById(id){\n"
+        if anchor not in html:
+            raise SystemExit("launch anchor not found")
 
-    helper = r"""const ejsSettings = JSON.parse(localStorage.getItem('rv-ejs')||'{}');
+        helper = r"""const ejsSettings = JSON.parse(localStorage.getItem('rv-ejs')||'{}');
 
 function _rvCloudSaveToR2On(){
   try{ return ejsSettings.cloudSaveR2 !== false; }catch(e){ return true; }
@@ -286,131 +307,140 @@ async function _rvFlushCloudSaveState(){
 async function launchRomById(id){
 """
 
-    html = html.replace(anchor, helper, 1)
+        html = html.replace(anchor, helper, 1)
 
-    # Inject EJS hooks after EJS_gameName assignment
-    inj = (
-        "  window.EJS_gameName    = rom.name;\n"
-        "  window.EJS_pathtodata  = `https://cdn.emulatorjs.org/${ver}/data/`;\n"
-    )
-    repl = (
-        "  window.EJS_gameName    = rom.name;\n"
-        "  let __rvLoadStateUrl = '';\n"
-        "  if(_rvCloudSaveToR2On() && rom.cloudSaveStateUrl){\n"
-        "    try{ __rvLoadStateUrl = String(rom.cloudSaveStateUrl); }catch(e){ __rvLoadStateUrl = ''; }\n"
-        "  }\n"
-        "  window.EJS_loadStateURL = __rvLoadStateUrl;\n"
-        "  window.EJS_defaultOptions = window.EJS_defaultOptions && typeof window.EJS_defaultOptions==='object' ? Object.assign({}, window.EJS_defaultOptions) : {};\n"
-        "  window.EJS_defaultOptions['save-state-location'] = 'browser';\n"
-        "  window.EJS_defaultOptions['save-state-slot'] = String(_rvCloudSaveSlot());\n"
-        "  window.EJS_onSaveState = function(data){\n"
-        "    try{\n"
-        "      if(!_rvCloudSaveToR2On() || !ejsSettings.saveStates) return 0;\n"
-        "      const st = data && data.state;\n"
-        "      if(!st || !lastRomId) return 0;\n"
-        "      const u8 = (st instanceof Uint8Array) ? st : new Uint8Array(st);\n"
-        "      window.__rvPendingSaveState = { romId:lastRomId, uint8:u8.slice(), slot:_rvCloudSaveSlot(), ts:Date.now() };\n"
-        "      if(typeof toast==='function') toast('Save state will upload to cloud on exit');\n"
-        "      return 1;\n"
-        "    }catch(e){ return 0; }\n"
-        "  };\n"
-        "  window.EJS_onLoadState = async function(){\n"
-        "    try{\n"
-        "      if(!_rvCloudSaveToR2On() || !ejsSettings.saveStates) return 0;\n"
-        "      const r = await dbGet('roms', lastRomId);\n"
-        "      if(!r || !r.cloudSaveStateUrl) return 0;\n"
-        "      const resp = await fetch(r.cloudSaveStateUrl);\n"
-        "      if(!resp.ok) return 0;\n"
-        "      const buf = new Uint8Array(await resp.arrayBuffer());\n"
-        "      if(window.EJS_emulator && window.EJS_emulator.gameManager && typeof window.EJS_emulator.gameManager.loadState==='function'){\n"
-        "        window.EJS_emulator.gameManager.loadState(buf);\n"
-        "        if(typeof toast==='function') toast('Loaded cloud save state');\n"
-        "        return 1;\n"
-        "      }\n"
-        "    }catch(e){}\n"
-        "    return 0;\n"
-        "  };\n"
-        "  window.EJS_pathtodata  = `https://cdn.emulatorjs.org/${ver}/data/`;\n"
-    )
-    if inj not in html:
-        raise SystemExit("EJS_gameName injection point not found")
-    html = html.replace(inj, repl, 1)
+        # Inject EJS hooks after EJS_gameName assignment
+        inj = (
+            "  window.EJS_gameName    = rom.name;\n"
+            "  window.EJS_pathtodata  = `https://cdn.emulatorjs.org/${ver}/data/`;\n"
+        )
+        repl = (
+            "  window.EJS_gameName    = rom.name;\n"
+            "  let __rvLoadStateUrl = '';\n"
+            "  if(_rvCloudSaveToR2On() && rom.cloudSaveStateUrl){\n"
+            "    try{ __rvLoadStateUrl = String(rom.cloudSaveStateUrl); }catch(e){ __rvLoadStateUrl = ''; }\n"
+            "  }\n"
+            "  window.EJS_loadStateURL = __rvLoadStateUrl;\n"
+            "  window.EJS_defaultOptions = window.EJS_defaultOptions && typeof window.EJS_defaultOptions==='object' ? Object.assign({}, window.EJS_defaultOptions) : {};\n"
+            "  window.EJS_defaultOptions['save-state-location'] = 'browser';\n"
+            "  window.EJS_defaultOptions['save-state-slot'] = String(_rvCloudSaveSlot());\n"
+            "  window.EJS_onSaveState = function(data){\n"
+            "    try{\n"
+            "      if(!_rvCloudSaveToR2On() || !ejsSettings.saveStates) return 0;\n"
+            "      const st = data && data.state;\n"
+            "      if(!st || !lastRomId) return 0;\n"
+            "      const u8 = (st instanceof Uint8Array) ? st : new Uint8Array(st);\n"
+            "      window.__rvPendingSaveState = { romId:lastRomId, uint8:u8.slice(), slot:_rvCloudSaveSlot(), ts:Date.now() };\n"
+            "      if(typeof toast==='function') toast('Save state will upload to cloud on exit');\n"
+            "      return 1;\n"
+            "    }catch(e){ return 0; }\n"
+            "  };\n"
+            "  window.EJS_onLoadState = async function(){\n"
+            "    try{\n"
+            "      if(!_rvCloudSaveToR2On() || !ejsSettings.saveStates) return 0;\n"
+            "      const r = await dbGet('roms', lastRomId);\n"
+            "      if(!r || !r.cloudSaveStateUrl) return 0;\n"
+            "      const resp = await fetch(r.cloudSaveStateUrl);\n"
+            "      if(!resp.ok) return 0;\n"
+            "      const buf = new Uint8Array(await resp.arrayBuffer());\n"
+            "      if(window.EJS_emulator && window.EJS_emulator.gameManager && typeof window.EJS_emulator.gameManager.loadState==='function'){\n"
+            "        window.EJS_emulator.gameManager.loadState(buf);\n"
+            "        if(typeof toast==='function') toast('Loaded cloud save state');\n"
+            "        return 1;\n"
+            "      }\n"
+            "    }catch(e){}\n"
+            "    return 0;\n"
+            "  };\n"
+            "  window.EJS_pathtodata  = `https://cdn.emulatorjs.org/${ver}/data/`;\n"
+        )
+        if inj not in html:
+            raise SystemExit("EJS_gameName injection point not found")
+        html = html.replace(inj, repl, 1)
 
-    # closeEmu: await flush before terminate
-    old_close = (
-        "  // 2. Terminate the EJS emulator instance — stops the game loop\n"
-        "  if(window.EJS_emulator){\n"
-        "    try{ window.EJS_emulator.terminate(); }catch(e){}\n"
-        "    try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}\n"
-        "    window.EJS_emulator = null;\n"
-        "  }\n"
-    )
-    new_close = (
-        "  // 2. Upload pending cloud save state before tearing the core down\n"
-        "  try{ await _rvFlushCloudSaveState(); }catch(e){}\n"
-        "  // 3. Terminate the EJS emulator instance — stops the game loop\n"
-        "  if(window.EJS_emulator){\n"
-        "    try{ window.EJS_emulator.terminate(); }catch(e){}\n"
-        "    try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}\n"
-        "    window.EJS_emulator = null;\n"
-        "  }\n"
-    )
-    if old_close not in html:
-        raise SystemExit("closeEmu terminate block not found")
-    html = html.replace(old_close, new_close, 1)
+        # closeEmu: await flush before terminate
+        old_close = (
+            "  // 2. Terminate the EJS emulator instance — stops the game loop\n"
+            "  if(window.EJS_emulator){\n"
+            "    try{ window.EJS_emulator.terminate(); }catch(e){}\n"
+            "    try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}\n"
+            "    window.EJS_emulator = null;\n"
+            "  }\n"
+        )
+        new_close = (
+            "  // 2. Upload pending cloud save state before tearing the core down\n"
+            "  try{ await _rvFlushCloudSaveState(); }catch(e){}\n"
+            "  // 3. Terminate the EJS emulator instance — stops the game loop\n"
+            "  if(window.EJS_emulator){\n"
+            "    try{ window.EJS_emulator.terminate(); }catch(e){}\n"
+            "    try{ window.EJS_emulator.callMain && window.EJS_emulator.callMain([]); }catch(e){}\n"
+            "    window.EJS_emulator = null;\n"
+            "  }\n"
+        )
+        if old_close in html:
+            html = html.replace(old_close, new_close, 1)
 
-    # Renumber comments in closeEmu 3->4 etc - optional; leave duplicate // 3 if messy - fix duplicate numbers
-    html = html.replace(
-        "  // 3. Stop and close any AudioContext EJS created",
-        "  // 4. Stop and close any AudioContext EJS created",
-        1,
-    )
-    html = html.replace(
-        "  // 4. Terminate any lingering Web Workers EJS may have spawned",
-        "  // 5. Terminate any lingering Web Workers EJS may have spawned",
-        1,
-    )
-    html = html.replace(
-        "  // 5. Remove the loader script",
-        "  // 6. Remove the loader script",
-        1,
-    )
-    html = html.replace(
-        "  // 6. Destroy the canvas/WebGL context",
-        "  // 7. Destroy the canvas/WebGL context",
-        1,
-    )
-    html = html.replace(
-        "  // 7. Wipe the container DOM",
-        "  // 8. Wipe the container DOM",
-        1,
-    )
-    html = html.replace(
-        "  // 8. Revoke the blob URL",
-        "  // 9. Revoke the blob URL",
-        1,
-    )
-    html = html.replace(
-        "  // 9. Null out ALL EJS window globals",
-        "  // 10. Null out ALL EJS window globals",
-        1,
-    )
-    html = html.replace(
-        "    'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',\n"
-        "    'Module','EJS_Buttons','EJS_defaultOptions',\n",
-        "    'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',\n"
-        "    'EJS_loadStateURL','EJS_onSaveState','EJS_onLoadState',\n"
-        "    'Module','EJS_Buttons','EJS_defaultOptions',\n",
-        1,
-    )
-    html = html.replace(
-        "  // 10. Exit fullscreen if the emulator had gone fullscreen",
-        "  // 11. Exit fullscreen if the emulator had gone fullscreen",
-        1,
-    )
+            # Renumber closeEmu comments after inserting flush step
+            html = html.replace(
+                "  // 3. Stop and close any AudioContext EJS created",
+                "  // 4. Stop and close any AudioContext EJS created",
+                1,
+            )
+            html = html.replace(
+                "  // 4. Terminate any lingering Web Workers EJS may have spawned",
+                "  // 5. Terminate any lingering Web Workers EJS may have spawned",
+                1,
+            )
+            html = html.replace(
+                "  // 5. Remove the loader script",
+                "  // 6. Remove the loader script",
+                1,
+            )
+            html = html.replace(
+                "  // 6. Destroy the canvas/WebGL context",
+                "  // 7. Destroy the canvas/WebGL context",
+                1,
+            )
+            html = html.replace(
+                "  // 7. Wipe the container DOM",
+                "  // 8. Wipe the container DOM",
+                1,
+            )
+            html = html.replace(
+                "  // 8. Revoke the blob URL",
+                "  // 9. Revoke the blob URL",
+                1,
+            )
+            html = html.replace(
+                "  // 9. Null out ALL EJS window globals",
+                "  // 10. Null out ALL EJS window globals",
+                1,
+            )
+            html = html.replace(
+                "  // 10. Exit fullscreen if the emulator had gone fullscreen",
+                "  // 11. Exit fullscreen if the emulator had gone fullscreen",
+                1,
+            )
 
-    # Make closeEmu async
-    html = html.replace("function closeEmu(){", "async function closeEmu(){", 1)
+        if "'EJS_loadStateURL'" not in html:
+            html = html.replace(
+                "    'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',\n"
+                "    'Module','EJS_Buttons','EJS_defaultOptions',\n",
+                "    'EJS_fullscreenOnLoaded','EJS_threads','EJS_biosUrl','EJS_disableKeyboard',\n"
+                "    'EJS_loadStateURL','EJS_onSaveState','EJS_onLoadState',\n"
+                "    'Module','EJS_Buttons','EJS_defaultOptions',\n",
+                1,
+            )
+
+        # Make closeEmu async
+        html = html.replace("function closeEmu(){", "async function closeEmu(){", 1)
+
+    # Launch prompt + optional reload-after-save (idempotent; see patch_savestate_prompt.py)
+    _scripts_dir = Path(__file__).resolve().parent
+    if str(_scripts_dir) not in sys.path:
+        sys.path.insert(0, str(_scripts_dir))
+    import patch_savestate_prompt as _rv_ss_ux
+
+    html = _rv_ss_ux.patch_savestate_ux(html)
 
     return html
 
