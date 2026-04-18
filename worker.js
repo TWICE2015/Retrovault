@@ -98,6 +98,14 @@ function getHTML() {
     }
   }
 
+  if (!html.includes('function _rvImgProxyUrl(')) {
+    const helperAnchor = 'function cloudAppReady(){ return false; }';
+    const imgProxyHelper = "function _rvImgProxyUrl(u){ try{ const s=String(u||'').trim(); if(!s) return ''; const abs=new URL(s, window.location.href); if(abs.origin===window.location.origin) return abs.href; return window.location.origin+'/img-proxy?url='+encodeURIComponent(abs.href); }catch(e){ return ''; } }\n";
+    if (html.includes(helperAnchor)) {
+      html = html.replace(helperAnchor, imgProxyHelper + helperAnchor);
+    }
+  }
+
   html = html
     .replace(
       "formData.append('key', key);",
@@ -166,6 +174,18 @@ function getHTML() {
     .replace(
       "      const publicUrl = r2Base+'/'+obj.key;",
       "      const publicUrl = window.location.origin + '/r2-rom?key=' + encodeURIComponent(obj.key) + '&owner=' + encodeURIComponent(_rvOwnerId());"
+    )
+    .replace(
+      'const imgPart = hasArt\n    ? `<img src="${rom.coverUrl}"',
+      'const imgPart = hasArt\n    ? `<img src="${_rvImgProxyUrl(rom.coverUrl)}"'
+    )
+    .replace(
+      'const coverThumb=r.coverUrl?`<img src="${r.coverUrl}"',
+      'const coverThumb=r.coverUrl?`<img src="${_rvImgProxyUrl(r.coverUrl)}"'
+    )
+    .replace(
+      'covEl.innerHTML=`<img src="${rom.coverUrl}"',
+      'covEl.innerHTML=`<img src="${_rvImgProxyUrl(rom.coverUrl)}"'
     );
 
   _cachedHtml = html;
@@ -779,6 +799,58 @@ export default {
         return new Response(upstream.body, { status: 200, headers: responseHeaders });
       } catch (err) {
         return new Response('Proxy fetch failed: ' + err.message, { status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' } });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // IMAGE PROXY — GET /img-proxy?url=   (COEP-safe cover art / thumbnails)
+    // The main HTML is served with Cross-Origin-Embedder-Policy: require-corp.
+    // Remote artwork must be same-origin or carry CORP: cross-origin; this
+    // proxy re-serves bytes with CORP so <img> covers load reliably.
+    // ════════════════════════════════════════════════════════════════════
+    if (path === '/img-proxy') {
+      const target = url.searchParams.get('url');
+      if (!target) {
+        return new Response(JSON.stringify({ ok: false, error: 'Missing url' }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      let targetUrl;
+      try {
+        targetUrl = new URL(target);
+        if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') {
+          throw new Error('HTTP(S) only');
+        }
+      } catch {
+        return new Response(JSON.stringify({ ok: false, error: 'Invalid url' }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const upstream = await fetch(targetUrl.href, {
+          headers: { Accept: 'image/*,*/*;q=0.8', 'User-Agent': 'RetroVault/2.0' },
+          redirect: 'follow',
+        });
+        if (!upstream.ok) {
+          return new Response('Upstream error: ' + upstream.status, {
+            status: upstream.status,
+            headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' },
+          });
+        }
+        const ct = upstream.headers.get('Content-Type') || 'application/octet-stream';
+        const responseHeaders = {
+          ...corsHeaders(origin),
+          'Content-Type': ct,
+          'Cache-Control': 'public, max-age=86400',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+        };
+        const cl = upstream.headers.get('Content-Length');
+        if (cl) responseHeaders['Content-Length'] = cl;
+        return new Response(upstream.body, { status: 200, headers: responseHeaders });
+      } catch (err) {
+        return new Response('Image proxy failed: ' + err.message, {
+          status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'text/plain' },
+        });
       }
     }
 
