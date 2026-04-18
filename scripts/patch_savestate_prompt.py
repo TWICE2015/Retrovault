@@ -174,19 +174,41 @@ def patch_savestate_ux(html: str) -> str:
             raise ValueError("anchor for helper insert not found")
         html = html.replace(anchor, insert_helpers, 1)
 
-    old_flush_head = (
-        "async function _rvFlushCloudSaveState(){\n"
-        "  const pending = window.__rvPendingSaveState;\n"
-        "  if(!pending || !pending.romId || !pending.uint8 || !pending.uint8.byteLength) return;\n"
-    )
-    new_flush_head = (
-        "async function _rvFlushCloudSaveState(){\n"
-        "  const pending = window.__rvPendingSaveState;\n"
+    # Remove mistaken early-return that skipped exit uploads when "after save reload" was on
+    bad_flush = (
         "  if(!pending || !pending.romId || !pending.uint8 || !pending.uint8.byteLength) return;\n"
         "  if(_rvCloudLoadAfterSaveOn()){ window.__rvPendingSaveState=null; return; }\n"
     )
-    if "if(_rvCloudLoadAfterSaveOn())" not in html and old_flush_head in html:
-        html = html.replace(old_flush_head, new_flush_head, 1)
+    good_flush = "  if(!pending || !pending.romId || !pending.uint8 || !pending.uint8.byteLength) return;\n"
+    if bad_flush in html:
+        html = html.replace(bad_flush, good_flush, 1)
+
+    snap_anchor = "window.__rvPendingSaveState = null;\n\nasync function _rvFlushCloudSaveState(){\n"
+    snap_insert = (
+        "window.__rvPendingSaveState = null;\n\n"
+        "async function _rvMaybeSnapshotPendingSaveFromEmulator(){\n"
+        "  try{\n"
+        "    if(!_rvCloudSaveToR2On() || !ejsSettings.saveStates) return;\n"
+        "    if(window.__rvPendingSaveState && window.__rvPendingSaveState.uint8 && window.__rvPendingSaveState.uint8.byteLength) return;\n"
+        "    const e = window.EJS_emulator;\n"
+        "    if(!e || !e.gameManager || typeof e.gameManager.getState !== 'function') return;\n"
+        "    const st = e.gameManager.getState();\n"
+        "    if(!st) return;\n"
+        "    const u8 = (st instanceof Uint8Array) ? st : new Uint8Array(st);\n"
+        "    if(!u8.byteLength) return;\n"
+        "    if(!lastRomId) return;\n"
+        "    window.__rvPendingSaveState = { romId:lastRomId, uint8:u8.slice(), slot:_rvCloudSaveSlot(), ts:Date.now() };\n"
+        "  }catch(err){}\n"
+        "}\n\n"
+        "async function _rvFlushCloudSaveState(){\n"
+    )
+    if "function _rvMaybeSnapshotPendingSaveFromEmulator" not in html and snap_anchor in html:
+        html = html.replace(snap_anchor, snap_insert, 1)
+
+    old_close_flush = "  try{ await _rvFlushCloudSaveState(); }catch(e){}\n"
+    new_close_flush = "  try{ await _rvMaybeSnapshotPendingSaveFromEmulator(); await _rvFlushCloudSaveState(); }catch(e){}\n"
+    if "await _rvMaybeSnapshotPendingSaveFromEmulator" not in html and old_close_flush in html:
+        html = html.replace(old_close_flush, new_close_flush, 1)
 
     old_inj = (
         "  let __rvLoadStateUrl = '';\n"
