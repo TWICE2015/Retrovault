@@ -2,13 +2,20 @@ name = "retrovault"
 main = "worker.js"
 compatibility_date = "2026-04-12"
 
+# Built-in netplay signaling (EmulatorJS-Netplay protocol over Socket.IO + WebSocket).
+# Required once NETPLAY_DO exists on the account — deploy fails (code 10064) if this class is missing from the script.
 [[durable_objects.bindings]]
 name = "NETPLAY_DO"
 class_name = "NetplayCoordinatorDO"
 
 [[migrations]]
 tag = "v1-netplay-do"
+# Workers Free plan: Durable Objects use SQLite-backed class migration.
 new_sqlite_classes = ["NetplayCoordinatorDO"]
+
+# Optional: override netplay base URL (https, no trailing slash required). If unset, the app uses window.location.origin.
+# [vars]
+# DEFAULT_NETPLAY_URL = "https://custom.example.com"
 
 [[r2_buckets]]
 binding = "ROM_BUCKET"
