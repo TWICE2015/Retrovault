@@ -2,6 +2,14 @@ name = "retrovault"
 main = "worker.js"
 compatibility_date = "2026-04-12"
 
+[[durable_objects.bindings]]
+name = "NETPLAY_DO"
+class_name = "NetplayCoordinatorDO"
+
+[[migrations]]
+tag = "v1-netplay-do"
+new_sqlite_classes = ["NetplayCoordinatorDO"]
+
 [[r2_buckets]]
 binding = "ROM_BUCKET"
 bucket_name = "game-roms"
